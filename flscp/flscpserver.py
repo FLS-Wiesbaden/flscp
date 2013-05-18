@@ -8,12 +8,11 @@ from xmlrpc.server import SimpleXMLRPCServer
 from xmlrpc.server import SimpleXMLRPCRequestHandler
 from xmlrpc.server import SimpleXMLRPCDispatcher
 from pwgen import generate_pass
-#from OpenSSL import SSL
 import ssl
 import logging, os, sys, mysql.connector, shlex, subprocess, abc, copy, socketserver, socket, io, pickle
 import bsddb3 as bsddb
-import rpdbutils
 import flscertification
+import configparser
 try:
 	import fcntl
 except:
@@ -32,39 +31,26 @@ log.addHandler(hdlr)
 
 workDir = os.path.dirname(os.path.realpath(__file__))
 
-##### CONFIGURE #####
-#MAILBOXES 		= '/etc/postfix/fls/mailboxes'
-#ALIASES 		= '/etc/postfix/fls/aliases'
-#SENDERACCESS 	= '/etc/postfix/fls/sender-access'
-MAILBOXES 		= '/home/mono/.tmp/mx/test/mailboxes'
-ALIASES 		= '/home/mono/.tmp/mx/test/aliases'
-SENDERACCESS 	= '/home/mono/.tmp/mx/test/sender-access'
-POSTMAP 		= '/usr/sbin/postmap'
-#POSTFIX 		= '/usr/sbin/postfix'
-POSTFIX 		= '/bin/echo'
-BASEMAILPATH	= '/home/mono/.tmp/mx/test/mails/'
-# ssl connection
-KEYFILE 		= 'certs/server.key'
-CERTFILE 		= 'certs/server.crt'
-CACERT 			= 'certs/cacert.pem'
-AUTHORIZEKEYS 	= os.path.expanduser('~/.flscp/authorized_keys')
-# sasl database
-#SASLDB 		= '/etc/sasldb2'
-SASLDB 			= '/home/mono/.tmp/mx/test/sasldb2'
-# mysql
-DBHOST 			= '127.0.0.1'
-DBPORT 			= 3306
-DBUSER			= 'fls'
-DBPASS			= 'fl22ls'
-DBNAME			= 'imscp'
-### CONFIGURE END ###
+# search for config
+conf = configparser.ConfigParser()
+conf.read(
+		[
+			'server.ini', os.path.expanduser('~/.flscpserver.ini'), os.path.expanduser('~/.flscp/server.ini'),
+			os.path.expanduser('~/.config/flscp/server.ini'), '/etc/flscp/server.ini', '/usr/local/etc/flscp/server.ini'
+		]
+	)
+if len(conf.sections()) <= 0:
+	sys.stderr.write(
+			'Missing config file in one of server.ini, ~/.flscpserver.ini, ~/.flscp/server.ini, ~/.config/flscp/server.ini, /etc/flscp/server.ini or /usr/local/etc/flscp/server.ini!\n'
+		)
+	sys.exit(255)
 
 def hashPostFile(postFile):
 	if not os.path.exists(postFile):
 		return False
 
 	state = True
-	cmd = shlex.split('%s %s' % (POSTMAP, postFile))
+	cmd = shlex.split('%s %s' % (conf.get('mailserver', 'postmap'), postFile))
 	with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as p:
 		out = p.stdout.read()
 		err = p.stderr.read()
@@ -78,7 +64,7 @@ def hashPostFile(postFile):
 
 def reloadPostfix():
 	state = True
-	cmd = shlex.split('%s %s' % (POSTFIX, 'quiet-reload'))
+	cmd = shlex.split('%s %s' % (conf.get('mailserver', 'postfix'), 'quiet-reload'))
 	with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as p:
 		out = p.stdout.read()
 		err = p.stderr.read()
@@ -141,7 +127,7 @@ class SaslDatabase(Database):
 
 		try:
 			self.db = bsddb.db.DB()
-			self.db.open(SASLDB)
+			self.db.open(conf.get('mailserver', 'sasldb'))
 		except Exception as e:
 			log.error('Could not connect to sasldb!')
 			self.connected = False
@@ -243,11 +229,11 @@ class MailDatabase(Database):
 
 		try:
 			self.db = mysql.connector.connect(
-				user=DBUSER, 
-				password=DBPASS,
-				host=DBHOST,
-				port=DBPORT,
-				database=DBNAME,
+				user=conf.get('database', 'user'), 
+				password=conf.get('database', 'password'),
+				host=conf.get('database', 'host'),
+				port=conf.getint('database', 'port'),
+				database=conf.get('database', 'name'),
 			)
 		except mysql.connector.Error as err:
 			if err.errno == mysql.connector.errorcode.ER_ACCESS_DENIED_ERROR:
@@ -472,8 +458,8 @@ class MailAccount:
 
 		# rename folders - but only if target directory does not exist
 		# (we had to throw fatal error if target directory exists!)
-		oldPath = '%s/%s/%s/' % (BASEMAILPATH, domain, mail)
-		path = '%s/%s/%s/' % (BASEMAILPATH, self.domain, self.mail)
+		oldPath = '%s/%s/%s/' % (conf.get('mailserver', 'basemailpath'), domain, mail)
+		path = '%s/%s/%s/' % (conf.get('mailserver', 'basemailpath'), self.domain, self.mail)
 		if os.path.exists(oldPath):
 			if os.path.exists(path):
 				log.error('Could not move "%s" to "%s", because it already exists!' % (path,))
@@ -511,7 +497,7 @@ class MailAccount:
 			cx.execute(query, (self.id,))
 			for (mail_id, mail_addr,) in cx:
 				(mail, domain) = mail_addr.split('@')
-				path = '%s/%s/%s/' % (BASEMAILPATH, domain, mail) 
+				path = '%s/%s/%s/' % (conf.get('mailserver', 'basemailpath'), domain, mail) 
 				if os.path.exists(path):
 					try:
 						os.removedirs(path)
@@ -618,7 +604,7 @@ class MailAccount:
 		mailOldAddr = '%s@%s' % (oldMail, oldDomain)
 
 		cnt = []
-		with open(MAILBOXES, 'r') as f:
+		with open(conf.get('mailserver', 'mailboxes'), 'r') as f:
 			cnt = f.read().split('\n')
 
 		cnt = [f for f in cnt if (('\t' in f and f[0:f.index('\t')] != mailOldAddr) or f[0:1] == '#') and len(f.strip()) > 0]
@@ -632,13 +618,13 @@ class MailAccount:
 
 		# now write back
 		try:
-			with open(MAILBOXES, 'w') as f:
+			with open(conf.get('mailserver', 'mailboxes'), 'w') as f:
 				f.write('\n'.join(cnt))
 		except:
 			return False
 		else:
 			# postmap
-			return hashPostFile(MAILBOXES)
+			return hashPostFile(conf.get('mailserver', 'mailboxes'))
 
 	def updateAliases(self, oldMail = None, oldDomain = None):
 		mailAddr = '%s@%s' % (self.mail, self.domain)
@@ -649,7 +635,7 @@ class MailAccount:
 		mailOldAddr = '%s@%s' % (oldMail, oldDomain)
 
 		cnt = []
-		with open(ALIASES, 'r') as f:
+		with open(conf.get('mailserver', 'aliases'), 'r') as f:
 			cnt = f.read().split('\n')
 
 		cnt = [f for f in cnt if (('\t' in f and f[0:f.index('\t')] != mailOldAddr) or f[0:1] == '#') and len(f.strip()) > 0]
@@ -666,13 +652,13 @@ class MailAccount:
 
 		# now write back
 		try:
-			with open(ALIASES, 'w') as f:
+			with open(conf.get('mailserver', 'aliases'), 'w') as f:
 				f.write('\n'.join(cnt))
 		except:
 			return False
 		else:
 			# postmap
-			return hashPostFile(ALIASES)
+			return hashPostFile(conf.get('mailserver', 'aliases'))
 
 	def updateSenderAccess(self, oldMail = None, oldDomain = None):
 		mailAddr = '%s@%s' % (self.mail, self.domain)
@@ -683,7 +669,7 @@ class MailAccount:
 		mailOldAddr = '%s@%s' % (oldMail, oldDomain)
 
 		cnt = []
-		with open(SENDERACCESS, 'r') as f:
+		with open(conf.get('mailserver', 'senderaccess'), 'r') as f:
 			cnt = f.read().split('\n')
 
 		cnt = [f for f in cnt if (('\t' in f and f[0:f.index('\t')] != mailOldAddr) or f[0:1] == '#') and len(f.strip()) > 0]
@@ -697,13 +683,13 @@ class MailAccount:
 
 		# now write back
 		try:
-			with open(SENDERACCESS, 'w') as f:
+			with open(conf.get('mailserver', 'senderaccess'), 'w') as f:
 				f.write('\n'.join(cnt))
 		except:
 			return False
 		else:
 			# postmap
-			return hashPostFile(SENDERACCESS)
+			return hashPostFile(conf.get('mailserver', 'senderaccess'))
 
 	def credentialsKey(self):
 		return '%s\x00%s\x00%s' % (self.mail, self.domain, 'userPassword')
@@ -758,10 +744,10 @@ class ControlPanel:
 
 	def getCerts(self):
 		data = flscertification.FLSCertificateList()
-		if not os.path.exists(AUTHORIZEKEYS):
+		if not os.path.exists(conf.get('connection', 'authorizekeys')):
 			return data
 
-		with open(AUTHORIZEKEYS, 'rb') as f:
+		with open(conf.get('connection', 'authorizekeys'), 'rb') as f:
 			data = pickle.load(f)
 
 		return data
@@ -789,14 +775,14 @@ class ControlPanel:
 				log.info('Unknown state: %s' % (cert.state,))
 
 		# now save!
-		if not os.path.exists(AUTHORIZEKEYS):
-			if not os.path.exists(os.path.dirname(AUTHORIZEKEYS)):
-				os.makedirs(os.path.dirname(AUTHORIZEKEYS), 0o750)
+		if not os.path.exists(conf.get('connection', 'authorizekeys')):
+			if not os.path.exists(os.path.dirname(conf.get('connection', 'authorizekeys'))):
+				os.makedirs(os.path.dirname(conf.get('connection', 'authorizekeys')), 0o750)
 
-		with open(AUTHORIZEKEYS, 'wb') as f:
+		with open(conf.get('connection', 'authorizekeys'), 'wb') as f:
 			pickle.dump(fullList, f)
 
-		os.chmod(AUTHORIZEKEYS, 0o600)
+		os.chmod(conf.get('connection', 'authorizekeys'), 0o600)
 
 		return True
 
@@ -873,7 +859,7 @@ class FLSRequestHandler(SimpleXMLRPCRequestHandler):
 		cert = self.request.getpeercert()
 		log.debug('Certificate: %s' % (cert,))
 
-		if not os.path.exists(AUTHORIZEKEYS):
+		if not os.path.exists(conf.get('connection', 'authorizekeys')):
 			(rmtIP, rmtPort) = self.request.getpeername()
 			log.warning('We don\'t have keys at the moment. So we only allow local users!')
 			if rmtIP.startswith('127.'):
@@ -886,7 +872,7 @@ class FLSRequestHandler(SimpleXMLRPCRequestHandler):
 		if rmtCert is None:
 			return False
 
-		ml = pickle.load(open(AUTHORIZEKEYS, 'rb'))
+		ml = pickle.load(open(conf.get('connection', 'authorizekeys'), 'rb'))
 		if len(ml) <= 0:
 			(rmtIP, rmtPort) = self.request.getpeername()
 			log.warning('We don\'t have keys at the moment. So we only allow local users!')
@@ -952,7 +938,7 @@ class FLSXMLRPCServer(SimpleXMLRPCServer, FLSXMLRPCDispatcher):
 class FLSCpServer(FLSXMLRPCServer):
 
 	def __init__(self, connection):
-		super().__init__(KEYFILE, CERTFILE, CACERT, connection)
+		super().__init__(conf.get('connection', 'keyfile'), conf.get('connection', 'certfile'), conf.get('connection', 'cacert'), connection)
 		self.register_instance(ControlPanel())
 		self.serve_forever()
 
@@ -963,5 +949,5 @@ if __name__ == '__main__':
 	log.addHandler(hdlr)
 	log.setLevel(logging.DEBUG)
 
-	server = FLSCpServer(('cp.fls-wiesbaden.de', 10027))
+	server = FLSCpServer((conf.get('connection', 'host'), conf.getint('connection', 'port')))
 
