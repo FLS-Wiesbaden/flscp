@@ -1,0 +1,33 @@
+<RCC>
+  <qresource prefix="logo">
+    <file>qt.png</file>
+    <file>fls_logo.ico</file>
+    <file>fls_logo_60.png</file>
+  </qresource>
+  <qresource prefix="typ">
+    <file>forward.png</file>
+    <file>account.png</file>
+  </qresource>
+  <qresource prefix="section">
+    <file>manageMails.png</file>
+    <file>home.png</file>
+    <file>keys.png</file>
+  </qresource>
+  <qresource prefix="status">
+    <file>trash.png</file>
+    <file>state_add.png</file>
+    <file>ok.png</file>
+    <file>waiting.png</file>
+    <file>warning.png</file>
+  </qresource>
+  <qresource prefix="actions">
+    <file>info.png</file>
+    <file>help.png</file>
+    <file>reload.png</file>
+    <file>save.png</file>
+    <file>exit.png</file>
+    <file>edit.png</file>
+    <file>delete.png</file>
+    <file>add.png</file>
+  </qresource>
+</RCC>

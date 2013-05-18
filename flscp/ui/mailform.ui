@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MailForm</class>
+ <widget class="QDialog" name="MailForm">
+  <property name="windowModality">
+   <enum>Qt::ApplicationModal</enum>
+  </property>
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>438</width>
+    <height>417</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Mail-Kontoeditor</string>
+  </property>
+  <property name="windowIcon">
+   <iconset resource="../res/logos.qrc">
+    <normaloff>:/logo/fls_logo_60.png</normaloff>:/logo/fls_logo_60.png</iconset>
+  </property>
+  <property name="modal">
+   <bool>true</bool>
+  </property>
+  <layout class="QFormLayout" name="formLayout">
+   <property name="fieldGrowthPolicy">
+    <enum>QFormLayout::ExpandingFieldsGrow</enum>
+   </property>
+   <item row="0" column="0">
+    <widget class="QLabel" name="labID">
+     <property name="frameShape">
+      <enum>QFrame::NoFrame</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Plain</enum>
+     </property>
+     <property name="text">
+      <string>ID</string>
+     </property>
+     <property name="buddy">
+      <cstring>fldID</cstring>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="1">
+    <widget class="QLineEdit" name="fldID">
+     <property name="enabled">
+      <bool>true</bool>
+     </property>
+     <property name="focusPolicy">
+      <enum>Qt::NoFocus</enum>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">background:transparent; border:0</string>
+     </property>
+     <property name="inputMask">
+      <string notr="true"/>
+     </property>
+     <property name="text">
+      <string notr="true"/>
+     </property>
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="0">
+    <widget class="QLabel" name="labMail">
+     <property name="text">
+      <string>E-Mail</string>
+     </property>
+     <property name="buddy">
+      <cstring>fldMail</cstring>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="QLineEdit" name="fldMail">
+     <property name="whatsThis">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Die E-Mail-Adresse vor dem &amp;quot;@&amp;quot;. Die Domain muss separat ausgewählt werden. Zum Beispiel: &lt;span style=&quot; font-weight:600;&quot;&gt;website-team&lt;/span&gt;@fls-wiesbaden.de&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="0">
+    <widget class="QLabel" name="labDomain">
+     <property name="text">
+      <string>Domain</string>
+     </property>
+     <property name="buddy">
+      <cstring>fldDomain</cstring>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="1">
+    <widget class="QComboBox" name="fldDomain">
+     <property name="whatsThis">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Auswahl der Domain - d.h. der Teil hinter &amp;quot;@&amp;quot;. Zum Beispiel: website-team@&lt;span style=&quot; font-weight:600;&quot;&gt;fls-wiesbaden.de&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="0">
+    <widget class="QLabel" name="labPw">
+     <property name="text">
+      <string>Kennwort</string>
+     </property>
+     <property name="buddy">
+      <cstring>fldPw</cstring>
+     </property>
+    </widget>
+   </item>
+   <item row="3" column="1">
+    <widget class="QLineEdit" name="fldPw">
+     <property name="echoMode">
+      <enum>QLineEdit::Password</enum>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="0">
+    <widget class="QLabel" name="labPwRepeat">
+     <property name="text">
+      <string>Kennwort wiederholen</string>
+     </property>
+     <property name="buddy">
+      <cstring>fldPwRepeat</cstring>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="1">
+    <widget class="QLineEdit" name="fldPwRepeat">
+     <property name="echoMode">
+      <enum>QLineEdit::Password</enum>
+     </property>
+    </widget>
+   </item>
+   <item row="5" column="1">
+    <widget class="QCheckBox" name="fldGenPw">
+     <property name="whatsThis">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Aktivieren, um ein Kennwort generieren zu lassen. Hierbei wird das generierte Kennwort an die unter &amp;quot;Alternative E-Mail&amp;quot; angegebene Adresse gesendet.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
+     <property name="text">
+      <string>Kennwort generieren</string>
+     </property>
+    </widget>
+   </item>
+   <item row="6" column="0">
+    <widget class="QLabel" name="labAltMail">
+     <property name="text">
+      <string>Alternative E-Mail</string>
+     </property>
+     <property name="buddy">
+      <cstring>fldAltMail</cstring>
+     </property>
+    </widget>
+   </item>
+   <item row="6" column="1">
+    <widget class="QLineEdit" name="fldAltMail">
+     <property name="whatsThis">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enthält die E-Mail-Adresse, an die ein Kennwort geschickt werden kann und über welche &amp;quot;Passwort zurücksetzen&amp;quot;-Mails gesendet werden können.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="0">
+    <widget class="QLabel" name="labForward">
+     <property name="text">
+      <string>Weiterleitung</string>
+     </property>
+     <property name="buddy">
+      <cstring>fldForward</cstring>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="1">
+    <widget class="QListWidget" name="fldForward">
+     <property name="editTriggers">
+      <set>QAbstractItemView::AllEditTriggers</set>
+     </property>
+     <property name="alternatingRowColors">
+      <bool>true</bool>
+     </property>
+     <property name="selectionMode">
+      <enum>QAbstractItemView::ExtendedSelection</enum>
+     </property>
+     <property name="resizeMode">
+      <enum>QListView::Adjust</enum>
+     </property>
+     <property name="sortingEnabled">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item row="9" column="0">
+    <widget class="QLabel" name="labType">
+     <property name="text">
+      <string>Typ</string>
+     </property>
+     <property name="buddy">
+      <cstring>fldTypeAccount</cstring>
+     </property>
+    </widget>
+   </item>
+   <item row="9" column="1">
+    <widget class="QGroupBox" name="fldTypeGroup">
+     <property name="styleSheet">
+      <string notr="true">border:0</string>
+     </property>
+     <property name="title">
+      <string notr="true"/>
+     </property>
+     <property name="flat">
+      <bool>false</bool>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout">
+      <item>
+       <widget class="QRadioButton" name="fldTypeAccount">
+        <property name="whatsThis">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Kontotyp. Typ &amp;quot;Konto&amp;quot; bedeutet, der Nutzer kann später die E-Mails per POP3/IMAP herunterladen (sprich: sich auf dem Server anmelden) und auch E-Mails über &amp;quot;SMTP&amp;quot; versenden. Ebenso besteht die Möglichkeit, Filter online einzurichten (oder bei einem unterstützten Programm) und E-Mails direkt weiterleiten zu lassen (wenn man bspw. nur SMTP nutzen möchte).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>Konto (Weiterleitung möglich)</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QRadioButton" name="fldTypeForward">
+        <property name="whatsThis">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Kontotyp. Typ &amp;quot;Weiterleitung&amp;quot; bedeutet, dass alle eingehenden E-Mails direkt weitergeleitet werden. Der Nutzer kann sich nicht auf dem Server anmelden. Ebenso kann er nicht mit dieser E-Mail-Adresse E-Mails versenden. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>Weiterleitung</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="11" column="1">
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Save</set>
+     </property>
+    </widget>
+   </item>
+   <item row="8" column="1">
+    <widget class="QFrame" name="frame">
+     <property name="frameShape">
+      <enum>QFrame::StyledPanel</enum>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Raised</enum>
+     </property>
+     <layout class="QHBoxLayout" name="horizontalLayout">
+      <item>
+       <widget class="QToolButton" name="butForwardDel">
+        <property name="whatsThis">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Löschen&lt;/span&gt; von Weiterleitungen (Eintrag muss markiert sein!)&lt;/p&gt;&lt;p&gt;Hierbei wird zunächst nur der Eintrag gelöscht. Erst nach dem Speichern und Übernahme der Änderungen, werden die Änderungen tatsächlich übernommen.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>Löschen</string>
+        </property>
+        <property name="icon">
+         <iconset resource="../res/logos.qrc">
+          <normaloff>:/actions/delete.png</normaloff>:/actions/delete.png</iconset>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QToolButton" name="butForwardAdd">
+        <property name="whatsThis">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Hinzufügen&lt;/span&gt; von Weiterleitungen. Anschließend muss das leere Feld in der Liste per Doppelklick bearbeitet werden.&lt;/p&gt;&lt;p&gt;Erst nach dem Speichern und Übernahme der Änderungen, werden die Änderungen tatsächlich übernommen.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>Hinzufügen</string>
+        </property>
+        <property name="icon">
+         <iconset resource="../res/logos.qrc">
+          <normaloff>:/actions/add.png</normaloff>:/actions/add.png</iconset>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <spacer name="horizontalSpacer">
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
+        </property>
+        <property name="sizeHint" stdset="0">
+         <size>
+          <width>40</width>
+          <height>20</height>
+         </size>
+        </property>
+       </spacer>
+      </item>
+     </layout>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <tabstops>
+  <tabstop>fldID</tabstop>
+  <tabstop>fldMail</tabstop>
+  <tabstop>fldDomain</tabstop>
+  <tabstop>fldPw</tabstop>
+  <tabstop>fldPwRepeat</tabstop>
+  <tabstop>fldGenPw</tabstop>
+  <tabstop>fldAltMail</tabstop>
+  <tabstop>fldForward</tabstop>
+  <tabstop>buttonBox</tabstop>
+ </tabstops>
+ <resources>
+  <include location="../res/logos.qrc"/>
+ </resources>
+ <connections/>
+</ui>
