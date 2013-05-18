@@ -744,10 +744,10 @@ class ControlPanel:
 
 	def getCerts(self):
 		data = flscertification.FLSCertificateList()
-		if not os.path.exists(conf.get('connection', 'authorizekeys')):
+		if not os.path.exists(os.path.expanduser(conf.get('connection', 'authorizekeys'))):
 			return data
 
-		with open(conf.get('connection', 'authorizekeys'), 'rb') as f:
+		with open(os.path.expanduser(conf.get('connection', 'authorizekeys')), 'rb') as f:
 			data = pickle.load(f)
 
 		return data
@@ -775,14 +775,14 @@ class ControlPanel:
 				log.info('Unknown state: %s' % (cert.state,))
 
 		# now save!
-		if not os.path.exists(conf.get('connection', 'authorizekeys')):
-			if not os.path.exists(os.path.dirname(conf.get('connection', 'authorizekeys'))):
+		if not os.path.exists(os.path.expanduser(conf.get('connection', 'authorizekeys'))):
+			if not os.path.exists(os.path.dirname(os.path.expanduser(conf.get('connection', 'authorizekeys')))):
 				os.makedirs(os.path.dirname(conf.get('connection', 'authorizekeys')), 0o750)
 
-		with open(conf.get('connection', 'authorizekeys'), 'wb') as f:
+		with open(os.path.expanduser(conf.get('connection', 'authorizekeys')), 'wb') as f:
 			pickle.dump(fullList, f)
 
-		os.chmod(conf.get('connection', 'authorizekeys'), 0o600)
+		os.chmod(os.path.expanduser(conf.get('connection', 'authorizekeys')), 0o600)
 
 		return True
 
@@ -859,7 +859,7 @@ class FLSRequestHandler(SimpleXMLRPCRequestHandler):
 		cert = self.request.getpeercert()
 		log.debug('Certificate: %s' % (cert,))
 
-		if not os.path.exists(conf.get('connection', 'authorizekeys')):
+		if not os.path.exists(os.path.expanduser(conf.get('connection', 'authorizekeys'))):
 			(rmtIP, rmtPort) = self.request.getpeername()
 			log.warning('We don\'t have keys at the moment. So we only allow local users!')
 			if rmtIP.startswith('127.'):
@@ -872,7 +872,7 @@ class FLSRequestHandler(SimpleXMLRPCRequestHandler):
 		if rmtCert is None:
 			return False
 
-		ml = pickle.load(open(conf.get('connection', 'authorizekeys'), 'rb'))
+		ml = pickle.load(open(os.path.expanduser(conf.get('connection', 'authorizekeys')), 'rb'))
 		if len(ml) <= 0:
 			(rmtIP, rmtPort) = self.request.getpeername()
 			log.warning('We don\'t have keys at the moment. So we only allow local users!')
