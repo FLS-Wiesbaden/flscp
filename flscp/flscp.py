@@ -409,6 +409,8 @@ class MailForm(QtGui.QDialog):
 		self.account.mail = self.ui.fldMail.text()
 		self.account.domain = self.ui.fldDomain.currentText()
 		self.account.altMail = self.ui.fldAltMail.text()
+		self.account.pw = self.ui.fldPw.text()
+		self.account.genPw = self.ui.fldGenPw.isChecked()
 		self.account.forward = []
 		i = 0
 		while i < self.ui.fldForward.count():
@@ -424,6 +426,8 @@ class MailForm(QtGui.QDialog):
 		self.account.mail = self.ui.fldMail.text()
 		self.account.domain = self.ui.fldDomain.currentText()
 		self.account.altMail = self.ui.fldAltMail.text()
+		self.account.pw = self.ui.fldPw.text()
+		self.account.genPw = self.ui.fldGenPw.isChecked()
 		self.account.forward = []
 		i = 0
 		while i < self.ui.fldForward.count():

@@ -365,7 +365,8 @@ class MailAccount:
 
 	# this is not allowed on client side! Only here....
 	def hashPassword(self):
-		cmd = shlex.split('php -f libs%sSaltEncryption%sencrypt.php' % (os.sep, os.sep))
+		libpath = os.path.dirname(os.path.realpath(__file__))
+		cmd = shlex.split('php -f %s%slibs%sSaltEncryption%sencrypt.php' % (libpath, os.sep, os.sep, os.sep))
 		p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.STDOUT)
 		out = p.communicate(input=self.pw.encode('utf-8'))[0]
 		self.hashPw = out.decode('utf-8')
