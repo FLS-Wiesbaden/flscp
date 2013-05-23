@@ -211,6 +211,9 @@ class MailDatabase(Database):
 
 		return self.db.cursor()
 
+	def commit(self):
+		self.db.commit()
+
 	def connect(self):
 		if self.db is not None and self.db.is_connected():
 			return True
