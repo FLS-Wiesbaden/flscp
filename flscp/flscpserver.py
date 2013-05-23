@@ -372,6 +372,7 @@ class MailAccount:
 
 	# this is not allowed on client side! Only here....
 	def generatePassword(self):
+		log.info('Generating password for user %s' % (self.mail,))
 		self.pw = generate_pass(12)
 
 	def save(self):
@@ -397,6 +398,7 @@ class MailAccount:
 
 		# pw entered?
 		if len(self.pw.strip()) > 0:
+			log.info('Hash password for user %s' % (self.mail,))
 			self.hashPassword()
 
 		db = MailDatabase.getInstance()
