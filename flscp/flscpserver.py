@@ -437,7 +437,7 @@ class MailAccount:
 			query, 
 			params
 		)
-		cx.commit()
+		db.commit()
 		log.debug('executed mysql statement: %s' % (cx.statement,))
 
 		# update credentials...
@@ -559,7 +559,7 @@ class MailAccount:
 				'%s@%s' (self.mail, self.domain), self.altMail
 			)
 		)
-		cx.commit()
+		db.commit()
 		log.debug('executed mysql statement: %s' % (cx.statement,))
 		id = cx.lastrowid
 		if id is None:
@@ -598,7 +598,7 @@ class MailAccount:
 		cx = db.getCursor()
 		query = ('UPDATE mail_users SET status = %s WHERE mail_id = %s')
 		cx.execute(query, (state, self.id))
-		cx.commit()
+		db.commit()
 		cx.close()
 
 		self.state = state
