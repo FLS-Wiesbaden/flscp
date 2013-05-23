@@ -33,17 +33,19 @@ workDir = os.path.dirname(os.path.realpath(__file__))
 
 # search for config
 conf = configparser.ConfigParser()
-conf.read(
+fread = conf.read(
 		[
 			'server.ini', os.path.expanduser('~/.flscpserver.ini'), os.path.expanduser('~/.flscp/server.ini'),
 			os.path.expanduser('~/.config/flscp/server.ini'), '/etc/flscp/server.ini', '/usr/local/etc/flscp/server.ini'
 		]
 	)
-if len(conf.sections()) <= 0:
+if len(fread) <= 0:
 	sys.stderr.write(
 			'Missing config file in one of server.ini, ~/.flscpserver.ini, ~/.flscp/server.ini, ~/.config/flscp/server.ini, /etc/flscp/server.ini or /usr/local/etc/flscp/server.ini!\n'
 		)
 	sys.exit(255)
+else:
+	log.debug('Using config files "%s"' % (fread.pop(),))
 
 def hashPostFile(postFile):
 	if not os.path.exists(postFile):
@@ -643,7 +645,7 @@ class MailAccount:
 		# now add data:
 		if self.state in (MailAccount.STATE_CHANGE, MailAccount.STATE_CREATE):
 			forward = copy.copy(self.forward)
-			forward.append(mailAddr)
+			forward.insert(0, mailAddr)
 			forward = list(set(forward))
 			cnt.append('%s\t%s' % (mailAddr, ','.join(forward)))
 
