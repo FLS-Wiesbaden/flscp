@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# vim: set noet fenc=utf-8 ff=unix sts=0 sw=4 ts=4 : 
 # require: bsddb3
 from logging.handlers import WatchedFileHandler
 from ansistrm import ColorizingStreamHandler
@@ -8,6 +9,7 @@ from xmlrpc.server import SimpleXMLRPCServer
 from xmlrpc.server import SimpleXMLRPCRequestHandler
 from xmlrpc.server import SimpleXMLRPCDispatcher
 from pwgen import generate_pass
+from threading import Thread
 import ssl
 import logging, os, sys, mysql.connector, shlex, subprocess, abc, copy, socketserver, socket, io, pickle
 import bsddb3 as bsddb
@@ -953,12 +955,24 @@ class FLSCpServer(FLSXMLRPCServer):
 		self.register_instance(ControlPanel())
 		self.serve_forever()
 
-
 if __name__ == '__main__':
 	hdlr = WatchedFileHandler('flscpserver.log')
 	hdlr.setFormatter(formatter)
 	log.addHandler(hdlr)
 	log.setLevel(logging.DEBUG)
 
-	server = FLSCpServer((conf.get('connection', 'host'), conf.getint('connection', 'port')))
+	threads = []
+	threads.append(Thread(target=FLSCpServer((conf.get('connection', 'host'), conf.getint('connection', 'port'))), name='flscp-rpc'))
+	#threads.append(Thread(target=FLSCpUnixServer(conf.get('connection', 'socket'), name='flscp-unix'))
+
+	try:
+		for t in threads:
+			t.join()
+	except KeyboardInterrupt as e:
+		log.info('Try to stop the cp server (press again ctrl+c to quit)...')
+		try:
+			for t in threads:
+				t.shutdown()
+		except KeyboardInterrupt as e:
+			sys.exit(1)
 
