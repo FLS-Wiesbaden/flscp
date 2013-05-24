@@ -10,11 +10,13 @@ from xmlrpc.server import SimpleXMLRPCRequestHandler
 from xmlrpc.server import SimpleXMLRPCDispatcher
 from pwgen import generate_pass
 from threading import Thread
+from socketserver import UnixStreamServer
 import ssl
 import logging, os, sys, mysql.connector, shlex, subprocess, abc, copy, socketserver, socket, io, pickle
 import bsddb3 as bsddb
 import flscertification
 import configparser
+import base64
 try:
 	import fcntl
 except:
@@ -369,6 +371,10 @@ class MailAccount:
 		self.id = 'Z%s' % (str(zlib.crc32(uuid.uuid4().hex.encode('utf-8')))[0:3],)
 
 	# this is not allowed on client side! Only here....
+	def changePassword(self, pwd):
+		# FIXME
+		pass
+
 	def hashPassword(self):
 		libpath = os.path.dirname(os.path.realpath(__file__))
 		cmd = shlex.split('php -f %s%slibs%sSaltEncryption%sencrypt.php' % (libpath, os.sep, os.sep, os.sep))
@@ -718,6 +724,10 @@ class MailAccount:
 			else:
 				db.add(self.credentialsKey(), self.pw)
 
+	def getByEMail(ma, mail):
+		# FIXME!
+		pass
+
 	def __eq__(self, obj):
 		log.debug('Compare objects!!!')
 		if self.id == obj.id and \
@@ -864,6 +874,38 @@ class ControlPanel:
 
 		return True
 
+class FLSUnixRequestHandler(socketserver.BaseRequestHandler):
+	def handle(self):
+		data = ''
+		while cmd != 'exit':
+			(cmd, data) = self.request.recv(2048).decode('utf-8').split(';')
+			data = base64.b64decode(data.encode('utf-8'))
+			cmd = cmd.strip()
+			log.debug('Got: %s' % (cmd,))
+
+			self.request.send(self.processCommand(cmd, data))
+
+	def processCommand(self, cmd, data):
+		msg = '400 - Bad Request!'
+
+		if cmd == 'chgpwd':
+			if self.chgpwd(data):
+				msg = '200 - ok'
+			else:
+				msg = '403 - not successful!'
+			pass
+
+		return msg.encode('utf-8')
+
+	def chgpwd(self, data):
+		# <username> <pwd>
+		(uname, pwd) = data.split(' ', 1)
+		maccount = MailAccount.getByEMail(uname)
+		if maccount is None:
+			return False
+
+		return maccount.changePassword(pwd)
+
 class FLSRequestHandler(SimpleXMLRPCRequestHandler):
 	rpc_paths = ('/RPC2',)
 
@@ -948,11 +990,23 @@ class FLSXMLRPCServer(SimpleXMLRPCServer, FLSXMLRPCDispatcher):
 			flags |= fcntl.FD_CLOEXEC
 			fcntl.fcntl(self.fileno(), fcntl.F_SETFD, flags)
 
-class FLSCpServer(FLSXMLRPCServer):
+class FLSCpServer(Thread, FLSXMLRPCServer):
 
 	def __init__(self, connection):
-		super().__init__(conf.get('connection', 'keyfile'), conf.get('connection', 'certfile'), conf.get('connection', 'cacert'), connection)
+		Thread.__init__(self, name='flscp-rpc')
+		FLSXMLRPCServer.__init__(self, conf.get('connection', 'keyfile'), conf.get('connection', 'certfile'), conf.get('connection', 'cacert'), connection)
 		self.register_instance(ControlPanel())
+
+	def run(self):
+		self.serve_forever()
+
+class FLSCpUnixServer(Thread, UnixStreamServer):
+
+	def __init__(self, connection):
+		Thread.__init__(self, name='flscp-unix')
+		UnixStreamServer.__init__(self, connection, FLSUnixRequestHandler)
+
+	def run(self):
 		self.serve_forever()
 
 if __name__ == '__main__':
@@ -962,17 +1016,17 @@ if __name__ == '__main__':
 	log.setLevel(logging.DEBUG)
 
 	threads = []
-	threads.append(Thread(target=FLSCpServer((conf.get('connection', 'host'), conf.getint('connection', 'port'))), name='flscp-rpc'))
-	#threads.append(Thread(target=FLSCpUnixServer(conf.get('connection', 'socket'), name='flscp-unix'))
+	threads.append(FLSCpServer((conf.get('connection', 'host'), conf.getint('connection', 'port'))))
+	threads.append(FLSCpUnixServer(conf.get('connection', 'socket')))
+
+	for t in threads:
+		t.start()
 
 	try:
 		for t in threads:
 			t.join()
 	except KeyboardInterrupt as e:
 		log.info('Try to stop the cp server (press again ctrl+c to quit)...')
-		try:
-			for t in threads:
-				t.shutdown()
-		except KeyboardInterrupt as e:
-			sys.exit(1)
+		for t in threads:
+			t.shutdown()
 
