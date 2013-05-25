@@ -916,7 +916,7 @@ class FLSUnixRequestHandler(socketserver.BaseRequestHandler):
 				(cmd, data) = self.request.recv(2048).decode('utf-8').split(';')
 			except Exception as e:
 				log.debug('Got some useless data,...')
-				continue
+				break
 			data = base64.b64decode(data.encode('utf-8')).decode('utf-8')
 			cmd = cmd.strip()
 			log.debug('Got: %s' % (cmd,))
