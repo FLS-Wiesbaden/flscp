@@ -911,7 +911,7 @@ class FLSUnixRequestHandler(socketserver.BaseRequestHandler):
 		data = ''
 		while cmd != 'exit':
 			(cmd, data) = self.request.recv(2048).decode('utf-8').split(';')
-			data = base64.b64decode(data.encode('utf-8'))
+			data = base64.b64decode(data.encode('utf-8')).decode('utf-8')
 			cmd = cmd.strip()
 			log.debug('Got: %s' % (cmd,))
 
@@ -931,7 +931,14 @@ class FLSUnixRequestHandler(socketserver.BaseRequestHandler):
 
 	def chgpwd(self, data):
 		# <username> <pwd>
-		(uname, pwd) = data.split(' ', 1)
+		try:
+			(uname, pwd) = data.split(' ', 1)
+		except:
+			return False
+
+		if len(uname.strip()) <= 0 or len(pwd.strip()) <= 0:
+			return False
+
 		maccount = MailAccount.getByEMail(uname)
 		if maccount is None:
 			return False
