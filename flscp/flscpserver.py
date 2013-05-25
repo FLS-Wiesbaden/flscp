@@ -907,6 +907,7 @@ class ControlPanel:
 
 class FLSUnixRequestHandler(socketserver.BaseRequestHandler):
 	def handle(self):
+		cmd = ''
 		data = ''
 		while cmd != 'exit':
 			(cmd, data) = self.request.recv(2048).decode('utf-8').split(';')
