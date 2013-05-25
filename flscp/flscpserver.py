@@ -372,8 +372,20 @@ class MailAccount:
 
 	# this is not allowed on client side! Only here....
 	def changePassword(self, pwd):
-		# FIXME
-		pass
+		self.pw = pwd
+		self.hashPassword()
+		db = MailDatabase.getInstance()
+		try:
+			cx = db.getCursor()
+			query = ('UPDATE mail_users SET mail_pass = %s WHERE mail_id = %s')
+			cx.execute(query, (self.hashPw, self.id))
+			db.commit()
+			cx.close()
+		except:
+			return False
+		else:
+			self.updateCredentials()
+			return True
 
 	def hashPassword(self):
 		libpath = os.path.dirname(os.path.realpath(__file__))
@@ -725,8 +737,27 @@ class MailAccount:
 				db.add(self.credentialsKey(), self.pw)
 
 	def getByEMail(ma, mail):
-		# FIXME!
-		pass
+		ma = MailAccount()
+		db = MailDatabase.getInstance()
+		cx = db.getCursor()
+		query = ('SELECT * FROM mail_users WHERE mail_addr = %s')
+		cx.execute(query, ('%s' % (self.mail,),))
+		try:
+			(mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, quota, mail_addr, alternative_addr) = cx.fetchone()
+			ma.id = mail_id
+			ma.quota = quota
+			ma.mail = mail_acc,
+			ma.domain = mail_addr.split('@')[1],
+			ma.altMail = alternative_addr,
+			ma.forward = mail_forward.split(',')
+			ma.type = MailAccount.TYPE_ACCOUNT if mail_type == 'account' else MailAccount.TYPE_FORWARD
+			ma.status = status
+		except:
+			cx.close()
+			return None
+		else:
+			cx.close()
+			return ma
 
 	def __eq__(self, obj):
 		log.debug('Compare objects!!!')
