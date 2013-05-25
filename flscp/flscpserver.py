@@ -17,6 +17,7 @@ import bsddb3 as bsddb
 import flscertification
 import configparser
 import base64
+import stat
 try:
 	import fcntl
 except:
