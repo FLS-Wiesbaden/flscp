@@ -736,6 +736,7 @@ class MailAccount:
 			else:
 				db.add(self.credentialsKey(), self.pw)
 
+	@classmethod
 	def getByEMail(ma, mail):
 		ma = MailAccount()
 		db = MailDatabase.getInstance()
