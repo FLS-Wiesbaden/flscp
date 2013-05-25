@@ -742,7 +742,7 @@ class MailAccount:
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
 		query = ('SELECT * FROM mail_users WHERE mail_addr = %s')
-		cx.execute(query, ('%s' % (self.mail,),))
+		cx.execute(query, ('%s' % (mail,),))
 		try:
 			(mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, quota, mail_addr, alternative_addr) = cx.fetchone()
 			ma.id = mail_id
