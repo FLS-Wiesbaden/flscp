@@ -643,7 +643,8 @@ class MailAccount:
 
 		# now add data:
 		if self.state in (MailAccount.STATE_CHANGE, MailAccount.STATE_CREATE):
-			cnt.append('%s\t%s%s%s%s' % (mailAddr, self.domain, os.sep, self.mail, os.sep))
+			if self.type == MailAccount.TYPE_ACCOUNT:
+				cnt.append('%s\t%s%s%s%s' % (mailAddr, self.domain, os.sep, self.mail, os.sep))
 
 		# now sort file
 		cnt.sort()
@@ -675,7 +676,8 @@ class MailAccount:
 		# now add data:
 		if self.state in (MailAccount.STATE_CHANGE, MailAccount.STATE_CREATE):
 			forward = copy.copy(self.forward)
-			forward.insert(0, mailAddr)
+			if self.type == MailAccount.TYPE_ACCOUNT:
+				forward.insert(0, mailAddr)
 			forward = list(set(forward))
 			cnt.append('%s\t%s' % (mailAddr, ','.join(forward)))
 
