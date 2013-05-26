@@ -520,10 +520,18 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.ui.mailTable.horizontalHeader().setResizeMode(self.resizeModes['ResizeToContents'])
 		self.ui.adminTable.horizontalHeader().setResizeMode(self.resizeModes['ResizeToContents'])
 		self.ui.adminTable.hideColumn(0)
-		# connect to xml-rpc 
-		self.rpc = FlsServer.getInstance()
+
 		self.mails = MailAccountList()
 		self.certs = flscertification.FLSCertificateList()
+
+		# check if certs exists!
+		if not os.path.exists(KEYFILE) or not os.path.exists(CERTFILE):
+			log.warning('Certs does not exist!')
+			self.rpc = None
+		else:
+			# connect to xml-rpc 
+			self.rpc = FlsServer.getInstance()
+			self.showLoginUser()
 
 		self.actions()
 
@@ -558,6 +566,68 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.ui.butAdminSave.clicked.connect(self.commitCertData)
 		self.ui.butAdminReload.clicked.connect(self.reloadCertTable)
 
+	def showLoginUser(self):
+		pubkey = None
+		aborted = False
+		pk = None
+		content = ''
+		with open(CERTFILE, 'r') as f:
+			content = f.read()
+
+		try:
+			pk = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, content)
+		except OpenSSL.crypto.Error as err:
+			log.info('OK,... this is not a public key: %s (%s)' % (CERTFILE, err))
+
+			# try to load private
+			passphrase = ''
+			loaded = False
+			while not loaded and not aborted:
+				try:
+					pk = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, content, passphrase.encode('utf-8'))
+				except OpenSSL.crypto.Error as e:
+					log.warning('Got error: %s' % (e,))
+					passphrase = QtGui.QInputDialog.getText(
+						self, 
+						_translate('MainWindow', 'Kennwort erforderlich', None),
+						_translate('MainWindow', 'Kennwort für %s' % (CERTFILE,), None),
+						QtGui.QLineEdit.Password,
+						''
+					)
+					(passphrase, ok) = passphrase
+					aborted = not ok
+				else:
+					loaded = True
+
+		if aborted or pk is None:
+			log.info('Login certificate not loadable (%s)!' % (CERTFILE,))
+
+		try:
+			pubkey = pk.get_certificate()
+		except AttributeError:
+			pubkey = pk
+		else:
+			if pubkey.has_expired():
+				QtGui.QMessageBox.information(
+					self, _translate('MainWindow', 'Information', None), 
+					_translate(
+						'MainWindow', 
+						'Zertifikat "%s" ist abgelaufen und wird übersprungen.' % (f,), 
+						None
+					)
+				)
+
+		if pubkey is not None:
+			pubsub = pubkey.get_subject()
+			#subject.commonName = pubsub.commonName
+			#subject.emailAddress = pubsub.emailAddress
+			self.ui.labUser = QtGui.QLabel(self)
+			self.ui.labUser.setObjectName("labUser")
+			self.ui.labUser.setText(
+				_translate("MainWindow", "Logged in as %s <%s>" % (pubsub.commonName, pubsub.emailAddress), None)
+			)
+			self.ui.statusbar.addWidget(self.ui.labUser)
+
 	@pyqtSlot()
 	def switchToMail(self):
 		self.ui.tabWidget.setCurrentIndex(1)
@@ -568,13 +638,177 @@ class FLScpMainWindow(QtGui.QMainWindow):
 
 	@pyqtSlot()
 	def init(self):
-		# mails
-		self.loadMails()
-		self.loadMailData()
+		if self.rpc is not None:
+			# connection possible ?
+			timeout = self.rpc.__transport.timeout
+			self.rpc.__transport.timeout = 1
+			try:
+				p = self.rpc.ping()
+			except socket.error as e:
+				QtGui.QMessageBox.critical(
+					self, _translate('MainWindow', 'Verbindung nicht möglich', None), 
+					_translate('MainWindow', 
+						'Keine Verbindung zum Server möglich. Prüfen Sie die VPN-Verbindung!', 
+						None),
+					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+				)
 
-		# certs
-		self.loadCerts()
-		self.loadCertData()
+				self.quit()
+				return
+			else:
+				self.rpc.__transport.timeout = timeout
+				# connection possible!
+				# mails
+				self.loadMails()
+				self.loadMailData()
+
+				# certs
+				self.loadCerts()
+				self.loadCertData()
+		else:
+			self.initLoginCert()
+
+	def initLoginCert(self):
+		answer = QtGui.QMessageBox.warning(
+			self, _translate('MainWindow', 'Login erforderlich', None), 
+			_translate('MainWindow', 
+				'Es konnte kein Zertifikat zum Login gefunden werden.\nBitte wählen Sie im nachfolgenden Fenster ein PKCS12-Zertifikat aus.', 
+				None),
+			QtGui.QMessageBox.Ok|QtGui.QMessageBox.Cancel, QtGui.QMessageBox.Ok
+		)
+		if msg == QtGui.QMessageBox.Cancel:
+			self.quit()
+			return
+
+		try:
+			import OpenSSL
+		except:
+			QtGui.QMessageBox.critical(
+				self, _translate('MainWindow', 'Login nicht möglich', None), 
+				_translate('MainWindow', 
+					'Es ist das Python Modul "pyOpenSSL" notwendig! Programm wird beendet.', 
+					None),
+				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+			)
+
+			self.quit()
+			return
+
+		fd = QtGui.QFileDialog(self, None)
+		fd.setWindowModality(QtCore.Qt.ApplicationModal)
+		fd.setOption(QtGui.QFileDialog.ReadOnly, True)
+		filters = [_translate('MainWindow', 'Zertifikate (*.p12)', None)]
+		fd.setNameFilters(filters)
+		fd.setFileMode(QtGui.QFileDialog.ExistingFile | QtGui.QFileDialog.AcceptOpen)
+		fd.filesSelected.connect(self.loginCertSelected)
+		fd.show()
+
+	@pyqtSlot(str)
+	def loginCertSelected(self, f):
+		if len(f) > 0:
+			f = f[0]
+		else:
+			QtGui.QMessageBox.warning(
+				self, _translate('MainWindow', 'Warnung', None), 
+				_translate(
+					'MainWindow', 
+					'Kein Zertifikat ausgewählt!', 
+					None
+				)
+			)
+			self.quit()
+			return
+
+		pubkey = None
+		cnt = None
+		with open(f, 'rb') as p12file:
+			cnt = p12file.read()
+
+		passphrase = ''
+		loaded = False
+		aborted = False
+		pk = None
+		while not loaded and not aborted:
+			try:
+				pk = OpenSSL.crypto.load_pkcs12(cnt, passphrase)
+			except OpenSSL.crypto.Error as e:
+				log.warning('Got error: %s' % (e,))
+				passphrase = QtGui.QInputDialog.getText(
+					self, 
+					_translate('MainWindow', 'Kennwort erforderlich', None),
+					_translate('MainWindow', 'Kennwort für %s' % (f,), None),
+					QtGui.QLineEdit.Password,
+					'',
+				)
+				(passphrase, ok) = passphrase
+				aborted = not ok
+			else:
+				loaded = True
+
+		if aborted or pk is None:
+			QtGui.QMessageBox.warning(
+				self, _translate('MainWindow', 'Warnung', None), 
+				_translate(
+					'MainWindow', 
+					'Zertifikat konnte nicht importiert werden.', 
+					None
+				)
+			)
+			self.quit()
+			return
+
+		pubkey = pk.get_certificate()
+		privkey = pk.get_privatekey()
+		if pubkey.has_expired():
+			QtGui.QMessageBox.warning(
+				self, _translate('MainWindow', 'Warnung', None), 
+				_translate(
+					'MainWindow', 
+					'Zertifikat ist abgelaufen und kann nicht verwendet werden.', 
+					None
+				)
+			)
+			self.quit()
+			return
+
+		if pubkey is None or privkey is None:
+			QtGui.QMessageBox.warning(
+				self, _translate('MainWindow', 'Warnung', None), 
+				_translate(
+					'MainWindow', 
+					'Zertifikat konnte nicht importiert werden.', 
+					None
+				)
+			)
+			self.quit()
+			return
+
+		# save the files!
+		try:
+			pubkey = OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, pubkey)
+			privkey = OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, privkey)
+
+			with open(CERTFILE, 'wb') as f:
+				f.write(pubkey)
+
+			with open(KEYFILE, 'wb') as f:
+				f.write(privkey)
+		except Exception as e:
+			log.error('Could not write certificate (%s)!' % (e,))
+			QtGui.QMessageBox.warning(
+				self, _translate('MainWindow', 'Warnung', None), 
+				_translate(
+					'MainWindow', 
+					'Zertifikat konnte nicht gespeichert werden.', 
+					None
+				)
+			)
+			self.quit()
+		else:
+			# success - start the rest!
+			self.rpc = FlsServer.getInstance()
+			self.showLoginUser()
+			self.init()
 
 	def loadCerts(self):
 		self.certs = flscertification.FLSCertificateList()

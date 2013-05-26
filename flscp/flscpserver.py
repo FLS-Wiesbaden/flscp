@@ -909,6 +909,9 @@ class ControlPanel:
 
 		return True
 
+	def ping(self):
+		return 'pong'
+
 class FLSUnixRequestHandler(socketserver.BaseRequestHandler):
 	def handle(self):
 		cmd = ''
