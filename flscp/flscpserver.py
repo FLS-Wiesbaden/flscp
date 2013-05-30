@@ -1036,8 +1036,8 @@ class FLSXMLRPCDispatcher(SimpleXMLRPCDispatcher):
 			except Exception as e:
 				import traceback
 				log.critical('Error while executing method "%s": %s' % (method, e))
-             	log.critical(traceback.format_exc())
-             	raise
+				log.critical(traceback.format_exc())
+				raise
 		else:
 			log.warning('Client tried to call method "%s" which does not exist!' % (method,))
 			raise Exception('method "%s" is not supported' % method)

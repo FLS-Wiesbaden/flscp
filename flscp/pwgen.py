@@ -7,7 +7,7 @@ from random import choice
 char_set = {'small': 'abcdefghijklmnopqrstuvwxyz',
              'nums': '0123456789',
              'big': 'ABCDEFGHIJKLMNOPQRSTUVWXYZ',
-             'special': '^!\$%&/()=?{[]}+~#-_.:,;<>|\\'
+             'special': '^!$%&()=?{[]}+#-_.:;<>'
             }
 
 
@@ -17,8 +17,12 @@ def generate_pass(length=21):
     password = []
 
     while len(password) < length:
-        key = choice(char_set.keys())
-        a_char = urandom(1)
+        key = choice(list(char_set.keys()))
+        try:
+            a_char = urandom(1).decode('utf-8')
+        except:
+            continue
+
         if a_char in char_set[key]:
             if check_prev_char(password, char_set[key]):
                 continue
