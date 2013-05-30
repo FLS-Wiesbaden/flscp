@@ -1008,7 +1008,39 @@ class FLSRequestHandler(SimpleXMLRPCRequestHandler):
 		self.wfile.write(response)
 
 class FLSXMLRPCDispatcher(SimpleXMLRPCDispatcher):
-	pass
+
+	def _dispatch(self, method, params):
+		func = None
+		try:
+			# check to see if a matching function has been registered
+			func = self.funcs[method]
+		except KeyError:
+			if self.instance is not None:
+				# check for a _dispatch method
+				if hasattr(self.instance, '_dispatch'):
+					return self.instance._dispatch(method, params)
+				else:
+					# call instance method directly
+					try:
+						func = resolve_dotted_attribute(
+							self.instance,
+							method,
+							self.allow_dotted_names
+							)
+					except AttributeError:
+						pass
+
+		if func is not None:
+			try:
+				return func(*params)
+			except Exception as e:
+				import traceback
+				log.critical('Error while executing method "%s": %s' % (method, e))
+             	log.critical(traceback.format_exc())
+             	raise
+		else:
+			log.warning('Client tried to call method "%s" which does not exist!' % (method,))
+			raise Exception('method "%s" is not supported' % method)
 
 class FLSXMLRPCServer(SimpleXMLRPCServer, FLSXMLRPCDispatcher):
 
