@@ -9,16 +9,17 @@ STATIC_LIBS = libs
 PYTHONS = $(wildcard $(PACKAGE)/*.py)
 RESOURCE_DIR = $(PACKAGE)/res
 UI_DIR = $(PACKAGE)/ui
+python_PYTHON = $(PYTHONS)
 
 COMPILED_UI = $(UI_FILES:%.ui=$(buildDir)/$(PACKAGE)/ui_%.py)
 COMPILED_RESOURCES = $(RESOURCES:%.qrc=$(buildDir)/$(PACKAGE)/%_rc.py)
 COMPILED_PYTHONS = $(PYTHONS:%.py=$(buildDir)/%.py)
 
-PYUIC = pyuic4-python3.2
-PYRCC = pyrcc4
-PYTHON = python3.2
+PYUIC = $(PYUIC4)
+PYRCC = $(PYRCC4)
+PYTHON = $(PYTHON)
 PYPARM = 
-RSYNC = rsync
+RSYNC = $(RSYNC)
 RSYNCPARM = -rupE
 
 all: createDir debug libs
