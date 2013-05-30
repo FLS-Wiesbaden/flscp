@@ -8,6 +8,7 @@ from Printer import Printer
 from xmlrpc.server import SimpleXMLRPCServer
 from xmlrpc.server import SimpleXMLRPCRequestHandler
 from xmlrpc.server import SimpleXMLRPCDispatcher
+from xmlrpc.server import resolve_dotted_attribute
 from pwgen import generate_pass
 from threading import Thread
 from socketserver import UnixStreamServer
