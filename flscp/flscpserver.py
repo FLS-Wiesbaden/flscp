@@ -286,7 +286,8 @@ class Mailer:
 				'password': self.account.pw,
 				'forwarders': ', '.join(self.account.forward) if len(self.account.forward) > 0 else mailContent['params']['noforward'],
 				'notgenerated': mailContent['params']['notgenerated'] if self.account.genPw else ''
-			}
+			},
+			_charset='utf-8'
 		)
 
 		msg['Subject'] = mailContent['subject']
@@ -310,7 +311,8 @@ class Mailer:
 				'username': '%s@%s' % (self.account.mail,self.account.domain),
 				'password': self.account.pw if len(self.account.pw) > 0 else mailContent['params']['notchanged'],
 				'forwarders': ', '.join(self.account.forward) if len(self.account.forward) > 0 else mailContent['params']['noforward']
-			}
+			},
+			_charset='utf-8'
 		)
 
 		msg['Subject'] = mailContent['subject']
