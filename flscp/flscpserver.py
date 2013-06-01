@@ -297,7 +297,25 @@ class Mailer:
 		return Mailer.sendMail(msg, mailContent['sender'], self.account.altMail)
 
 	def newForward(self):
-		pass
+		# exist custom template?
+		mailContent = Mailer.getMail('newforward')
+		if mailContent is None:
+			log.warning('Could not load mail "newforward"!')
+			return False
+
+		msg = MIMEText(
+			mailContent['body'] % {
+				'username': '%s@%s' % (self.account.mail,self.account.domain),
+				'forwarders': ', '.join(self.account.forward)
+			},
+			_charset='utf-8'
+		)
+
+		msg['Subject'] = mailContent['subject']
+		msg['From'] = mailContent['sender']
+		msg['To'] = self.account.altMail
+
+		return Mailer.sendMail(msg, mailContent['sender'], self.account.altMail)
 
 	def changeAccount(self):
 		# exist custom template?
@@ -322,7 +340,25 @@ class Mailer:
 		return Mailer.sendMail(msg, mailContent['sender'], self.account.altMail)
 
 	def changeForward(self):
-		pass
+		# exist custom template?
+		mailContent = Mailer.getMail('changeforward')
+		if mailContent is None:
+			log.warning('Could not load mail "changeforward"!')
+			return False
+
+		msg = MIMEText(
+			mailContent['body'] % {
+				'username': '%s@%s' % (self.account.mail,self.account.domain),
+				'forwarders': ', '.join(self.account.forward)
+			},
+			_charset='utf-8'
+		)
+
+		msg['Subject'] = mailContent['subject']
+		msg['From'] = mailContent['sender']
+		msg['To'] = self.account.altMail
+
+		return Mailer.sendMail(msg, mailContent['sender'], self.account.altMail)
 
 	@staticmethod
 	def sendMail(msg, sender, recipient):
@@ -639,7 +675,13 @@ class MailAccount:
 		# notify 
 		if len(self.altMail) > 0:
 			m = Mailer(self)
-			if m.changeAccount():
+			state = False
+			if self.type == MailAccount.TYPE_ACCOUNT:
+				state = m.changeAccount()
+			else:
+				state = m.changeForward()
+
+			if state:
 				log.info('User is notified about account change!')
 			else:
 				log.warning('Unknown error while notifying user!')
@@ -765,7 +807,13 @@ class MailAccount:
 		# notify 
 		if len(self.altMail) > 0:
 			m = Mailer(self)
-			if m.changeAccount():
+			state = False
+			if self.type == MailAccount.TYPE_ACCOUNT:
+				state = m.newAccount()
+			else:
+				state = m.newForward()
+
+			if state:
 				log.info('User is notified about account change!')
 			else:
 				log.warning('Unknown error while notifying user!')

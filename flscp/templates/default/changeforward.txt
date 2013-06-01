@@ -1,0 +1,43 @@
+# SENDER
+website-team@fls-wiesbaden.de
+# REDNES
+# SUBJECT
+[FLS] Ihre E-Mail-Adresse wurde geändert
+# TCEJBUS
+# BODY
+Guten Tag,
+
+ein Administrator des Website-Teams der Friedrich-List-Schule
+Wiesbaden hat soeben eine E-Mail-Adresse von Ihnen geändert.
+
+Zur Ihrer Information erhalten Sie diese E-Mail mit detaillierten
+Informationen über die E-Mail-Einrichtung.
+
+Ihre E-Mail-Adresse:
+%(username)s
+
+Eingerichtete Weiterleitungen:
+%(forwarders)s
+
+
+Zu Ihrer Erinnerung:
+
+Ihre E-Mail-Adresse ist ausschließlich eine Weiterleitungsadresse. Ein Abrufen
+der E-Mail-Adresse explizit vom Server ist nicht möglich. Die eintreffenden
+E-Mails werden automatisch an die oben aufgelisteten Adressen weitergeleitet.
+
+Ein Versenden von Ihrer E-Mail-Adresse ist nicht möglich.
+
+Mit freundlichen Grüßen,
+Ihr Website-Team
+---
+Friedrich-List-Schule Wiesbaden
+Brunhildenstraße 142
+65189 Wiesbaden
+
+Telefon : 0611-315100
+Telefax : 0611-313989
+E-Mail  : info@fls-wiesbaden.de
+Website-Team: website-team@fls-wiesbaden.de
+Internet: www.fls-wiesbaden.de
+# YDOB
