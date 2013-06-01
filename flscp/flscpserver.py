@@ -1221,6 +1221,7 @@ class FLSXMLRPCServer(SimpleXMLRPCServer, FLSXMLRPCDispatcher):
 			ssl_version=ssl.PROTOCOL_SSLv3,
 		)
 		self.socket.context.set_ciphers('HIGH:!aNULL:!eNULL')
+		self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
 		if bind_and_activate:
 			self.server_bind()
@@ -1242,6 +1243,7 @@ class FLSCpServer(Thread, FLSXMLRPCServer):
 		self.serve_forever()
 
 class FLSCpUnixServer(Thread, UnixStreamServer):
+	allow_reuse_address = True
 
 	def __init__(self, connection):
 		Thread.__init__(self, name='flscp-unix')
