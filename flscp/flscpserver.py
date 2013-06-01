@@ -328,7 +328,8 @@ class Mailer:
 			s = smtplib.SMTP('localhost')
 			s.sendmail(sender, [recipient], msg.as_string())
 			s.quit()
-		except Exception:
+		except Exception as e:
+			log.warning('Error while sending mail: %s' % (e,))
 			return False
 		else:
 			return True
