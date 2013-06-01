@@ -342,7 +342,7 @@ class Mailer:
 			'params': {}
 		}
 
-		basePath = 'templates'
+		basePath = '%s/templates' % (workDir,)
 
 		content = None
 		# try to find custom
