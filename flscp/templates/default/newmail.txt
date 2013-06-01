@@ -15,15 +15,15 @@ Zugangsdaten. Wir bitten Sie, dieses Kennwort nach dem ersten
 Anmelden im Webinterface zu ändern.
 
 Ihre E-Mail-Adresse und Benutzername:
-%{username}
+%(username)s
 
 Ihr Kennwort:
-%{password}
+%(password)s
 
 Eingerichtete Weiterleitungen:
-%{forwarders}
+%(forwarders)s
 
-Das Ihnen mitgeteilte Kennwort wurde %{notgenerated} automatisch generiert.
+Das Ihnen mitgeteilte Kennwort wurde %(notgenerated)s automatisch generiert.
 
 Die Webmail-Applikation erreichen Sie wahlweise unter
 	http://webmail.fls-wiesbaden.de

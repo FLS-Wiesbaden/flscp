@@ -14,13 +14,13 @@ Aus Sicherheitsgründen erhalten Sie diese E-Mail mit den aktuell
 hinterlegten Informationen. 
 
 Ihre E-Mail-Adresse und Benutzername:
-%{username}
+%(username)s
 
 Ihr Kennwort:
-%{password}
+%(password)s
 
 Eingerichtete Weiterleitungen:
-%{forwarders}
+%(forwarders)s
 
 
 Zu Ihrer Erinnerung:
