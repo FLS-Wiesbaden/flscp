@@ -1,11 +1,12 @@
 cacheDirs  := cache __pycache__
 buildDir   = build
 debugFlg   = 
-PACKAGE = flscp
+PACKAGE = @PACKAGE_NAME@
 #Directory with ui and resource files
 UI_FILES = cp.ui mailform.ui maileditor.ui
 RESOURCES = logos.qrc
 STATIC_LIBS = libs
+TEMPLATES = templates
 PYTHONS = $(wildcard $(PACKAGE)/*.py)
 RESOURCE_DIR = $(PACKAGE)/res
 UI_DIR = $(PACKAGE)/ui
@@ -15,14 +16,14 @@ COMPILED_UI = $(UI_FILES:%.ui=$(buildDir)/$(PACKAGE)/ui_%.py)
 COMPILED_RESOURCES = $(RESOURCES:%.qrc=$(buildDir)/$(PACKAGE)/%_rc.py)
 COMPILED_PYTHONS = $(PYTHONS:%.py=$(buildDir)/%.py)
 
-PYUIC = $(PYUIC4)
-PYRCC = $(PYRCC4)
-PYTHON = $(PYTHON)
+PYUIC = @PYUIC4@
+PYRCC = @PYRCC4@
+PYTHON = @PYTHON@
 PYPARM = 
-RSYNC = $(RSYNC)
+RSYNC = @RSYNC@
 RSYNCPARM = -rupE
 
-all: createDir debug libs
+all: createDir debug libs templates
 
 run: all
 	$(PYTHON) $(PYPARM) $(buildDir)/$(PACKAGE)/flscp.py
@@ -49,7 +50,11 @@ libs: $(buildDir)/$(PACKAGE)/$(STATIC_LIBS)
 $(buildDir)/$(PACKAGE)/$(STATIC_LIBS):
 	$(RSYNC) $(RSYNCPARM) $(PACKAGE)/$(STATIC_LIBS)/ $(buildDir)/$(PACKAGE)/$(STATIC_LIBS)/
 
-#.PHONY: $(buildDir)/$(PACKAGE)/$(STATIC_LIBS)
+templates: $(buildDir)/$(PACKAGE)/$(TEMPLATES)
+$(buildDir)/$(PACKAGE)/$(TEMPLATES):
+	$(RSYNC) $(RSYNCPARM) $(PACKAGE)/$(TEMPLATES)/ $(buildDir)/$(PACKAGE)/$(TEMPLATES)/
+
+#.PHONY: $(buildDir)/$(PACKAGE)/$(STATIC_LIBS) $(buildDir)/$(PACKAGE)/$(TEMPLATES)
 
 resources: $(COMPILED_RESOURCES)  
 ui: $(COMPILED_UI)

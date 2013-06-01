@@ -1,0 +1,63 @@
+# SENDER
+website-team@fls-wiesbaden.de
+# REDNES
+# SUBJECT
+[FLS] Ihr E-Mail-Postfach wurde eingerichtet
+# TCEJBUS
+# BODY
+Guten Tag,
+
+ein Administrator des Website-Teams der Friedrich-List-Schule
+Wiesbaden hat soeben eine E-Mail-Adresse für Sie eingerichtet.
+
+Aus Sicherheitsgründen erhalten Sie diese E-Mail mit Ihren
+Zugangsdaten. Wir bitten Sie, dieses Kennwort nach dem ersten
+Anmelden im Webinterface zu ändern.
+
+Ihre E-Mail-Adresse und Benutzername:
+%{username}
+
+Ihr Kennwort:
+%{password}
+
+Eingerichtete Weiterleitungen:
+%{forwarders}
+
+Das Ihnen mitgeteilte Kennwort wurde %{notgenerated} automatisch generiert.
+
+Die Webmail-Applikation erreichen Sie wahlweise unter
+	http://webmail.fls-wiesbaden.de
+oder
+	https://webmail.fls-wiesbaden.de
+
+Wir empfehlen Ihnen Ihre E-Mails aus Sicherheitsgründen über die zweite 
+Adresse abzurufen. Sie werden beim Aufruf eine Zertifikatswarnung 
+"Es besteeht ein Problem mit dem Sicherheitszertifikat der Website. 
+Es wird empfohlen, dass Sie diese Website schliessen." bzw. "Das 
+Sicherheitszertifikat der Website ist nicht vertrauenswürdig!".
+
+Sie können das Laden dieser Seite mit beruhigten Gewissen fortsetzen. Unsere 
+Webseite ist mit einer Firewall, Spam-Filter und aktuellem Virenschutz-Programm
+umfassend geschützt. Die Meldung erscheint, weil wir uns die recht hohen und 
+jährlich anfallenden Kosten zum Erwerb eines Sicherheitszertifikats ersparen 
+möchten.
+
+Mit freundlichen Grüßen,
+Ihr Website-Team
+---
+Friedrich-List-Schule Wiesbaden
+Brunhildenstraße 142
+65189 Wiesbaden
+
+Telefon : 0611-315100
+Telefax : 0611-313989
+E-Mail  : info@fls-wiesbaden.de
+Website-Team: website-team@fls-wiesbaden.de
+Internet: www.fls-wiesbaden.de
+# YDOB
+# notgenerated
+nicht
+# detarenegton
+# noforward
+keine Weiterleitungen konfiguriert
+# noforward

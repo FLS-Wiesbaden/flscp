@@ -270,6 +270,134 @@ class MailDatabase(Database):
 		super().__del__()
 		MailDatabase.__instance = None
 
+class Mailer:
+
+	def __init__(self, account):
+		self.account = account
+
+	def newAccount(self):
+		# exist custom template?
+		mailContent = Mailer.getMail('newmail')
+		if mailContent is None:
+			log.warning('Could not load mail "newmail"!')
+			return False
+
+		msg = MIMEText(
+			mailContent['body'] % {
+				'username': '%s@%s' % (self.account.mail,self.account.domain),
+				'password': self.account.pw,
+				'forwarders': ', '.join(self.account.forward) if len(self.account.forward) > 0 else mailContent['params']['noforward'],
+				'notgenerated': mailContent['params']['notgenerated'] if self.account.genPw else ''
+			}
+		)
+
+		msg['Subject'] = mailContent['subject']
+		msg['From'] = mailContent['sender']
+		msg['To'] = self.account.altMail
+
+		return Mailer.sendMail(msg, mailContent['sender'], self.account.altMail)
+
+	def newForward(self):
+		pass
+
+	def changeAccount(self):
+		# exist custom template?
+		mailContent = Mailer.getMail('changemail')
+		if mailContent is None:
+			log.warning('Could not load mail "changemail"!')
+			return False
+
+		msg = MIMEText(
+			mailContent['body'] % {
+				'username': '%s@%s' % (self.account.mail,self.account.domain),
+				'password': self.account.pw if len(self.account.pw) > 0 else mailContent['params']['notchanged'],
+				'forwarders': ', '.join(self.account.forward) if len(self.account.forward) > 0 else mailContent['params']['noforward']
+			}
+		)
+
+		msg['Subject'] = mailContent['subject']
+		msg['From'] = mailContent['sender']
+		msg['To'] = self.account.altMail
+
+		return Mailer.sendMail(msg, mailContent['sender'], self.account.altMail)
+
+	def changeForward(self):
+		pass
+
+	@staticmethod
+	def sendMail(msg, sender, recipient):
+		try:
+			s = smtplib.SMTP('localhost')
+			s.sendmail(sender, [recipient], msg.as_string())
+			s.quit()
+		except Exception:
+			return False
+		else:
+			return True
+
+	@staticmethod
+	def getMail(mail):
+		mailContent = {
+			'subject': None, 'body': None, 'sender': None,
+			'params': {}
+		}
+
+		basePath = 'templates'
+
+		content = None
+		# try to find custom
+		if os.path.exists('%s/custom/%s.txt' % (basePath, mail)):
+			with open('%s/custom/%s.txt' % (basePath, mail)) as f:
+				content = f.read()
+
+		else:
+			with open('%s/default/%s.txt' % (basePath, mail)) as f:
+				content = f.read()
+
+		if content is None:
+			return None
+
+		# now extract data
+		## first the sender
+		m = re.compile('# SENDER\\n(.*)\\n# REDNES').search(content)
+		if m is None:
+			return None
+		else:
+			mailContent['sender'] = m.group(1)
+
+		## subject
+		m = re.compile('# SUBJECT\\n(.*)\\n# TCEJBUS').search(content)
+		if m is None:
+			return None
+		else:
+			mailContent['subject'] = m.group(1)
+
+		## body
+		m = re.compile('# BODY\\n(.*)\\n# YDOB', re.S).search(content)
+		if m is None:
+			return None
+		else:
+			mailContent['body'] = m.group(1)
+
+		## any special variables?
+		### they are after YDOB
+		variables = content[content.find('# YDOB')+len('# YDOB\n'):]
+		if len(variables) > 0:
+			variables = variables.split('\n')
+			parm = []
+			search = None
+			for f in variables:
+				if search is None and f.startswith('# '):
+					search = '# ' + f[2:][::-1]
+				elif search is not None and f == search:
+					mailContent['params'][f[2:][::-1]] = '\n'.join(parm)
+					search = None
+					parm = []
+				else: 
+					parm.append(f)
+
+		return mailContent
+
 class MailAccountList:
 
 	def __init__(self):
@@ -507,6 +635,21 @@ class MailAccount:
 		# all best? Than go forward and update set state,...
 		self.setState(MailAccount.STATE_OK)
 
+		# notify 
+		if len(self.altMail) > 0:
+			m = Mailer(self)
+			if m.changeAccount():
+				log.info('User is notified about account change!')
+			else:
+				log.warning('Unknown error while notifying user!')
+		else:
+			log.info('User is not notified because we have no address of him!')
+
+		# reset info
+		self.pw = ''
+		self.hashPw = ''
+		self.genPw = False
+
 	def delete(self):
 		# delete!		
 		# 1. remove credentials
@@ -617,6 +760,21 @@ class MailAccount:
 		
 		# all best? Than go forward and update set state,...
 		self.setState(MailAccount.STATE_OK)
+
+		# notify 
+		if len(self.altMail) > 0:
+			m = Mailer(self)
+			if m.changeAccount():
+				log.info('User is notified about account change!')
+			else:
+				log.warning('Unknown error while notifying user!')
+		else:
+			log.info('User is not notified because we have no address of him!')
+
+		# reset info
+		self.pw = ''
+		self.hashPw = ''
+		self.genPw = False
 
 	def setState(self, state):
 		db = MailDatabase.getInstance()
