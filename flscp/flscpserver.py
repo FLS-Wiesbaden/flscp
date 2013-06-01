@@ -12,7 +12,8 @@ from xmlrpc.server import resolve_dotted_attribute
 from pwgen import generate_pass
 from threading import Thread
 from socketserver import UnixStreamServer
-import logging, os, sys, mysql.connector, shlex, subprocess, abc, copy
+from email.mime.text import MIMEText
+import logging, os, sys, mysql.connector, shlex, subprocess, abc, copy, smtplib
 import ssl, re, socketserver, socket, io, pickle, configparser, base64, stat
 import flscertification
 import bsddb3 as bsddb
