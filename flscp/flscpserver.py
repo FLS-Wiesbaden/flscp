@@ -760,7 +760,7 @@ class MailAccount:
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
 		query = (
-			'INSERT INTO (mail_acc, mail_pass, mail_forward, domain_id, mail_type, status, quota, mail_addr, alternative_addr) ' \
+			'INSERT INTO mail_users (mail_acc, mail_pass, mail_forward, domain_id, mail_type, status, quota, mail_addr, alternative_addr) ' \
 			'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)'
 		)
 		cx.execute(
