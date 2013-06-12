@@ -767,7 +767,7 @@ class MailAccount:
 			query, 
 			(
 				self.mail, self.hashPw, ','.join(self.forward), d.id, self.type, self.state, self.quota, 
-				'%s@%s' (self.mail, self.domain), self.altMail
+				'%s@%s' % (self.mail, self.domain), self.altMail
 			)
 		)
 		db.commit()
