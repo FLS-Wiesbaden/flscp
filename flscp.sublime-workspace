@@ -4,12 +4,44 @@
 		"selected_items":
 		[
 			[
-				"FLSCer",
-				"FLSCertificateListe"
+				"user",
+				"username"
+			],
+			[
+				"email",
+				"emailAddress"
+			],
+			[
+				"iss",
+				"issuer"
+			],
+			[
+				"or",
+				"organizationName"
+			],
+			[
+				"reload",
+				"reloadCertTable"
+			],
+			[
+				"FLSC",
+				"FLSCertificate"
 			],
 			[
 				"FLSCert",
-				"FLSCertificateList"
+				"FLSCertificate"
+			],
+			[
+				"orga",
+				"organizationalUnitName"
+			],
+			[
+				"serial",
+				"serialNumber"
+			],
+			[
+				"FLSCer",
+				"FLSCertificateListe"
 			],
 			[
 				"SimpleXMLR",
@@ -112,13 +144,10 @@
 	"buffers":
 	[
 		{
-			"contents": "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\nfrom logging.handlers import WatchedFileHandler\nfrom ansistrm import ColorizingStreamHandler\nfrom ui_cp import *\nfrom ui_mailform import *\nfrom ui_maileditor import *\nfrom PyQt4.QtCore import pyqtSlot, pyqtSignal\nfrom PyQt4 import QtGui\nfrom PyQt4 import QtCore\nfrom Printer import Printer\nimport logging, os, sys, re, copy, uuid, zlib, xmlrpc.client, http.client, ssl, socket\nimport flscertification\n\n__author__  = 'Lukas Schreiner'\n__copyright__ = 'Copyright (C) 2013 - 2013 Website-Team Friedrich-List-Schule-Wiesbaden'\n\nFORMAT = '%(asctime)-15s %(message)s'\nformatter = logging.Formatter(FORMAT, datefmt='%b %d %H:%M:%S')\nlog = logging.getLogger()\nlog.setLevel(logging.INFO)\nhdlr = ColorizingStreamHandler()\nhdlr.setFormatter(formatter)\nlog.addHandler(hdlr)\n\nworkDir = os.path.dirname(os.path.realpath(__file__))\n\n##### CONFIGURE #####\n# connection\nRPCHOST 		= 'cp.fls-wiesbaden.de'\nRPCPORT 		= 10027\nRPCPATH			= 'RPC2'\n# ssl connection\nKEYFILE 		= 'certs/clientKey.pem'\nCERTFILE 		= 'certs/clientCert.pem'\nCACERT 			= 'certs/cacert.pem'\n### CONFIGURE END ###\n\ntry:\n	_encoding = QtGui.QApplication.UnicodeUTF8\n	def _translate(context, text, disambig):\n		return QtGui.QApplication.translate(context, text, disambig, _encoding)\nexcept AttributeError:\n	def _translate(context, text, disambig):\n		return QtGui.QApplication.translate(context, text, disambig)\n\ndef MailValidator(email):\n	if email is None:\n		return False\n\n	return re.match(r\"^[a-zA-Z0-9._%-+]+\\@[a-zA-Z0-9._%-]+\\.[a-zA-Z]{2,}$\", email) != None\n\nclass MailAccountList:\n\n	def __init__(self):\n		self._items = []\n\n	def add(self, item):\n		self._items.append(item)\n\n	def __getitem__(self, key):\n		return self._items[key]\n\n	def __setitem__(self, key, value):\n		self._items[key] = value\n\n	def __delitem__(self, key):\n		del(self._items[key])\n\n	def __iter__(self):\n		for f in self._items:\n			yield f\n\n	def __contains__(self, item):\n		return True if item in self._items else False\n\n	def __len__(self):\n		return len(self._items)\n\n	def findById(self, id):\n		item = None\n		try:\n			id = int(id)\n		except:\n			pass\n\n		for f in self._items:\n			if f.id == id:\n				item = f\n				break\n\n		return item\n\nclass MailAccount:\n	TYPE_ACCOUNT = 'account'\n	TYPE_FORWARD = 'forward'\n\n	STATE_OK = 'ok'\n	STATE_CHANGE = 'change'\n	STATE_CREATE = 'create'\n	STATE_DELETE = 'delete'\n\n	def __init__(self):\n		self.id = None\n		self.type = MailAccount.TYPE_ACCOUNT\n		self.state = MailAccount.STATE_OK\n		self.mail = ''\n		self.domain = ''\n		self.pw = ''\n		self.genPw = False\n		self.altMail = ''\n		self.forward = []\n\n	def getMailAddress(self):\n		return '%s@%s' % (self.mail, self.domain)\n\n	def generateId(self):\n		self.id = 'Z%s' % (str(zlib.crc32(uuid.uuid4().hex.encode('utf-8')))[0:3],)\n\n	def __eq__(self, obj):\n		log.debug('Compare objects!!!')\n		if self.id == obj.id and \\\n			self.type == obj.type and \\\n			self.mail == obj.mail and \\\n			self.domain == obj.domain and \\\n			self.pw == obj.pw and \\\n			self.genPw == obj.genPw and \\\n			self.altMail == obj.altMail and \\\n			self.forward == obj.forward and \\\n			self.state == obj.state:\n			return True\n		else:\n			return False\n\n	def __ne__(self, obj):\n		return not self.__eq__(obj)\n\n	@classmethod\n	def fromDict(ma, data):\n		self = ma()\n\n		self.id = data['id']\n		self.type = data['type']\n		self.mail = data['mail']\n		self.domain = data['domain']\n		self.altMail = data['altMail']\n		self.forward = data['forward']\n		self.state = data['state']\n\n		return self\n\nclass MailEditor(QtGui.QDialog):\n	\n	def __init__(self, parent):\n		QtGui.QDialog.__init__(self, parent=parent)\n\n		self.accepted = False\n		self.ui = Ui_MailEditor()\n		self.ui.setupUi(self)\n\n		self.ui.buttonBox.accepted.connect(self.setAcceptState)\n		self.ui.buttonBox.rejected.connect(self.setRejectState)\n\n		buttonRole = dict((x, n) for x, n in vars(QtGui.QDialogButtonBox).items() if \\\n				isinstance(n, QtGui.QDialogButtonBox.StandardButton))\n		self.okButton = self.ui.buttonBox.button(buttonRole['Ok'])\n		if self.okButton is not None:\n			# we found button!!!\n			self.okButton.setDisabled(True)\n\n		self.ui.fldMail.textChanged.connect(self.checkValidMail)\n\n		# init\n		self.checkValidMail()\n\n	@pyqtSlot()\n	def checkValidMail(self):\n		log.debug('Check valid mail!!!!')\n		palette = QtGui.QPalette()\n\n		if len(self.ui.fldMail.text().strip()) == 0 \\\n				or not MailValidator(self.ui.fldMail.text()):\n			palette.setColor(self.ui.fldMail.backgroundRole(), QtGui.QColor(255, 110, 110))\n			self.okButton.setDisabled(True)\n		else:\n			palette.setColor(self.ui.fldMail.backgroundRole(), QtGui.QColor(151, 255, 139))\n			self.okButton.setDisabled(False)\n\n		self.ui.fldMail.setPalette(palette)\n\n	@pyqtSlot()\n	def setAcceptState(self):\n		self.accepted = True\n\n	@pyqtSlot()\n	def setRejectState(self):\n		self.accepted = False\n\n	def getValue(self):\n		return self.ui.fldMail.text()\n\nclass MailForm(QtGui.QDialog):\n	\n	def __init__(self, parent, account = None):\n		QtGui.QDialog.__init__(self, parent=parent)\n		self.rpc = FlsServer.getInstance()\n\n		self.ui = Ui_MailForm()\n		self.ui.setupUi(self)\n		self.account = account\n		self.orgAccount = copy.copy(account)\n\n		self.aborted = False\n\n		self.actions()\n\n		self.initFields()\n\n	def initFields(self):\n		# load domains\n		try:\n			for f in self.rpc.getDomains():\n				self.ui.fldDomain.addItem(f['domain'], f['id'])\n		except ssl.CertificateError as e:\n			log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))\n		except socket.error as e:\n			log.error('Connection to server lost!')\n		except xmlrpc.client.ProtocolError as e:\n			if e.errcode == 403:\n				log.warning('Missing rights for loading mails (%s)' % (e,))\n			else:\n				log.warning('Unexpected error in protocol: %s' % (e,))\n		\n		if self.account is None:\n			return\n\n		self.ui.fldID.setText('%s' % (self.account.id,))\n		self.ui.fldMail.setText(self.account.mail)\n		did = self.ui.fldDomain.findText(self.account.domain)\n		if did == -1:\n			self.ui.fldDomain.addItem(self.account.domain)\n			did = self.ui.fldDomain.findText(self.account.domain)\n		self.ui.fldDomain.setCurrentIndex(did)\n\n		self.ui.fldAltMail.setText(self.account.altMail)\n		for f in self.account.forward:\n			item = QtGui.QListWidgetItem()\n			item.setText(f)\n			self.ui.fldForward.addItem(item)\n\n		if self.account.type == MailAccount.TYPE_ACCOUNT:\n			self.ui.fldTypeAccount.setChecked(True)\n			self.ui.fldTypeForward.setChecked(False)\n		else:\n			self.ui.fldTypeAccount.setChecked(False)\n			self.ui.fldTypeForward.setChecked(True)\n\n	def actions(self):\n		self.ui.butForwardDel.clicked.connect(self.deleteMail)\n		self.ui.butForwardAdd.clicked.connect(self.addMail)\n		self.ui.fldForward.itemChanged.connect(self.mailChanged)\n\n		self.ui.buttonBox.accepted.connect(self.save)\n		self.ui.buttonBox.rejected.connect(self.cancel)\n\n	@pyqtSlot()\n	def save(self):\n		self.aborted = False\n		if self.validate():\n			if self.account is None:\n				self.createMail()\n			else:\n				self.saveMail()\n			self.accept()\n\n	@pyqtSlot()\n	def cancel(self):\n		self.aborted = True\n		self.reject()\n\n	def validate(self):\n		log.info('Validating...')\n		# reset all palettes...\n		items = [\n			self.ui.fldMail, self.ui.fldPw, self.ui.fldPwRepeat, self.ui.fldGenPw, self.ui.fldDomain,\n			self.ui.fldForward, self.ui.fldAltMail, self.ui.fldTypeForward, self.ui.fldTypeAccount\n		]\n\n		for item in items:\n			palette = QtGui.QPalette()\n			item.setPalette(palette)\n\n		state = True\n\n		if len(self.ui.fldMail.text()) <= 0:\n			palette = QtGui.QPalette()\n			palette.setColor(self.ui.fldMail.backgroundRole(), QtGui.QColor(255, 110, 110))\n			self.ui.fldMail.setPalette(palette)\n			state = state and False\n\n		if len(self.ui.fldDomain.currentText().strip()) <= 0:\n			palette = QtGui.QPalette()\n			palette.setColor(self.ui.fldDomain.backgroundRole(), QtGui.QColor(255, 110, 110))\n			self.ui.fldDomain.setPalette(palette)\n			state = state and False\n\n		# check domain:\n		if len(self.ui.fldMail.text()) > 0 and len(self.ui.fldDomain.currentText().strip()) > 0 \\\n			and not MailValidator('%s@%s' % (self.ui.fldMail.text(), self.ui.fldDomain.currentText())):\n			palette = QtGui.QPalette()\n			palette.setColor(self.ui.fldMail.backgroundRole(), QtGui.QColor(255, 110, 110))\n			self.ui.fldMail.setPalette(palette)\n			palette = QtGui.QPalette()\n			palette.setColor(self.ui.fldDomain.backgroundRole(), QtGui.QColor(255, 110, 110))\n			self.ui.fldDomain.setPalette(palette)\n			state = state and False\n\n		if len(self.ui.fldPw.text()) > 0 \\\n			or len(self.ui.fldPwRepeat.text()) > 0:\n			if self.ui.fldPw.text() != self.ui.fldPwRepeat.text():\n				palette = QtGui.QPalette()\n				palette.setColor(self.ui.fldPw.backgroundRole(), QtGui.QColor(255, 110, 110))\n				self.ui.fldPw.setPalette(palette)\n				palette = QtGui.QPalette()\n				palette.setColor(self.ui.fldPwRepeat.backgroundRole(), QtGui.QColor(255, 110, 110))\n				self.ui.fldPwRepeat.setPalette(palette)\n				state = state and False\n\n		if self.ui.fldTypeForward.isChecked():\n			if self.ui.fldForward.count() <= 0:\n				palette = QtGui.QPalette()\n				palette.setColor(self.ui.fldForward.backgroundRole(), QtGui.QColor(255, 110, 110))\n				self.ui.fldForward.setPalette(palette)\n				state = state and False\n			elif not self.forwardMailsValid():\n				palette = QtGui.QPalette()\n				palette.setColor(self.ui.fldForward.backgroundRole(), QtGui.QColor(255, 110, 110))\n				self.ui.fldForward.setPalette(palette)\n				state = state and False\n\n		# fields have to be filled (like mail, domain,...)\n		self.ui.fldMail.setText(self.ui.fldMail.text().strip())\n		if len(self.ui.fldMail.text()) <= 0:\n			palette = QtGui.QPalette()\n			palette.setColor(self.ui.fldMail.backgroundRole(), QtGui.QColor(255, 110, 110))\n			self.ui.fldMail.setPalette(palette)\n			state = state and False\n\n		self.ui.fldAltMail.setText(self.ui.fldAltMail.text().strip())\n		if len(self.ui.fldAltMail.text()) <= 0 \\\n			or not MailValidator(self.ui.fldAltMail.text()):\n			palette = QtGui.QPalette()\n			palette.setColor(self.ui.fldAltMail.backgroundRole(), QtGui.QColor(255, 110, 110))\n			self.ui.fldAltMail.setPalette(palette)\n			state = state and False\n\n		# if mail forward: no pw and no pw gen!\n		if self.ui.fldTypeForward.isChecked() \\\n			and (len(self.ui.fldPw.text()) > 0 or self.ui.fldGenPw.isChecked()):\n			palette = QtGui.QPalette()\n			palette.setColor(self.ui.fldGenPw.backgroundRole(), QtGui.QColor(255, 110, 110))\n			self.ui.fldGenPw.setPalette(palette)\n			palette = QtGui.QPalette()\n			palette.setColor(self.ui.fldPw.backgroundRole(), QtGui.QColor(255, 110, 110))\n			self.ui.fldPw.setPalette(palette)\n			state = state and False		\n\n		# if mail account: pw or pw gen (but only on creation!)\n		if self.ui.fldTypeAccount.isChecked() \\\n			and (self.account is None or self.account.state == MailAccount.STATE_CREATE) \\\n			and len(self.ui.fldPw.text()) <= 0 \\\n			and not self.ui.fldGenPw.isChecked():\n			palette = QtGui.QPalette()\n			palette.setColor(self.ui.fldGenPw.backgroundRole(), QtGui.QColor(255, 110, 110))\n			self.ui.fldGenPw.setPalette(palette)\n			palette = QtGui.QPalette()\n			palette.setColor(self.ui.fldPw.backgroundRole(), QtGui.QColor(255, 110, 110))\n			self.ui.fldPw.setPalette(palette)\n			state = state and False\n\n		log.info('Validation result: %s' % ('valid' if state else 'invalid',))\n		return state\n\n	def forwardMailsValid(self):\n		state = True\n		i = 0\n		while i < self.ui.fldForward.count():\n			item = self.ui.fldForward.item(i)\n			if len(item.text().strip()) == 0 or not MailValidator(item.text()):\n				item.setBackground(QtGui.QBrush(QtGui.QColor(255, 110, 110)))\n				state = state and False\n			else:\n				item.setBackground(QtGui.QBrush(QtGui.QColor(151, 255, 139)))\n			i += 1\n\n		return state\n\n	def createMail(self):\n		self.account = MailAccount()\n		self.account.generateId()\n		self.account.mail = self.ui.fldMail.text()\n		self.account.domain = self.ui.fldDomain.currentText()\n		self.account.altMail = self.ui.fldAltMail.text()\n		self.account.forward = []\n		i = 0\n		while i < self.ui.fldForward.count():\n			self.account.forward.append(self.ui.fldForward.item(i).text())\n			i += 1\n		if self.ui.fldTypeAccount.isChecked():\n			self.account.type = MailAccount.TYPE_ACCOUNT\n		elif self.ui.fldTypeForward.isChecked():\n			self.account.type = MailAccount.TYPE_FORWARD\n		self.account.state = MailAccount.STATE_CREATE\n\n	def saveMail(self):\n		self.account.mail = self.ui.fldMail.text()\n		self.account.domain = self.ui.fldDomain.currentText()\n		self.account.altMail = self.ui.fldAltMail.text()\n		self.account.forward = []\n		i = 0\n		while i < self.ui.fldForward.count():\n			self.account.forward.append(self.ui.fldForward.item(i).text())\n			i += 1\n		if self.ui.fldTypeAccount.isChecked():\n			self.account.type = MailAccount.TYPE_ACCOUNT\n		elif self.ui.fldTypeForward.isChecked():\n			self.account.type = MailAccount.TYPE_FORWARD\n\n		if self.account != self.orgAccount:\n			log.info('Account was changed!')\n			# if it was created and not commited, we have to let the state \"create\".\n			if self.account.state != MailAccount.STATE_CREATE:\n				self.account.state = MailAccount.STATE_CHANGE\n		else:\n			log.info('Account is unchanged!')\n\n	@pyqtSlot(QtGui.QListWidgetItem)\n	def mailChanged(self, item):\n		log.info('Cell changed:')\n		# check state\n		if len(item.text().strip()) == 0 or not MailValidator(item.text()):\n			item.setBackground(QtGui.QBrush(QtGui.QColor(255, 110, 110)))\n		else:\n			item.setBackground(QtGui.QBrush(QtGui.QColor(151, 255, 139)))\n\n	@pyqtSlot()\n	def addMail(self):\n		item = QtGui.QListWidgetItem()\n		item.setFlags(\n			QtCore.Qt.ItemIsSelectable|QtCore.Qt.ItemIsEditable|QtCore.Qt.ItemIsDragEnabled|\n			QtCore.Qt.ItemIsUserCheckable|QtCore.Qt.ItemIsEnabled\n		)\n		self.ui.fldForward.addItem(item)\n\n	@pyqtSlot()\n	def deleteMail(self):\n		for selectedItem in self.ui.fldForward.selectedItems():\n			self.ui.fldForward.takeItem(self.ui.fldForward.row(selectedItem))\n\nclass FLSSafeTransport(xmlrpc.client.Transport):\n	\"\"\"Handles an HTTPS transaction to an XML-RPC server.\"\"\"\n\n	# FIXME: mostly untested\n\n	def make_connection(self, host):\n		if self._connection and host == self._connection[0]:\n			return self._connection[1]\n\n		if not hasattr(http.client, \"HTTPSConnection\"):\n			raise NotImplementedError(\n			\"your version of http.client doesn't support HTTPS\")\n		# create a HTTPS connection object from a host descriptor\n		# host may be a string, or a (host, x509-dict) tuple\n		context = ssl.SSLContext(ssl.PROTOCOL_SSLv3)\n		context.verify_mode = ssl.CERT_REQUIRED\n		context.load_verify_locations(CACERT)\n\n		chost, self._extra_headers, x509 = self.get_host_info(host)\n		self._connection = host, http.client.HTTPSConnection(\n			chost,\n			None, \n			key_file=KEYFILE,\n			cert_file=CERTFILE,\n			context=context\n		)\n		return self._connection[1]\n\nclass FlsServer(xmlrpc.client.ServerProxy):\n	__instance = None\n\n	def __init__(self):\n		super().__init__('https://%s:%i/%s' % (RPCHOST, RPCPORT, RPCPATH), FLSSafeTransport())\n		FlsServer.__instance = self\n\n	@staticmethod\n	def getInstance():\n		return FlsServer.__instance if FlsServer.__instance is not None else FlsServer()\n\nclass FLScpMainWindow(QtGui.QMainWindow):\n\n	def __init__(self):\n		QtGui.QMainWindow.__init__(self)\n		\n		self.ui = Ui_MainWindow()\n		self.ui.setupUi(self)\n		self.resizeModes = dict((x, n) for x, n in vars(QtGui.QHeaderView).items() if \\\n				isinstance(n, QtGui.QHeaderView.ResizeMode))\n		self.ui.mailTable.horizontalHeader().setResizeMode(self.resizeModes['ResizeToContents'])\n		# connect to xml-rpc \n		self.rpc = FlsServer.getInstance()\n		self.mails = MailAccountList()\n		self.certs = flscertification.FLSCertificateList()\n\n		self.actions()\n\n	@pyqtSlot()\n	def init(self):\n		# mails\n		self.loadMails()\n		self.loadMailData()\n\n		# certs\n		self.loadCerts()\n		#self.loadCertData()\n\n	def loadCerts(self):\n		self.certs = flscertification.FLSCertificateList()\n		try:\n			for item in self.rpc.getCerts():\n				print(item)\n				#self.mails.add(flscertification.FLSCertificate.fromDict(item))\n		except ssl.CertificateError as e:\n			log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))\n			QtGui.QMessageBox.critical(\n				self, _translate('MainWindow', 'Warnung', None), \n				_translate('MainWindow', \n					'Potentieller Angriff! Server-Zertifikat ist fehlerhaft! Bitte informieren Sie Ihren Administrator!', \n					None),\n				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok\n			)\n		except socket.error as e:\n			log.error('Connection to server lost!')\n			QtGui.QMessageBox.critical(\n				self, _translate('MainWindow', 'Warnung', None), \n				_translate('MainWindow', \n					'Verbindung zum Server nicht möglich. Bitte versuchen Sie es später noch einmal.', \n					None),\n				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok\n			)\n		except xmlrpc.client.ProtocolError as e:\n			if e.errcode == 403:\n				log.warning('Missing rights for loading mails (%s)' % (e,))\n				QtGui.QMessageBox.warning(\n					self, _translate('MainWindow', 'Fehlende Rechte', None), \n					_translate('MainWindow', \n						'Sie haben nicht ausreichend Rechte!', \n						None),\n					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok\n				)\n			else:\n				log.warning('Unexpected error in protocol: %s' % (e,))\n				QtGui.QMessageBox.warning(\n					self, _translate('MainWindow', 'Unbekannter Fehler', None), \n					_translate('MainWindow', \n						'Unbekannter Fehler in der Kommunikation mit dem Server aufgetreten.', \n						None),\n					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok\n				)\n\n	def loadMails(self):\n		self.mails = MailAccountList()\n		try:\n			for item in self.rpc.getMails():\n				self.mails.add(MailAccount.fromDict(item))\n		except ssl.CertificateError as e:\n			log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))\n			QtGui.QMessageBox.critical(\n				self, _translate('MainWindow', 'Warnung', None), \n				_translate('MainWindow', \n					'Potentieller Angriff! Server-Zertifikat ist fehlerhaft! Bitte informieren Sie Ihren Administrator!', \n					None),\n				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok\n			)\n		except socket.error as e:\n			log.error('Connection to server lost!')\n			QtGui.QMessageBox.critical(\n				self, _translate('MainWindow', 'Warnung', None), \n				_translate('MainWindow', \n					'Verbindung zum Server nicht möglich. Bitte versuchen Sie es später noch einmal.', \n					None),\n				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok\n			)\n		except xmlrpc.client.ProtocolError as e:\n			if e.errcode == 403:\n				log.warning('Missing rights for loading mails (%s)' % (e,))\n				QtGui.QMessageBox.warning(\n					self, _translate('MainWindow', 'Fehlende Rechte', None), \n					_translate('MainWindow', \n						'Sie haben nicht ausreichend Rechte!', \n						None),\n					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok\n				)\n			else:\n				log.warning('Unexpected error in protocol: %s' % (e,))\n				QtGui.QMessageBox.warning(\n					self, _translate('MainWindow', 'Unbekannter Fehler', None), \n					_translate('MainWindow', \n						'Unbekannter Fehler in der Kommunikation mit dem Server aufgetreten.', \n						None),\n					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok\n				)\n\n	def actions(self):\n		self.ui.butAdd.clicked.connect(self.addMail)\n		self.ui.butEdt.clicked.connect(self.editMail)\n		self.ui.butDel.clicked.connect(self.deleteMail)\n		self.ui.butReload.clicked.connect(self.reloadMailTable)\n		self.ui.butSave.clicked.connect(self.commitData)\n		self.ui.mailTable.cellDoubleClicked.connect(self.selectedMail)\n		self.ui.actionAbout.triggered.connect(self.about)\n		self.ui.actionAboutQt.triggered.connect(self.aboutQt)\n		self.ui.actionExit.triggered.connect(self.quitApp)\n		self.ui.search.textChanged.connect(self.filterMail)\n		self.ui.actionWhatsThis.triggered.connect(self.triggerWhatsThis)\n\n	@pyqtSlot()\n	def triggerWhatsThis(self):\n		if QtGui.QWhatsThis.inWhatsThisMode():\n			QtGui.QWhatsThis.leaveWhatsThisMode()\n		else:\n			QtGui.QWhatsThis.enterWhatsThisMode()\n\n	def enableProgressBar(self):\n		log.debug('Enable Progressbar')\n		self.progress = QtGui.QProgressDialog(\n			_translate('MainWindow', 'Speichern/Laden der Daten', None), \n			None, 0, 0, self\n		)\n		self.progress.setWindowModality(QtCore.Qt.ApplicationModal)\n		self.progress.setMinimumDuration(1000)\n		self.progress.show()\n\n	@pyqtSlot()\n	def disableProgressBar(self):\n		log.debug('Disable Progressbar')\n		if self.progress is not None:\n			self.progress.close()\n			self.progress = None\n\n	@pyqtSlot()\n	def \n\n	@pyqtSlot()\n	def reloadMailTable(self):\n		self.enableProgressBar()\n		# ask user - because all pending operations will be cancelled!\n		pending = False\n		for f in self.mails:\n			if f.state != MailAccount.STATE_OK:\n				pending = True\n				break\n\n		if pending:\n			msg = QtGui.QMessageBox.question(\n				self, _translate('MainWindow', 'Warnung', None), \n				_translate('MainWindow', 'Alle Änderungen gehen verloren. Fortfahren?', None),\n				QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.No\n			)\n			if msg == QtGui.QMessageBox.Yes:\n				self.loadMails()\n				self.loadMailData()\n		else:\n			self.loadMails()\n			self.loadData()\n		self.disableProgressBar()\n\n	def loadMailData(self):\n		self.ui.mailTable.setRowCount(0)\n\n		for row in self.mails:\n			rowNr = self.ui.mailTable.rowCount()\n			self.ui.mailTable.insertRow(rowNr)\n			item = QtGui.QTableWidgetItem()\n			try:\n				item.setText('%s' % (row.id,))\n			except:\n				print(row)\n				Printer(row)\n				return\n			self.ui.mailTable.setItem(rowNr, 0, item)\n			# mail\n			item = QtGui.QTableWidgetItem()\n			item.setText(row.getMailAddress())\n			self.ui.mailTable.setItem(rowNr, 1, item)\n			# type\n			item = QtGui.QTableWidgetItem()\n			icon = QtGui.QIcon()\n			if row.type == MailAccount.TYPE_ACCOUNT:\n				icon.addPixmap(QtGui.QPixmap(\":/typ/account.png\"), QtGui.QIcon.Normal, QtGui.QIcon.Off)\n				item.setText(_translate(\"MainWindow\", \"Konto\", None))\n			else:\n				icon.addPixmap(QtGui.QPixmap(\":/typ/forward.png\"), QtGui.QIcon.Normal, QtGui.QIcon.Off)\n				item.setText(_translate(\"MainWindow\", \"Weiterleitung\", None))\n			item.setIcon(icon)\n			self.ui.mailTable.setItem(rowNr, 2, item)\n			# status\n			item = QtGui.QTableWidgetItem()\n			icon = QtGui.QIcon()\n			if row.state == MailAccount.STATE_OK:\n				icon.addPixmap(QtGui.QPixmap(\":/status/ok.png\"), QtGui.QIcon.Normal, QtGui.QIcon.Off)\n				item.setText(_translate(\"MainWindow\", \"OK\", None))\n			elif row.state == MailAccount.STATE_CHANGE:\n				icon.addPixmap(QtGui.QPixmap(\":/status/waiting.png\"), QtGui.QIcon.Normal, QtGui.QIcon.Off)\n				item.setText(_translate(\"MainWindow\", \"wird geändert\", None))\n			elif row.state == MailAccount.STATE_CREATE:\n				icon.addPixmap(QtGui.QPixmap(\":/status/state_add.png\"), QtGui.QIcon.Normal, QtGui.QIcon.Off)\n				item.setText(_translate(\"MainWindow\", \"wird hinzugefügt\", None))\n			elif row.state == MailAccount.STATE_DELETE:\n				icon.addPixmap(QtGui.QPixmap(\":/status/trash.png\"), QtGui.QIcon.Normal, QtGui.QIcon.Off)\n				item.setText(_translate(\"MainWindow\", \"wird gelöscht\", None))\n			else:\n				icon.addPixmap(QtGui.QPixmap(\":/status/warning.png\"), QtGui.QIcon.Normal, QtGui.QIcon.Off)\n				item.setText(_translate(\"MainWindow\", \"Unbekannt\", None))\n			item.setIcon(icon)\n			self.ui.mailTable.setItem(rowNr, 3, item)\n\n	@pyqtSlot()\n	def addMail(self):\n		log.info('Clicked \"add mail\"')\n		mf = MailForm(self)\n		mf.show()\n		mf.exec_()\n		if not mf.aborted and mf.account is not None:\n			log.info('Mail created')\n			self.mails.add(mf.account)\n			self.loadData()\n		else:\n			log.info('Mail creation aborted')\n\n	@pyqtSlot()\n	def editMail(self):\n		log.info('Clicked \"edit mail\"')\n		for selectedRow in self.ui.mailTable.selectionModel().selectedRows():\n			nr = self.ui.mailTable.item(selectedRow.row(), 0).text()\n			account = self.mails.findById(nr)\n			if account is not None:\n				mf = MailForm(self, account)\n				mf.show()\n				mf.exec_()\n\n		self.loadData()\n\n	@pyqtSlot()\n	def deleteMail(self):\n		for selectedRow in self.ui.mailTable.selectionModel().selectedRows():\n			nr = self.ui.mailTable.item(selectedRow.row(), 0).text()\n			account = self.mails.findById(nr)\n			if account is not None:\n				print(account.state)\n				if account.state == MailAccount.STATE_CREATE:\n					# we cancel pending action.\n					self.ui.mailTable.removeRow(selectedRow.row())		\n					MailAccountList.remove(account)\n				else:\n					# do not remove (because we want to see the pending action!)\n					account.state = MailAccount.STATE_DELETE\n					log.info('state set to delete')\n\n		self.loadData()\n\n	@pyqtSlot(int, int)\n	def selectedMail(self, row, col):\n		nr = self.ui.mailTable.item(row, 0).text()\n		account = self.mails.findById(nr)\n		if account is not None:\n			mf = MailForm(self, account)\n			mf.show()\n			mf.exec_()\n\n		self.loadData()\n\n	@pyqtSlot()\n	def about(self):\n		QtGui.QMessageBox.about(self, 'FLS Control Panel', \n			'Control Panel zum Verwalten von E-Mail Konten auf einem ' \\\n			'virtuellen Server der Friedrich-List-Schule-Wiesbaden.')\n\n	@pyqtSlot()\n	def aboutQt(self):\n		QtGui.QMessageBox.aboutQt(self)\n\n	@pyqtSlot()\n	def quitApp(self):\n		# are there some pending actions?\n		pending = False\n		for f in self.mails:\n			if f.state != MailAccount.STATE_OK:\n				pending = True\n				break\n\n		if pending:\n			msg = QtGui.QMessageBox.question(\n				self, _translate('MainWindow', 'Warnung', None), \n				_translate('MainWindow', 'Alle Änderungen gehen verloren. Beenden?', None),\n				QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.No\n			)\n			if msg == QtGui.QMessageBox.Yes:\n				self.close()\n\n		else:\n			self.close()\n\n	@pyqtSlot(str)\n	def filterMail(self, filterText):\n		log.debug('Filter for %s' % (filterText,))\n		row = 0\n		while row < self.ui.mailTable.rowCount():\n			if len(filterText) <= 0:\n				self.ui.mailTable.setRowHidden(row, False)\n			else:\n				match = False\n				col = 0\n				while col < self.ui.mailTable.columnCount():\n					if filterText in self.ui.mailTable.item(row, col).text():\n						match = True\n						break\n					col += 1\n				self.ui.mailTable.setRowHidden(row, not match)\n			row += 1\n\n	@pyqtSlot()\n	def commitData(self):\n		self.enableProgressBar()\n		data = MailAccountList()\n		for f in self.mails:\n			if f.state != MailAccount.STATE_OK:\n				data.add(f)\n\n		if len(data) > 0:\n			try:\n				self.rpc.saveMails(data)\n			except ssl.CertificateError as e:\n				log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))\n				QtGui.QMessageBox.critical(\n					self, _translate('MainWindow', 'Warnung', None), \n					_translate('MainWindow', \n						'Potentieller Angriff! Server-Zertifikat ist fehlerhaft! Bitte informieren Sie Ihren Administrator!', \n						None),\n					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok\n				)\n			except socket.error as e:\n				QtGui.QMessageBox.critical(\n					self, _translate('MainWindow', 'Warnung', None), \n					_translate('MainWindow', \n						'Verbindung zum Server nicht möglich. Bitte versuchen Sie es später noch einmal.', \n						None),\n					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok\n				)\n			except xmlrpc.client.ProtocolError as e:\n				if e.errcode == 403:\n					log.warning('Missing rights for loading mails (%s)' % (e,))\n					QtGui.QMessageBox.warning(\n						self, _translate('MainWindow', 'Fehlende Rechte', None), \n						_translate('MainWindow', \n							'Sie haben nicht ausreichend Rechte!', \n							None),\n						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok\n					)\n				else:\n					log.warning('Unexpected error in protocol: %s' % (e,))\n					QtGui.QMessageBox.warning(\n						self, _translate('MainWindow', 'Unbekannter Fehler', None), \n						_translate('MainWindow', \n							'Unbekannter Fehler in der Kommunikation mit dem Server aufgetreten.', \n							None),\n						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok\n					)\n\n			else:\n				self.loadMails()\n				self.loadData()\n		self.disableProgressBar()\n\n	def start(self):\n		self.showNormal()\n\nif __name__ == \"__main__\":\n	hdlr = WatchedFileHandler('flscp.log')\n	hdlr.setFormatter(formatter)\n	log.addHandler(hdlr)\n	log.setLevel(logging.DEBUG)\n\n	app = QtGui.QApplication(sys.argv)\n	ds = FLScpMainWindow()\n	ds.start()\n	QtCore.QTimer.singleShot(0, ds.init)\n	sys.exit(app.exec_())\n",
 			"file": "flscp/flscp.py",
-			"file_size": 27725,
-			"file_write_time": 1368118140000000,
 			"settings":
 			{
-				"buffer_size": 27734,
+				"buffer_size": 46604,
 				"line_ending": "Unix"
 			}
 		},
@@ -126,7 +155,7 @@
 			"file": "flscp/flscpserver.py",
 			"settings":
 			{
-				"buffer_size": 24717,
+				"buffer_size": 35642,
 				"line_ending": "Unix"
 			}
 		},
@@ -134,15 +163,7 @@
 			"file": "flscp/flscertification.py",
 			"settings":
 			{
-				"buffer_size": 2728,
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"file": "/home/mono/.projects/fls/vplanClient/VPlanClient/VPlanClient.py",
-			"settings":
-			{
-				"buffer_size": 35883,
+				"buffer_size": 5005,
 				"line_ending": "Unix"
 			}
 		},
@@ -150,23 +171,7 @@
 			"file": "flscp/pwgen.py",
 			"settings":
 			{
-				"buffer_size": 1202,
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"file": "flscp/libs/SaltEncryption/SaltEncryption.class.php",
-			"settings":
-			{
-				"buffer_size": 8055,
-				"line_ending": "Unix"
-			}
-		},
-		{
-			"file": "flscp/libs/SaltEncryption/encrypt.php",
-			"settings":
-			{
-				"buffer_size": 177,
+				"buffer_size": 1272,
 				"line_ending": "Unix"
 			}
 		}
@@ -323,7 +328,22 @@
 	},
 	"file_history":
 	[
+		"/home/mono/.projects/fls/flscp/flscp/templates/default/changeforward.txt",
+		"/home/mono/.projects/fls/flscp/flscp/templates/default/changemail.txt",
+		"/home/mono/.projects/fls/flscp/flscp/templates/default/newmail.txt",
+		"/home/mono/.projects/fls/mailadmin/flscp/flscp.py",
+		"/home/mono/.projects/fls/flscp/flscp/flscpserver.log",
+		"/home/mono/.projects/fls/flscp/flscp/flscpserver.py",
+		"/home/mono/.projects/fls/pyTools/pyToolsCmd.py",
+		"/home/mono/.projects/fls/flscp/build/flscp/ui_cp.py",
+		"/home/mono/.projects/fls/flscp/build/flscp/ui_mailform.py",
+		"/home/mono/.projects/fls/flscp/flscp/flscp.py",
+		"/home/mono/.projects/fls/flscp/flscp/pwgen.py",
+		"/home/mono/.projects/fls/flscp/flscp/libs/SaltEncryption/encrypt.php",
+		"/home/mono/.projects/fls/flscp/flscp/libs/SaltEncryption/SaltEncryption.class.php",
+		"/home/mono/.projects/fls/vplanClient/VPlanClient/VPlanClient.py",
 		"/home/mono/Dokumente/Downloads/Sublime Text 2/Data/Packages/Default/Default (Linux).sublime-keymap",
+		"/home/mono/Dokumente/Downloads/Sublime Text 2/Data/Packages/User/Default (Linux).sublime-keymap",
 		"/usr/lib/python3.2/socket.py",
 		"/usr/lib/python3.2/ssl.py",
 		"/usr/lib/python3.2/socketserver.py",
@@ -331,19 +351,13 @@
 		"/usr/lib/python3.2/http/client.py",
 		"/usr/lib/python3.2/xmlrpc/server.py",
 		"/usr/lib/python3.2/xmlrpc/client.py",
-		"/home/mono/.projects/fls/flscp/flscp/flscpserver.py",
-		"/home/mono/.projects/fls/flscp/flscp/flscp.py",
 		"/home/mono/.projects/fls/flscp/flscp/flscpserver_bak.py",
 		"/usr/lib/python3.2/socket",
-		"/home/mono/.projects/fls/flscp/build/flscp/ui_cp.py",
-		"/home/mono/.projects/fls/pyTools/pyToolsCmd.py",
 		"/tmp/sshsimpleclient.py",
 		"/home/mono/.ssh/id_rsa.pub",
-		"/home/mono/.projects/fls/flscp/build/flscp/ui_mailform.py",
 		"/home/mono/.projects/fls/vplanClient/build/VPlanClient/ui_browser.py",
 		"/home/mono/.projects/fls/vplanClient/VPlanClient/config.ini",
 		"/home/mono/.projects/fls/flscp/flscp/rpdbutils.py",
-		"/home/mono/.projects/fls/vplanClient/VPlanClient/VPlanClient.py",
 		"/home/mono/.projects/fls/pyTools/modules/dsb.py",
 		"/home/mono/Dokumente/Downloads/Sublime Text 2/Data/Packages/User/Python.sublime-settings",
 		"/home/mono/.projects/fls/vplanClient/VPlanClient/flsconfiguration.py",
@@ -363,7 +377,6 @@
 		"/home/mono/.projects/fls/pyTools/.pyTools.sublime-project",
 		"/home/mono/.projects/fls/vplanClient/Makefile",
 		"/home/mono/.projects/fls/vplanClient/config.ini",
-		"/home/mono/Dokumente/Downloads/Sublime Text 2/Data/Packages/User/Default (Linux).sublime-keymap",
 		"/home/mono/Dokumente/Downloads/Sublime Text 2/Data/Packages/User/Preferences.sublime-settings",
 		"/home/mono/.projects/fls/vplanClient/flsconfiguration.py",
 		"/home/mono/.projects/fls/vplanClient/observer.py",
@@ -440,6 +453,103 @@
 		"case_sensitive": true,
 		"find_history":
 		[
+			"Mailer",
+			"workDir",
+			"workdir",
+			"basePath",
+			"workDir",
+			"REUSE",
+			"REUSEADDR",
+			"def save",
+			"rpdb2",
+			"log.crit",
+			"generatePassword",
+			"Generating",
+			"rpdb2",
+			"Dispatcher",
+			"Verbindung zum Server ",
+			"FlsControl",
+			"world",
+			"Hello",
+			"hello",
+			"FlsServer",
+			"self.rpc",
+			"loadMails",
+			"return",
+			"loginCert",
+			"QMessageBox",
+			"self.init",
+			"init",
+			"self.init",
+			"OpenSSL.FILETY",
+			"certificatesSelected",
+			"nachfolg",
+			"def init",
+			"Label",
+			"label",
+			"showLoginUser",
+			"getCert",
+			"x509",
+			"CERTFILE",
+			"FLSC",
+			"reload",
+			"vars",
+			"valid",
+			"Printer",
+			"state",
+			"saveCerts",
+			"serialNumber",
+			"has_expired",
+			"version",
+			"valid",
+			"MailAccountList",
+			"deleteCertifi",
+			"		\n",
+			"deleteMail",
+			"deleteCertifi",
+			"def action",
+			"verify_cb",
+			"rpdb",
+			"rpdb2",
+			"self.ui.adminTable.set",
+			"adminTable.set",
+			"loadCertData",
+			"selected",
+			"addCertificate",
+			"deleteMail",
+			"MailAccountList",
+			"delete",
+			"self.ui.adminTable",
+			"loadCertData",
+			"self.certs",
+			"loadCertData",
+			"mailTable",
+			"rowNr",
+			"insertRow",
+			"loadMails",
+			"loadCerts",
+			"loadCertData",
+			"reload",
+			"loadCertData",
+			".item",
+			"loadCerts",
+			"load",
+			"loadMailData",
+			"FLSCertificateList",
+			"getCerts",
+			"saveCerts",
+			"get_notBefore",
+			"passphrase",
+			"loadCertData",
+			"commitMailData",
+			"commitData",
+			"saveMail",
+			"loadData",
+			"deleteCert",
+			"deleteMail",
+			"OpenSSL",
+			"version",
+			"addCert",
 			"tag",
 			"items",
 			"loadByDict",
@@ -470,104 +580,7 @@
 			"HTTPS",
 			"https",
 			"context",
-			"localhost",
-			"rpc.save",
-			"loadMails",
-			"reloadMailTable",
-			"loadMails",
-			"rpc.save",
-			"loadMails",
-			"saveMail",
-			"MainWindow",
-			"loadMails",
-			"QMessageBox",
-			"loadMails",
-			"ServerProxy",
-			"_Method",
-			"__send",
-			"getMails",
-			"SSLContext",
-			"load_cert_chain",
-			"http",
-			"ServerProxy",
-			"SafeTransport",
-			"class ServerProxy",
-			"ServerProxy",
-			"Transport",
-			"SafeTransport",
-			"ServerProxy",
-			"ClientProxy",
-			"FlsServer",
-			"loadMails",
-			"secure",
-			"https",
-			"CACERT",
-			"verify",
-			"SSL",
-			"ServerProxy",
-			"logRequ",
-			"socketio",
-			"makefile",
-			"SocketIO",
-			"wfile",
-			"rfile",
-			"close",
-			"wfile.",
-			"down",
-			"def do_POST",
-			"do_POST",
-			"FlsServer",
-			"setMinimumDuration",
-			"QString",
-			"Modal",
-			"enableProgressBar",
-			"setMaximumSize",
-			"status",
-			"verticalLayout",
-			"action",
-			"reloadPostfix",
-			"STATE_OK",
-			"Filter",
-			"substring",
-			"updateCrede",
-			"updateCredentials",
-			"SaslDatabase",
-			"Key could not be removed from sasldb",
-			"%i",
-			"SELECT mail_id",
-			"exists",
-			"emb",
-			"emp",
-			"UPDATE",
-			"connected",
-			"MailDatabase",
-			"getInstance",
-			"getCursor",
-			"MailDatabase",
-			"abc.ABCMetaClass",
-			"this->password",
-			"hash",
-			"updateCredentials",
-			"hashPostFiles",
-			"copy",
-			"reload",
-			"actionExit",
-			"verticalHeaderItem",
-			"_translate",
-			"STATE_CHANGE",
-			"getMails",
-			"MailForm",
-			"fldDomain",
-			"findById",
-			"waiting",
-			"warning",
-			"generateId",
-			"generateID",
-			"aborted",
-			"orgAccount",
-			"loadData",
-			"MailForm",
-			"saveMail"
+			"localhost"
 		],
 		"highlight": true,
 		"in_selection": false,
@@ -586,7 +599,7 @@
 			"join",
 			"log.info"
 		],
-		"reverse": true,
+		"reverse": false,
 		"show_context": true,
 		"use_buffer2": true,
 		"whole_word": false,
@@ -595,7 +608,7 @@
 	"groups":
 	[
 		{
-			"selected": 0,
+			"selected": 1,
 			"sheets":
 			[
 				{
@@ -603,15 +616,15 @@
 					"file": "flscp/flscp.py",
 					"settings":
 					{
-						"buffer_size": 27734,
+						"buffer_size": 46604,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								20153,
-								20153
+								895,
+								895
 							]
 						],
 						"settings":
@@ -620,7 +633,7 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 7965.0,
+						"translation.y": 71.0,
 						"zoom_level": 1.0
 					},
 					"type": "text"
@@ -630,15 +643,15 @@
 					"file": "flscp/flscpserver.py",
 					"settings":
 					{
-						"buffer_size": 24717,
+						"buffer_size": 35642,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								22771,
-								22771
+								0,
+								0
 							]
 						],
 						"settings":
@@ -647,7 +660,7 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 11069.0,
+						"translation.y": 10323.0,
 						"zoom_level": 1.0
 					},
 					"type": "text"
@@ -657,15 +670,15 @@
 					"file": "flscp/flscertification.py",
 					"settings":
 					{
-						"buffer_size": 2728,
+						"buffer_size": 5005,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								1074,
-								1074
+								4188,
+								4188
 							]
 						],
 						"settings":
@@ -674,52 +687,25 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 323.0,
+						"translation.y": 2223.0,
 						"zoom_level": 1.0
 					},
 					"type": "text"
 				},
 				{
 					"buffer": 3,
-					"file": "/home/mono/.projects/fls/vplanClient/VPlanClient/VPlanClient.py",
-					"settings":
-					{
-						"buffer_size": 35883,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								2915,
-								2915
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/Python/Python.tmLanguage",
-							"translate_tabs_to_spaces": false
-						},
-						"translation.x": 0.0,
-						"translation.y": 958.0,
-						"zoom_level": 1.0
-					},
-					"type": "text"
-				},
-				{
-					"buffer": 4,
 					"file": "flscp/pwgen.py",
 					"settings":
 					{
-						"buffer_size": 1202,
+						"buffer_size": 1272,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								46,
-								46
+								329,
+								329
 							]
 						],
 						"settings":
@@ -727,60 +713,6 @@
 							"syntax": "Packages/Python/Python.tmLanguage",
 							"tab_size": 4,
 							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
-						"zoom_level": 1.0
-					},
-					"type": "text"
-				},
-				{
-					"buffer": 5,
-					"file": "flscp/libs/SaltEncryption/SaltEncryption.class.php",
-					"settings":
-					{
-						"buffer_size": 8055,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								5098,
-								5098
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/PHP/PHP.tmLanguage",
-							"tab_size": 4,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 858.0,
-						"zoom_level": 1.0
-					},
-					"type": "text"
-				},
-				{
-					"buffer": 6,
-					"file": "flscp/libs/SaltEncryption/encrypt.php",
-					"settings":
-					{
-						"buffer_size": 177,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								170,
-								170
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/PHP/PHP.tmLanguage"
 						},
 						"translation.x": 0.0,
 						"translation.y": 0.0,

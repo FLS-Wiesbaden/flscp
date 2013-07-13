@@ -475,6 +475,9 @@ class FLSSafeTransport(xmlrpc.client.Transport):
 	# FIXME: mostly untested
 
 	def make_connection(self, host):
+		if not hasattr(self, 'timeout'):
+			self.timeout = 5
+
 		if self._connection and host == self._connection[0]:
 			return self._connection[1]
 
@@ -486,6 +489,7 @@ class FLSSafeTransport(xmlrpc.client.Transport):
 		context = ssl.SSLContext(ssl.PROTOCOL_SSLv3)
 		context.verify_mode = ssl.CERT_REQUIRED
 		context.load_verify_locations(CACERT)
+		log.debug('Timeout is: %s' % (self.timeout,))
 
 		chost, self._extra_headers, x509 = self.get_host_info(host)
 		self._connection = host, http.client.HTTPSConnection(
@@ -493,7 +497,8 @@ class FLSSafeTransport(xmlrpc.client.Transport):
 			None, 
 			key_file=KEYFILE,
 			cert_file=CERTFILE,
-			context=context
+			context=context,
+			timeout=self.timeout
 		)
 		return self._connection[1]
 
@@ -523,6 +528,11 @@ class FLScpMainWindow(QtGui.QMainWindow):
 
 		self.mails = MailAccountList()
 		self.certs = flscertification.FLSCertificateList()
+		self.splash = QtGui.QSplashScreen(self, QtGui.QPixmap(":/logo/splash.png"))
+		self.splash.show()
+		self.splash.showMessage('Loading application...', color=QtGui.QColor(255, 255, 255))
+		self.splash.repaint()
+		#QtCore.QCoreApplication.processEvents()
 
 		# check if certs exists!
 		if not os.path.exists(KEYFILE) or not os.path.exists(CERTFILE):
@@ -567,6 +577,9 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.ui.butAdminReload.clicked.connect(self.reloadCertTable)
 
 	def showLoginUser(self):
+		self.splash.showMessage('Loading user authentication...', color=QtGui.QColor(255, 255, 255))
+		self.splash.repaint()
+
 		pubkey = None
 		aborted = False
 		pk = None
@@ -638,6 +651,10 @@ class FLScpMainWindow(QtGui.QMainWindow):
 
 	@pyqtSlot()
 	def init(self):
+		# enable splash screen
+		self.splash.showMessage('Try to connect to server...', color=QtGui.QColor(255, 255, 255))
+		self.splash.repaint()
+		
 		if self.rpc is not None:
 			# connection possible ?
 			timeout = self.rpc.__transport.timeout
@@ -653,20 +670,49 @@ class FLScpMainWindow(QtGui.QMainWindow):
 					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
 				)
 
-				self.quit()
+				self.close()
 				return
 			else:
 				self.rpc.__transport.timeout = timeout
 				# connection possible!
+				self.splash.showMessage('Loading first data...', color=QtGui.QColor(255, 255, 255))
+				self.splash.repaint()
+
 				# mails
-				self.loadMails()
-				self.loadMailData()
+				try:
+					self.loadMails()
+				except xmlrpc.client.Fault as e:
+					log.critical('Could not load mails because of %s' % (e,))
+					QtGui.QMessageBox.critical(
+						self, _translate('MainWindow', 'Daten nicht ladbar', None), 
+						_translate('MainWindow', 
+							'Die E-Mail-Konten konnten nicht abgerufen werden.', 
+							None),
+						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					)
+				else:
+					self.loadMailData()
 
 				# certs
-				self.loadCerts()
-				self.loadCertData()
+				try:
+					self.loadCerts()
+				except xmlrpc.client.Fault as e:
+					log.critical('Could not load certificates because of %s' % (e,))
+					QtGui.QMessageBox.critical(
+						self, _translate('MainWindow', 'Daten nicht ladbar', None), 
+						_translate('MainWindow', 
+							'Die Zertifikate konnten nicht abgerufen werden.', 
+							None),
+						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					)
+				else:
+					self.loadCertData()
 		else:
 			self.initLoginCert()
+
+		# disable splash screen!
+		self.splash.close()
+		self.start()
 
 	def initLoginCert(self):
 		answer = QtGui.QMessageBox.warning(
@@ -677,7 +723,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			QtGui.QMessageBox.Ok|QtGui.QMessageBox.Cancel, QtGui.QMessageBox.Ok
 		)
 		if msg == QtGui.QMessageBox.Cancel:
-			self.quit()
+			self.close()
 			return
 
 		try:
@@ -691,7 +737,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
 			)
 
-			self.quit()
+			self.close()
 			return
 
 		fd = QtGui.QFileDialog(self, None)
@@ -1213,11 +1259,33 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.No
 			)
 			if msg == QtGui.QMessageBox.Yes:
-				self.loadMails()
-				self.loadMailData()
+				try:
+					self.loadMails()
+				except xmlrpc.client.Fault as e:
+					log.critical('Could not load mails because of %s' % (e,))
+					QtGui.QMessageBox.critical(
+						self, _translate('MainWindow', 'Daten nicht ladbar', None), 
+						_translate('MainWindow', 
+							'Die E-Mail-Konten konnten nicht abgerufen werden.', 
+							None),
+						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					)
+				else:
+					self.loadMailData()
 		else:
-			self.loadMails()
-			self.loadMailData()
+			try:
+				self.loadMails()
+			except xmlrpc.client.Fault as e:
+				log.critical('Could not load mails because of %s' % (e,))
+				QtGui.QMessageBox.critical(
+					self, _translate('MainWindow', 'Daten nicht ladbar', None), 
+					_translate('MainWindow', 
+						'Die E-Mail-Konten konnten nicht abgerufen werden.', 
+						None),
+					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+				)
+			else:
+				self.loadMailData()
 		self.disableProgressBar()
 
 	def loadMailData(self):
@@ -1425,8 +1493,19 @@ class FLScpMainWindow(QtGui.QMainWindow):
 					)
 
 			else:
-				self.loadMails()
-				self.loadMailData()
+				try:
+					self.loadMails()
+				except xmlrpc.client.Fault as e:
+					log.critical('Could not load mails because of %s' % (e,))
+					QtGui.QMessageBox.critical(
+						self, _translate('MainWindow', 'Daten nicht ladbar', None), 
+						_translate('MainWindow', 
+							'Die E-Mail-Konten konnten nicht abgerufen werden.', 
+							None),
+						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					)
+				else:
+					self.loadMailData()
 		self.disableProgressBar()
 
 	@pyqtSlot()
@@ -1497,6 +1576,5 @@ if __name__ == "__main__":
 
 	app = QtGui.QApplication(sys.argv)
 	ds = FLScpMainWindow()
-	ds.start()
 	QtCore.QTimer.singleShot(0, ds.init)
 	sys.exit(app.exec_())

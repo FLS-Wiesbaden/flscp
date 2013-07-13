@@ -1,5 +1,6 @@
 <RCC>
   <qresource prefix="logo">
+    <file>splash.png</file>
     <file>qt.png</file>
     <file>fls_logo.ico</file>
     <file>fls_logo_60.png</file>
