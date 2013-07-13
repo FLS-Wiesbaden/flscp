@@ -11,7 +11,7 @@ from PyQt4 import QtCore
 from Printer import Printer
 from pytz import UTC
 import logging, os, sys, re, copy, uuid, zlib, xmlrpc.client, http.client, ssl, socket, datetime
-import tempfile, zipfile
+import tempfile, zipfile, base64
 import flscertification
 try:
 	import OpenSSL
@@ -507,16 +507,13 @@ class FLSSafeTransport(xmlrpc.client.Transport):
 class FlsServer(xmlrpc.client.ServerProxy):
 	__instance = None
 
-	def __init__(self, use_builtin_types = False):
-		super().__init__(
-			'https://%s:%i/%s' % (RPCHOST, RPCPORT, RPCPATH), FLSSafeTransport(), 
-			use_builtin_types=use_builtin_types
-		)
+	def __init__(self):
+		super().__init__('https://%s:%i/%s' % (RPCHOST, RPCPORT, RPCPATH), FLSSafeTransport())
 		FlsServer.__instance = self
 
 	@staticmethod
 	def getInstance():
-		return FlsServer.__instance if FlsServer.__instance is not None else FlsServer(use_builtin_types=True)
+		return FlsServer.__instance if FlsServer.__instance is not None else FlsServer()
 
 class FLScpMainWindow(QtGui.QMainWindow):
 
@@ -742,10 +739,11 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			)
 		else:
 			# now save it!
+			data = base64.b64decode(data.encode('utf-8'))
 			d = tempfile.NamedTemporaryFile(suffix='.zip', delete=False)
 			d.write(data)
 			d.close()
-			#zf = zipfile.ZipFile(d)
+
 
 	def initLoginCert(self):
 		answer = QtGui.QMessageBox.warning(

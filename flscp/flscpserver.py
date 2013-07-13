@@ -1045,7 +1045,8 @@ class ControlPanel:
 			data = f.read()
 
 		os.unlink(zfile.name)
-		return data
+		data = base64.b64encode(data)
+		return data.decode('utf-8')
 
 	def __addFilesZip(self, zip, fdir):
 		if fdir not in ['.', '..', 'certs']:
@@ -1268,10 +1269,6 @@ class FLSRequestHandler(SimpleXMLRPCRequestHandler):
 
 class FLSXMLRPCDispatcher(SimpleXMLRPCDispatcher):
 
-	def __init__(self, allow_none = False, encoding = None, use_builtin_types = False):
-		super().__init__(allow_none, encoding, use_builtin_types)
-
-
 	def _dispatch(self, method, params):
 		func = None
 		try:
@@ -1309,11 +1306,11 @@ class FLSXMLRPCServer(SimpleXMLRPCServer, FLSXMLRPCDispatcher):
 
 	_send_traceback_header = False
 
-	def __init__(self, privkey, pubkey, cacert, addr, requestHandler=FLSRequestHandler, logRequests=True, 
-			allow_none=False, encoding=None, bind_and_activate=True, use_builtin_types=True):
+	def __init__(self, privkey, pubkey, cacert, addr, requestHandler=FLSRequestHandler,
+					logRequests=True, allow_none=False, encoding=None, bind_and_activate=True):
 		self.logRequests = logRequests
 
-		FLSXMLRPCDispatcher.__init__(self, allow_none, encoding, use_builtin_types)
+		FLSXMLRPCDispatcher.__init__(self, allow_none, encoding)
 		socketserver.BaseServer.__init__(self, addr, requestHandler)
 		self.socket = ssl.wrap_socket(
 			socket.socket(self.address_family, self.socket_type),
