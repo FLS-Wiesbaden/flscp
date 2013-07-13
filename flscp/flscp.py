@@ -20,7 +20,7 @@ except ImportError:
 
 __author__  = 'Lukas Schreiner'
 __copyright__ = 'Copyright (C) 2013 - 2013 Website-Team Friedrich-List-Schule-Wiesbaden'
-__version__ = '0.1'
+__version__ = '0.2'
 
 FORMAT = '%(asctime)-15s %(message)s'
 formatter = logging.Formatter(FORMAT, datefmt='%b %d %H:%M:%S')
@@ -726,6 +726,9 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.start()
 
 	def updateVersion(self):
+		self.splash.showMessage('New Version available. Downloading...', color=QtGui.QColor(255, 255, 255))
+		self.splash.repaint()
+
 		try:
 			data = self.rpc.getCurrentVersion()
 		except xmlrpc.client.Fault as e:
@@ -738,6 +741,8 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
 			)
 		else:
+			self.splash.showMessage('New Version available. Installing...', color=QtGui.QColor(255, 255, 255))
+			self.splash.repaint()
 			# now save it!
 			data = base64.b64decode(data.encode('utf-8'))
 			d = tempfile.NamedTemporaryFile(suffix='.zip', delete=False)
@@ -746,7 +751,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			# open zip
 			zfile = zipfile.ZipFile(d.name, 'r')
 			# crc ok?
-			if zipfile.testzip() is not None:
+			if zfile.testzip() is not None:
 				log.warning('Corrupted update downloaded!')
 				QtGui.QMessageBox.warning(
 					self, _translate('MainWindow', 'Aktualisierung', None), 
@@ -755,6 +760,8 @@ class FLScpMainWindow(QtGui.QMainWindow):
 						None),
 					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
 				)
+				zfile.close()
+				os.unlink(d.name)
 				return
 
 			# do we have an build folder?
@@ -765,13 +772,15 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				extp = '.'
 			zfile.extractall(extp)
 			log.info('Update successful!')
-			QtGui.QMessageBox.info(
+			QtGui.QMessageBox.information(
 				self, _translate('MainWindow', 'Aktualisierung', None), 
 				_translate('MainWindow', 
 					'Das Control Panel wurde erfolgreich aktualisiert. Bitte starten Sie die Anwendung neu!', 
 					None),
 				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
 			)
+			zfile.close()
+			os.unlink(d.name)
 
 	def initLoginCert(self):
 		answer = QtGui.QMessageBox.warning(
