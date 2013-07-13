@@ -1305,11 +1305,11 @@ class FLSXMLRPCServer(SimpleXMLRPCServer, FLSXMLRPCDispatcher):
 
 	_send_traceback_header = False
 
-	def __init__(self, privkey, pubkey, cacert, addr, requestHandler=FLSRequestHandler,
-					logRequests=True, allow_none=False, encoding=None, bind_and_activate=True):
+	def __init__(self, privkey, pubkey, cacert, addr, requestHandler=FLSRequestHandler, logRequests=True, 
+			allow_none=False, encoding=None, bind_and_activate=True, use_builtin_types=True):
 		self.logRequests = logRequests
 
-		FLSXMLRPCDispatcher.__init__(self, allow_none, encoding)
+		FLSXMLRPCDispatcher.__init__(self, allow_none, encoding, use_builtin_types)
 		socketserver.BaseServer.__init__(self, addr, requestHandler)
 		self.socket = ssl.wrap_socket(
 			socket.socket(self.address_family, self.socket_type),
