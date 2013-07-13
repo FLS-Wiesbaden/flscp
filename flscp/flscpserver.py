@@ -210,16 +210,27 @@ class MailDatabase(Database):
 		return MailDatabase.__instance
 
 	def getCursor(self):
-		if not self.connected:
+		if not self.connected or not self.db.is_connected():
 			self.connect()
 
-		return self.db.cursor()
+		try:
+			return self.db.cursor()
+		except mysql.connector.errors.OperationalError as e:
+			log.error('Lost connection to mysql server (%s)' % (e,))
+			# try to reconnect
+			self.db.connected = False
+			self.connect()
+			if self.connected and self.db.is_connected():
+				return self.db.cursor()
+			else:
+				log.error('Could not reconnect!')
+				raise
 
 	def commit(self):
 		self.db.commit()
 
 	def connect(self):
-		if self.db is not None and self.db.is_connected():
+		if self.db is not None and self.db.is_connected() and self.connected:
 			return True
 		elif self.db is not None:
 			# try to reconnect!
@@ -235,25 +246,25 @@ class MailDatabase(Database):
 			else:
 				self.connected = True
 				log.info('Reconnected to mysql database!')
-
-		try:
-			self.db = mysql.connector.connect(
-				user=conf.get('database', 'user'), 
-				password=conf.get('database', 'password'),
-				host=conf.get('database', 'host'),
-				port=conf.getint('database', 'port'),
-				database=conf.get('database', 'name'),
-			)
-		except mysql.connector.Error as err:
-			if err.errno == mysql.connector.errorcode.ER_ACCESS_DENIED_ERROR:
-				log.error('Your credentials for mysql database is wrong!')
-			elif err.errno == mysql.connector.errorcode.ER_BAD_DB_ERROR:
-				log.warning('Database does not exist!')
-			else:
-				log.error('Unknown error when connecting to mysql server: %s' % (err,))
 		else:
-			self.connected = True
-			log.info('Connected to mysql database!')
+			try:
+				self.db = mysql.connector.connect(
+					user=conf.get('database', 'user'), 
+					password=conf.get('database', 'password'),
+					host=conf.get('database', 'host'),
+					port=conf.getint('database', 'port'),
+					database=conf.get('database', 'name'),
+				)
+			except mysql.connector.Error as err:
+				if err.errno == mysql.connector.errorcode.ER_ACCESS_DENIED_ERROR:
+					log.error('Your credentials for mysql database is wrong!')
+				elif err.errno == mysql.connector.errorcode.ER_BAD_DB_ERROR:
+					log.warning('Database does not exist!')
+				else:
+					log.error('Unknown error when connecting to mysql server: %s' % (err,))
+			else:
+				self.connected = True
+				log.info('Connected to mysql database!')
 
 	def close(self):
 		if self.connected and self.db.is_connected():
