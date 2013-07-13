@@ -65,6 +65,9 @@ $(buildDir)/$(PACKAGE)/ui_%.py: $(UI_DIR)/%.ui
 $(buildDir)/$(PACKAGE)/%_rc.py: $(RESOURCE_DIR)/%.qrc
 	$(PYRCC) -py3 $< -o $@
 
+version:
+	@echo `git rev-parse --abbrev-ref --short HEAD`/`git rev-parse --short HEAD` > $(buildDir)/$(PACKAGE)/VERSION
+
 clean:
 	$(RM) -rvf $(COMPILED_UI)
 	$(RM) -rvf $(COMPILED_RESOURCES)

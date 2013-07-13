@@ -13,8 +13,10 @@ from pwgen import generate_pass
 from threading import Thread
 from socketserver import UnixStreamServer
 from email.mime.text import MIMEText
+from distutils.version import StrictVersion as V
 import logging, os, sys, mysql.connector, shlex, subprocess, abc, copy, smtplib
 import ssl, re, socketserver, socket, io, pickle, configparser, base64, stat
+import zlib, tempfile
 import flscertification
 import bsddb3 as bsddb
 try:
@@ -24,6 +26,7 @@ except:
 
 __author__  = 'Lukas Schreiner'
 __copyright__ = 'Copyright (C) 2013 - 2013 Website-Team Friedrich-List-Schule-Wiesbaden'
+__version__ = '0.2'
 
 FORMAT = '%(asctime)-15s %(message)s'
 formatter = logging.Formatter(FORMAT, datefmt='%b %d %H:%M:%S')
@@ -1018,6 +1021,43 @@ class MailAccount:
 		return self
 
 class ControlPanel:
+
+	def upToDate(self, version):
+		cliVersion = V(version)
+		curVersion = V(__version__)
+
+		return cliVersion >= curVersion
+
+	def getCurrentVersion(self):
+		# check if we have build directory or not
+		base = ''
+		if os.path.exists('build' + os.sep):
+			base = 'build' + os.sep
+
+		# now create temp zip file
+		zfile = tempfile.NamedTemporaryFile(suffix='.zip', delete=False)
+		with zipfile.ZipFile(zfile, 'w') as verzip:
+			self.__addFilesZip(verzip, base)
+
+		zfile.close()
+		data = ''
+		with open(zfile.name, 'rb') as f:
+			data = f.read()
+
+		os.unlink(zfile.name)
+		return data
+
+	def __addFilesZip(self, zip, fdir):
+		if fdir not in ['.', '..', 'certs']:
+			for f in os.listdir(fdir):
+				p = os.path.join(fdir, f)
+				if os.path.isdir(p):
+					self.__addFilesZip(zip, p)
+				else:
+					arcname = p.replace('build' + os.sep, '')
+					if f.endswith('.ini'):
+						arcname = arcname.replace(f, f + '.example')
+					zip.write(p, arcname)
 
 	def getCerts(self):
 		data = flscertification.FLSCertificateList()

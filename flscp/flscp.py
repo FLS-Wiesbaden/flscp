@@ -11,6 +11,7 @@ from PyQt4 import QtCore
 from Printer import Printer
 from pytz import UTC
 import logging, os, sys, re, copy, uuid, zlib, xmlrpc.client, http.client, ssl, socket, datetime
+import tempfile, zipfile
 import flscertification
 try:
 	import OpenSSL
@@ -19,6 +20,7 @@ except ImportError:
 
 __author__  = 'Lukas Schreiner'
 __copyright__ = 'Copyright (C) 2013 - 2013 Website-Team Friedrich-List-Schule-Wiesbaden'
+__version__ = '0.1'
 
 FORMAT = '%(asctime)-15s %(message)s'
 formatter = logging.Formatter(FORMAT, datefmt='%b %d %H:%M:%S')
@@ -522,9 +524,11 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.ui.setupUi(self)
 		self.resizeModes = dict((x, n) for x, n in vars(QtGui.QHeaderView).items() if \
 				isinstance(n, QtGui.QHeaderView.ResizeMode))
-		self.ui.mailTable.horizontalHeader().setResizeMode(self.resizeModes['ResizeToContents'])
-		self.ui.adminTable.horizontalHeader().setResizeMode(self.resizeModes['ResizeToContents'])
+		self.ui.mailTable.horizontalHeader().setResizeMode(self.resizeModes['Stretch'])
+		self.ui.adminTable.horizontalHeader().setResizeMode(self.resizeModes['Stretch'])
 		self.ui.adminTable.hideColumn(0)
+
+		self.version = ''
 
 		self.mails = MailAccountList()
 		self.certs = flscertification.FLSCertificateList()
@@ -672,47 +676,73 @@ class FLScpMainWindow(QtGui.QMainWindow):
 
 				self.close()
 				return
+			self.rpc.__transport.timeout = timeout
+
+			# connection possible - now check the version
+			self.splash.showMessage('Check version...', color=QtGui.QColor(255, 255, 255))
+			self.splash.repaint()
+			upToDate = self.rpc.upToDate(__version__)
+			if not upToDate:
+				self.updateVersion()
+
+			# load the data!
+			self.splash.showMessage('Loading data...', color=QtGui.QColor(255, 255, 255))
+			self.splash.repaint()
+
+			# mails
+			try:
+				self.loadMails()
+			except xmlrpc.client.Fault as e:
+				log.critical('Could not load mails because of %s' % (e,))
+				QtGui.QMessageBox.critical(
+					self, _translate('MainWindow', 'Daten nicht ladbar', None), 
+					_translate('MainWindow', 
+						'Die E-Mail-Konten konnten nicht abgerufen werden.', 
+						None),
+					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+				)
 			else:
-				self.rpc.__transport.timeout = timeout
-				# connection possible!
-				self.splash.showMessage('Loading first data...', color=QtGui.QColor(255, 255, 255))
-				self.splash.repaint()
+				self.loadMailData()
 
-				# mails
-				try:
-					self.loadMails()
-				except xmlrpc.client.Fault as e:
-					log.critical('Could not load mails because of %s' % (e,))
-					QtGui.QMessageBox.critical(
-						self, _translate('MainWindow', 'Daten nicht ladbar', None), 
-						_translate('MainWindow', 
-							'Die E-Mail-Konten konnten nicht abgerufen werden.', 
-							None),
-						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
-					)
-				else:
-					self.loadMailData()
-
-				# certs
-				try:
-					self.loadCerts()
-				except xmlrpc.client.Fault as e:
-					log.critical('Could not load certificates because of %s' % (e,))
-					QtGui.QMessageBox.critical(
-						self, _translate('MainWindow', 'Daten nicht ladbar', None), 
-						_translate('MainWindow', 
-							'Die Zertifikate konnten nicht abgerufen werden.', 
-							None),
-						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
-					)
-				else:
-					self.loadCertData()
+			# certs
+			try:
+				self.loadCerts()
+			except xmlrpc.client.Fault as e:
+				log.critical('Could not load certificates because of %s' % (e,))
+				QtGui.QMessageBox.critical(
+					self, _translate('MainWindow', 'Daten nicht ladbar', None), 
+					_translate('MainWindow', 
+						'Die Zertifikate konnten nicht abgerufen werden.', 
+						None),
+					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+				)
+			else:
+				self.loadCertData()
 		else:
 			self.initLoginCert()
 
 		# disable splash screen!
 		self.splash.close()
 		self.start()
+
+	def updateVersion(self):
+		try:
+			data = self.rpc.getCurrentVersion()
+		except xmlrpc.client.Fault as e:
+			log.critical('Could not update the flscp because of %s' % (e,))
+			QtGui.QMessageBox.critical(
+				self, _translate('MainWindow', 'Aktualisierung', None), 
+				_translate('MainWindow', 
+					'Eine neue Version konnte nicht heruntergeladen werden.', 
+					None),
+				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+			)
+		else:
+			# now save it!
+			d = tempfile.NamedTemporaryFile(suffix='.zip', delete=False)
+			d.write(data)
+			d.close()
+			#zf = zipfile.ZipFile(d)
 
 	def initLoginCert(self):
 		answer = QtGui.QMessageBox.warning(
@@ -901,6 +931,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				)
 
 	def loadCertData(self):
+		self.ui.adminTable.setSortingEnabled(False)
 		self.ui.adminTable.setRowCount(0)
 
 		for cert in self.certs:
@@ -943,6 +974,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				item.setText(_translate("MainWindow", "Unbekannt", None))
 			item.setIcon(icon)
 			self.ui.adminTable.setItem(rowNr, 4, item)
+		self.ui.adminTable.setSortingEnabled(True)
 
 	def loadMails(self):
 		self.mails = MailAccountList()
@@ -1289,6 +1321,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.disableProgressBar()
 
 	def loadMailData(self):
+		self.ui.mailTable.setSortingEnabled(False)
 		self.ui.mailTable.setRowCount(0)
 
 		for row in self.mails:
@@ -1300,6 +1333,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			except Exception as e:
 				log.warning('%s' % (e,))
 				return
+			item.setTextAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
 			self.ui.mailTable.setItem(rowNr, 0, item)
 			# mail
 			item = QtGui.QTableWidgetItem()
@@ -1336,6 +1370,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				item.setText(_translate("MainWindow", "Unbekannt", None))
 			item.setIcon(icon)
 			self.ui.mailTable.setItem(rowNr, 3, item)
+		self.ui.mailTable.setSortingEnabled(True)
 
 	@pyqtSlot()
 	def addMail(self):
