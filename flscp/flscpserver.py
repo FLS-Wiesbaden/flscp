@@ -16,7 +16,7 @@ from email.mime.text import MIMEText
 from distutils.version import StrictVersion as V
 import logging, os, sys, mysql.connector, shlex, subprocess, abc, copy, smtplib
 import ssl, re, socketserver, socket, io, pickle, configparser, base64, stat
-import zlib, tempfile
+import zipfile, tempfile
 import flscertification
 import bsddb3 as bsddb
 try:
