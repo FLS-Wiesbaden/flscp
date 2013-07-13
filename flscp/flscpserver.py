@@ -1268,6 +1268,10 @@ class FLSRequestHandler(SimpleXMLRPCRequestHandler):
 
 class FLSXMLRPCDispatcher(SimpleXMLRPCDispatcher):
 
+	def __init__(self, allow_none = False, encoding = None, use_builtin_types = False):
+		super().__init__(allow_none, encoding, use_builtin_types)
+
+
 	def _dispatch(self, method, params):
 		func = None
 		try:
