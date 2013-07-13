@@ -743,7 +743,35 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			d = tempfile.NamedTemporaryFile(suffix='.zip', delete=False)
 			d.write(data)
 			d.close()
+			# open zip
+			zfile = zipfile.ZipFile(d.name, 'r')
+			# crc ok?
+			if zipfile.testzip() is not None:
+				log.warning('Corrupted update downloaded!')
+				QtGui.QMessageBox.warning(
+					self, _translate('MainWindow', 'Aktualisierung', None), 
+					_translate('MainWindow', 
+						'Das Update konnte nicht verifiziert werden (CRC Fehler)', 
+						None),
+					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+				)
+				return
 
+			# do we have an build folder?
+			if os.path.exists('build' + os.sep):
+				# yes, we have!
+				extp = 'build' + os.sep + 'flscp' + os.sep
+			else:
+				extp = '.'
+			zfile.extractall(extp)
+			log.info('Update successful!')
+			QtGui.QMessageBox.info(
+				self, _translate('MainWindow', 'Aktualisierung', None), 
+				_translate('MainWindow', 
+					'Das Control Panel wurde erfolgreich aktualisiert. Bitte starten Sie die Anwendung neu!', 
+					None),
+				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+			)
 
 	def initLoginCert(self):
 		answer = QtGui.QMessageBox.warning(

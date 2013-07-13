@@ -1055,7 +1055,7 @@ class ControlPanel:
 				if os.path.isdir(p):
 					self.__addFilesZip(zip, p)
 				else:
-					arcname = p.replace('build' + os.sep, '')
+					arcname = p.replace('build' + os.sep + 'flscp' + os.sep, '')
 					if f.endswith('.ini'):
 						arcname = arcname.replace(f, f + '.example')
 					zip.write(p, arcname)
