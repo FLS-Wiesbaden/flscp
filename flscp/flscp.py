@@ -1438,7 +1438,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 
 	@pyqtSlot()
 	def deleteMail(self):
-		nrSelected = len(selectedRow in self.ui.mailTable.selectionModel().selectedRows())
+		nrSelected = len(self.ui.mailTable.selectionModel().selectedRows())
 		log.info('Have to delete %i items!' % (nrSelected,))
 
 		for selectedRow in self.ui.mailTable.selectionModel().selectedRows():

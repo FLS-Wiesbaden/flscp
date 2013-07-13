@@ -299,7 +299,7 @@ class Mailer:
 				'username': '%s@%s' % (self.account.mail,self.account.domain),
 				'password': self.account.pw,
 				'forwarders': ', '.join(self.account.forward) if len(self.account.forward) > 0 else mailContent['params']['noforward'],
-				'notgenerated': mailContent['params']['notgenerated'] if self.account.genPw else ''
+				'notgenerated': mailContent['params']['notgenerated'] if not self.account.genPw else ''
 			},
 			_charset='utf-8'
 		)
@@ -444,7 +444,7 @@ class Mailer:
 					mailContent['params'][f[2:][::-1]] = '\n'.join(parm)
 					search = None
 					parm = []
-				else: 
+				else:
 					parm.append(f)
 
 		return mailContent

@@ -26,6 +26,7 @@ RSYNCPARM = -rupE
 all: createDir debug libs templates
 
 run: all
+	rm /var/run/flscp.sock
 	$(PYTHON) $(PYPARM) $(buildDir)/$(PACKAGE)/flscp.py
 
 server: all

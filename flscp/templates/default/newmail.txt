@@ -32,7 +32,7 @@ oder
 
 Wir empfehlen Ihnen Ihre E-Mails aus Sicherheitsgründen über die zweite 
 Adresse abzurufen. Sie werden beim Aufruf eine Zertifikatswarnung 
-"Es besteeht ein Problem mit dem Sicherheitszertifikat der Website. 
+"Es besteht ein Problem mit dem Sicherheitszertifikat der Website. 
 Es wird empfohlen, dass Sie diese Website schliessen." bzw. "Das 
 Sicherheitszertifikat der Website ist nicht vertrauenswürdig!".
 
@@ -60,4 +60,4 @@ nicht
 # detarenegton
 # noforward
 keine Weiterleitungen konfiguriert
-# noforward
+# drawrofon
