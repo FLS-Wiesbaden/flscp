@@ -1027,14 +1027,14 @@ class MailAccount:
 				db.add(self.credentialsKey(), self.pw)
 
 	@classmethod
-	def getByEMail(ma, mail):
+	def getByEMail(self, mail):
 		ma = MailAccount()
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
 		query = ('SELECT * FROM mail_users WHERE mail_addr = %s')
 		cx.execute(query, ('%s' % (mail,),))
 		try:
-			(mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, quota, mail_addr, alternative_addr, authcode, authvalid) = cx.fetchone()
+			(mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, quota, mail_addr, alternative_addr, authcode, authvalid,) = cx.fetchone()
 			ma.id = mail_id
 			ma.quota = quota
 			ma.mail = mail_acc,
@@ -1045,12 +1045,14 @@ class MailAccount:
 			ma.status = status
 			ma.authCode = authcode
 			ma.authValid = None if authvalid is None else datetime.strptime(authvalid, '%Y-%m-%d %H:%M:%S')
+			print(type(alternative_addr), type(ma.altMail))
 		except:
 			cx.close()
 			return None
 		else:
 			cx.close()
-			return ma
+			self = ma
+			return self
 
 	def __eq__(self, obj):
 		log.debug('Compare objects!!!')
@@ -1148,8 +1150,6 @@ class ControlPanel:
 		for cert in certList:
 			if cert.state == flscertification.FLSCertificate.STATE_DELETE:
 				if cert in fullList:
-					print(vars(cert))
-					print(cert.__hash__())
 					fullList.remove(cert)
 				else:
 					log.info('Certificate is not in list,... ')
