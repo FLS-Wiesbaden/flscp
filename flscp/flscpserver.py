@@ -16,7 +16,7 @@ from email.mime.text import MIMEText
 from distutils.version import StrictVersion as V
 import logging, os, sys, mysql.connector, shlex, subprocess, abc, copy, smtplib
 import ssl, re, socketserver, socket, io, pickle, configparser, base64, stat
-import zipfile, tempfile
+import zipfile, tempfile, datetime, hashlib, random
 import flscertification
 import bsddb3 as bsddb
 try:
@@ -353,6 +353,49 @@ class Mailer:
 
 		return Mailer.sendMail(msg, mailContent['sender'], self.account.altMail)
 
+	def sendPasswordLink(self):
+		# exist custom template?
+		mailContent = Mailer.getMail('sendpwlink')
+		if mailContent is None:
+			log.warning('Could not load mail "sendpwlink"!')
+			return False
+
+		msg = MIMEText(
+			mailContent['body'] % {
+				'username': '%s@%s' % (self.account.mail,self.account.domain),
+				'authcode': '%s' % (self.account.authCode,),
+				'authvalid': self.account.authValid.strftime('%d.%m.%Y %H:%M:%S')
+			},
+			_charset='utf-8'
+		)
+
+		msg['Subject'] = mailContent['subject']
+		msg['From'] = mailContent['sender']
+		msg['To'] = self.account.altMail
+
+		return Mailer.sendMail(msg, mailContent['sender'], self.account.altMail)
+
+	def sendNewPassword(self):
+		# exist custom template?
+		mailContent = Mailer.getMail('sendpw')
+		if mailContent is None:
+			log.warning('Could not load mail "sendpw"!')
+			return False
+
+		msg = MIMEText(
+			mailContent['body'] % {
+				'username': '%s@%s' % (self.account.mail,self.account.domain),
+				'password': '%s' % (self.account.pw,)
+			},
+			_charset='utf-8'
+		)
+
+		msg['Subject'] = mailContent['subject']
+		msg['From'] = mailContent['sender']
+		msg['To'] = self.account.altMail
+
+		return Mailer.sendMail(msg, mailContent['sender'], self.account.altMail)
+
 	def changeForward(self):
 		# exist custom template?
 		mailContent = Mailer.getMail('changeforward')
@@ -544,12 +587,32 @@ class MailAccount:
 		self.genPw = False
 		self.altMail = ''
 		self.forward = []
+		self.authCode = None
+		self.authValid = None
 
 	def getMailAddress(self):
 		return '%s@%s' % (self.mail, self.domain)
 
 	def generateId(self):
 		self.id = 'Z%s' % (str(zlib.crc32(uuid.uuid4().hex.encode('utf-8')))[0:3],)
+
+	def createAuthCode(self):
+		self.authCode = hashlib.md5(str(hash(random.SystemRandom().uniform(0, 1000))).encode('utf-8')).hexdigest()
+		self.authValid = datetime.datetime.now() + datetime.timedelta(hours=2)
+
+		db = MailDatabase.getInstance()
+		try:
+			cx = db.getCursor()
+			query = (
+				'UPDATE mail_users SET authcode = %s, authvalid = %s WHERE mail_id = %s'
+			)
+			cx.execute(query, (self.authCode, self.authValid.strftime('%Y-%m-%d %H:%M:%S'), self.id))
+			db.commit()
+			cx.close()
+		except:
+			return False
+		else:
+			return True
 
 	# this is not allowed on client side! Only here....
 	def changePassword(self, pwd):
@@ -558,7 +621,9 @@ class MailAccount:
 		db = MailDatabase.getInstance()
 		try:
 			cx = db.getCursor()
-			query = ('UPDATE mail_users SET mail_pass = %s WHERE mail_id = %s')
+			query = (
+				'UPDATE mail_users SET mail_pass = %s, authcode = NULL, authvalid = NULL WHERE mail_id = %s'
+			)
 			cx.execute(query, (self.hashPw, self.id))
 			db.commit()
 			cx.close()
@@ -969,7 +1034,7 @@ class MailAccount:
 		query = ('SELECT * FROM mail_users WHERE mail_addr = %s')
 		cx.execute(query, ('%s' % (mail,),))
 		try:
-			(mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, quota, mail_addr, alternative_addr) = cx.fetchone()
+			(mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, quota, mail_addr, alternative_addr, authcode, authvalid) = cx.fetchone()
 			ma.id = mail_id
 			ma.quota = quota
 			ma.mail = mail_acc,
@@ -978,6 +1043,8 @@ class MailAccount:
 			ma.forward = mail_forward.split(',')
 			ma.type = MailAccount.TYPE_ACCOUNT if mail_type == 'account' else MailAccount.TYPE_FORWARD
 			ma.status = status
+			ma.authCode = authcode
+			ma.authValid = None if authvalid is None else datetime.strptime(authvalid, '%Y-%m-%d %H:%M:%S')
 		except:
 			cx.close()
 			return None
@@ -1196,6 +1263,17 @@ class FLSUnixRequestHandler(socketserver.BaseRequestHandler):
 				msg = '200 - ok'
 			else:
 				msg = '403 - not successful!'
+		elif cmd == 'forgotpw':
+			if self.forgotpw(data):
+				msg = '200 - ok'
+			else:
+				msg = '403 - not successful!'
+		elif cmd == 'sendpw':
+			# sends a new password after forgotpw was confirmed!
+			if self.sendpw(data):
+				msg = '200 - ok'
+			else:
+				msg = '403 - not successful!'
 			pass
 
 		return msg.encode('utf-8')
@@ -1215,6 +1293,66 @@ class FLSUnixRequestHandler(socketserver.BaseRequestHandler):
 			return False
 
 		return maccount.changePassword(pwd)
+
+	def forgotpw(self, data):
+		# <mail/username> <alternative addr>
+		try:
+			(mail, alt) = data.split(' ', 1)
+		except:
+			return False
+
+		if len(mail.strip()) <= 0 or len(alt.strip()) <= 0:
+			return False
+
+		maccount = MailAccount.getByEMail(mail)
+		if maccount is None:
+			return False
+
+		# now check alternative addr
+		if maccount.altMail != alt:
+			return False
+
+		# now check if it is really an account!
+		if maccount.type != MailAccount.TYPE_ACCOUNT:
+			return False
+
+		# now create auth code and send mail!
+		if maccount.createAuthCode():
+			m = Mailer(maccount)
+			return m.sendPasswordLink()
+		else:
+			return False
+
+
+	def sendpw(self, data):
+		# <mail/username> <authcode>
+		try:
+			(mail, authcode) = data.split(' ', 1)
+		except:
+			return False
+
+		if len(mail.strip()) <= 0 or len(authcode.strip()) <= 0:
+			return False
+
+		maccount = MailAccount.getByEMail(mail)
+		if maccount is None:
+			return False
+
+		# now check auth code
+		if maccount.authCode != authcode:
+			return False
+
+		# now check valid date!
+		if maccount.authValid is None or maccount.authValid < datetime.datetime.now():
+			return False
+
+		# now send new pw!
+		maccount.generatePassword()
+		if maccount.changePassword(maccount.pw):
+			m = Mailer(maccount)
+			return m.sendNewPassword()
+		else:
+			return False
 
 class FLSRequestHandler(SimpleXMLRPCRequestHandler):
 	rpc_paths = ('/RPC2',)

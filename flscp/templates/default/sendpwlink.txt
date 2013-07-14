@@ -2,36 +2,30 @@
 website-team@fls-wiesbaden.de
 # REDNES
 # SUBJECT
-[FLS] Ihr E-Mail-Postfach wurde geändert.
+[FLS] Ein neues Kennwort wurde angefordert
 # TCEJBUS
 # BODY
 Guten Tag,
 
-ein Administrator des Website-Teams der Friedrich-List-Schule
-Wiesbaden hat Ihr bestehendes E-Mail-Postfach abgeändert.
+Sie oder ein anderer Benutzer hat ein neues Kennwort für Ihr
+E-Mail-Konto der Friedrich-List-Schule Wiesbaden angefordert.
 
-Aus Sicherheitsgründen erhalten Sie diese E-Mail mit den aktuell
-hinterlegten Informationen. 
+Aus Sicherheitsgründen erhalten Sie diese E-Mail zur Bestätigung
+der Anfrage. 
 
-Ihre E-Mail-Adresse und Benutzername:
+Es geht um folgende E-Mail-Adresse:
 %(username)s
 
-Ihr Kennwort:
-%(password)s
+Sollten Sie kein neues Kennwort angefordert haben, ignorieren Sie bitte
+diese E-Mail. Die Anfrage erlischt automatisch nach einer gewissen Zeit.
 
-Eingerichtete Weiterleitungen:
-%(forwarders)s
+Nur wenn Sie ein neues Kennwort angefordert haben, klicken Sie auf den
+nachfolgenden Link:
+https://webmail.fls-wiesbaden.de/?action...&email=%(username)s&code=%(authcode)s
 
+Der Bestätigungslink ist gültig bis %(authvalid)s.
 
-Zu Ihrer Erinnerung:
-
-Die Webmail-Applikation erreichen Sie wahlweise unter
-	http://webmail.fls-wiesbaden.de
-oder
-	https://webmail.fls-wiesbaden.de
-
-Wir empfehlen Ihnen Ihre E-Mails aus Sicherheitsgründen über die zweite 
-Adresse abzurufen. Sie erhalten beim Aufruf gegebenenfalls eine Zertifikatswarnung 
+Sie erhalten beim Aufruf des oben genannten Links gegebenenfalls eine Zertifikatswarnung 
 "Es besteht ein Problem mit dem Sicherheitszertifikat der Website. 
 Es wird empfohlen, dass Sie diese Website schliessen." bzw. "Das 
 Sicherheitszertifikat der Website ist nicht vertrauenswürdig!".
@@ -55,9 +49,3 @@ E-Mail  : info@fls-wiesbaden.de
 Website-Team: website-team@fls-wiesbaden.de
 Internet: www.fls-wiesbaden.de
 # YDOB
-# notchanged
-unverändert
-# degnahcton
-# noforward
-keine Weiterleitungen konfiguriert
-# drawrofon

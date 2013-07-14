@@ -1,0 +1,35 @@
+# SENDER
+website-team@fls-wiesbaden.de
+# REDNES
+# SUBJECT
+[FLS] Ihr neues E-Mail-Kennwort
+# TCEJBUS
+# BODY
+Guten Tag,
+
+Sie oder ein anderer Benutzer hat ein neues Kennwort für Ihr
+E-Mail-Konto der Friedrich-List-Schule Wiesbaden angefordert und
+die Kennwort-Abfrage über Ihre alternative E-Mail-Adresse bestätigt.
+
+Mit dieser E-Mail erhalten Sie Ihr neues Kennwort. Es wurde automatisch 
+generiert. Trotzdem empfehlen wir Ihnen das Kennwort im Webinterface zu ändern.
+
+Es geht um folgende E-Mail-Adresse:
+%(username)s
+
+Ihr neues Kennwort:
+%(password)s
+
+Mit freundlichen Grüßen,
+Ihr Website-Team
+---
+Friedrich-List-Schule Wiesbaden
+Brunhildenstraße 142
+65189 Wiesbaden
+
+Telefon : 0611-315100
+Telefax : 0611-313989
+E-Mail  : info@fls-wiesbaden.de
+Website-Team: website-team@fls-wiesbaden.de
+Internet: www.fls-wiesbaden.de
+# YDOB

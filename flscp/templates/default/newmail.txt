@@ -31,7 +31,7 @@ oder
 	https://webmail.fls-wiesbaden.de
 
 Wir empfehlen Ihnen Ihre E-Mails aus Sicherheitsgründen über die zweite 
-Adresse abzurufen. Sie werden beim Aufruf eine Zertifikatswarnung 
+Adresse abzurufen. Sie erhalten gegebenenfalls beim Aufruf eine Zertifikatswarnung 
 "Es besteht ein Problem mit dem Sicherheitszertifikat der Website. 
 Es wird empfohlen, dass Sie diese Website schliessen." bzw. "Das 
 Sicherheitszertifikat der Website ist nicht vertrauenswürdig!".
