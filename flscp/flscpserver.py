@@ -1299,21 +1299,28 @@ class FLSUnixRequestHandler(socketserver.BaseRequestHandler):
 		try:
 			(mail, alt) = data.split(' ', 1)
 		except:
+			log.warning('Could not parse "new password request"!')
 			return False
+		else:
+			log.info('New password request for %s (%s)' % (mail, alt))
 
 		if len(mail.strip()) <= 0 or len(alt.strip()) <= 0:
+			log.info('Given mail (%s) or alternative mail (%s) is invalid given!' % (mail, alt))
 			return False
 
 		maccount = MailAccount.getByEMail(mail)
 		if maccount is None:
+			log.info('Could not find a valid mail account for %s' % (mail,))
 			return False
 
 		# now check alternative addr
 		if maccount.altMail != alt:
+			log.info('Alternative Mail %s is wrong!' % (alt,))
 			return False
 
 		# now check if it is really an account!
 		if maccount.type != MailAccount.TYPE_ACCOUNT:
+			log.info('Can not request a new password for forwarding mails (%s)' % (mail,))
 			return False
 
 		# now create auth code and send mail!
@@ -1321,6 +1328,7 @@ class FLSUnixRequestHandler(socketserver.BaseRequestHandler):
 			m = Mailer(maccount)
 			return m.sendPasswordLink()
 		else:
+			log.warning('Could not create auth code for %s!' % (mail,))
 			return False
 
 
