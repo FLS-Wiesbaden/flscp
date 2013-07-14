@@ -1044,7 +1044,7 @@ class MailAccount:
 			ma.type = MailAccount.TYPE_ACCOUNT if mail_type == 'account' else MailAccount.TYPE_FORWARD
 			ma.status = status
 			ma.authCode = authcode
-			ma.authValid = None if authvalid is None else datetime.strptime(authvalid, '%Y-%m-%d %H:%M:%S')
+			ma.authValid = None if authvalid is None else datetime.datetime.strptime(authvalid, '%Y-%m-%d %H:%M:%S')
 		except:
 			cx.close()
 			return None
