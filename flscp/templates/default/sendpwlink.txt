@@ -21,7 +21,7 @@ diese E-Mail. Die Anfrage erlischt automatisch nach einer gewissen Zeit.
 
 Nur wenn Sie ein neues Kennwort angefordert haben, klicken Sie auf den
 nachfolgenden Link:
-https://webmail.fls-wiesbaden.de/?action...&email=%(username)s&code=%(authcode)s
+https://webmail.fls-wiesbaden.de/?_task=login&_action=plugin.confirm_forgotpw_link&_user=%(username)s&_code=%(authcode)s
 
 Der Bestätigungslink ist gültig bis %(authvalid)s.
 
