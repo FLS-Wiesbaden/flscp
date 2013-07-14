@@ -1315,7 +1315,7 @@ class FLSUnixRequestHandler(socketserver.BaseRequestHandler):
 
 		# now check alternative addr
 		if maccount.altMail != alt:
-			log.info('Alternative Mail %s is wrong!' % (alt,))
+			log.info('Alternative Mail %s is wrong (expected: %s)!' % (alt, maccount.altMail))
 			return False
 
 		# now check if it is really an account!
