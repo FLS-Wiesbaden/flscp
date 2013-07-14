@@ -1037,15 +1037,14 @@ class MailAccount:
 			(mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, quota, mail_addr, alternative_addr, authcode, authvalid,) = cx.fetchone()
 			ma.id = mail_id
 			ma.quota = quota
-			ma.mail = mail_acc,
-			ma.domain = mail_addr.split('@')[1],
-			ma.altMail = alternative_addr,
+			ma.mail = mail_acc
+			ma.domain = mail_addr.split('@')[1]
+			ma.altMail = alternative_addr
 			ma.forward = mail_forward.split(',')
 			ma.type = MailAccount.TYPE_ACCOUNT if mail_type == 'account' else MailAccount.TYPE_FORWARD
 			ma.status = status
 			ma.authCode = authcode
 			ma.authValid = None if authvalid is None else datetime.strptime(authvalid, '%Y-%m-%d %H:%M:%S')
-			print(type(alternative_addr), type(ma.altMail))
 		except:
 			cx.close()
 			return None
