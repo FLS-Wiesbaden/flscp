@@ -15,7 +15,7 @@ RESOURCE_DIR = $(PACKAGE)/res
 UI_DIR = $(PACKAGE)/ui
 python_PYTHON = $(PYTHONS)
 
-COMPILED_UI = $(UI_FILES:%.ui=$(buildDir)/$(PACKAGE)/ui_%.py)
+COMPILED_UI = $(UI_FILES:%.ui=$(buildDir)/$(PACKAGE)/ui/ui_%.py)
 COMPILED_RESOURCES = $(RESOURCES:%.qrc=$(buildDir)/$(PACKAGE)/%_rc.py)
 COMPILED_PYTHONS = $(PYTHONS:%.py=$(buildDir)/%.py)
 COMPILED_PYTHON_MODS = $(PYTHON_MODULS:%.py=$(buildDir)/%.py)

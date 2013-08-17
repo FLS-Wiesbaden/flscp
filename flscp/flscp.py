@@ -36,7 +36,7 @@ workDir = os.path.dirname(os.path.realpath(__file__))
 
 ##### CONFIGURE #####
 # connection
-RPCHOST 		= '127.0.0.1' 
+RPCHOST 		= 'cp.lschreiner.de' 
 RPCPORT 		= 10027
 RPCPATH			= 'RPC2'
 # ssl connection
@@ -578,7 +578,20 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			self.rpc.__transport.timeout = 1
 			try:
 				p = self.rpc.ping()
+			except ssl.SSLError as e:
+				log.debug('Connection not possible: %s' % (e,))
+				QtGui.QMessageBox.critical(
+					self, _translate('MainWindow', 'Verbindung nicht möglich', None), 
+					_translate('MainWindow', 
+						'Möglicher Angriffsversuch: die SSL-gesicherte Verbindung ist aus Sicherheitsgründen abgebrochen worden.', 
+						None),
+					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+				)
+
+				self.close()
+				return
 			except socket.error as e:
+				log.debug('Connection not possible: %s' % (e,))
 				QtGui.QMessageBox.critical(
 					self, _translate('MainWindow', 'Verbindung nicht möglich', None), 
 					_translate('MainWindow', 

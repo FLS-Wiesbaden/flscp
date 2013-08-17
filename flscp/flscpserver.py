@@ -14,7 +14,7 @@ from socketserver import UnixStreamServer
 from distutils.version import StrictVersion as V
 import logging, os, sys, shlex, subprocess, smtplib
 import ssl, re, socketserver, socket, io, pickle, configparser, base64, stat
-import zipfile, tempfile, datetime
+import zipfile, tempfile, datetime, json
 from database import MailDatabase, SaslDatabase
 from flsconfig import FLSConfig
 from modules.flscertification import *
@@ -267,8 +267,22 @@ class FLSUnixRequestHandler(socketserver.BaseRequestHandler):
 			else:
 				msg = '403 - not successful!'
 			pass
+		elif cmd == 'auth':
+			data = json.loads(data)
+			retData = self.authenticate(data)
+			msg = '200 - ' if retData is not None else '403 - '
+			msg = '%s%s' % (msg, json.dumps(retData) if retData is not None else json.dumps({}))
 
 		return msg.encode('utf-8')
+
+	def authenticate(self, data):
+		authMech = data['AUTH_MECH']
+		userName = data['AUTH_USER']
+		password = data['AUTH_PASSWORD']
+
+		maccount = MailAccount.getByEMail(userName)
+		maccount.authenticate(authMech, password)
+		pass
 
 	def chgpwd(self, data):
 		# <username> <pwd>

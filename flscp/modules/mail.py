@@ -126,6 +126,40 @@ class MailAccount:
 		else:
 			return True
 
+	def authenticate(self, mech, pwd):
+		data = {
+			'userdb_user': '',
+			'userdb_home': '',
+			'userdb_uid': '',
+			'userdb_gid': '',
+			'userdb_mail': ''
+		}
+		localPartDir = os.path.join(self.conf.get('mailserver', 'basemailpath'), 'virtual')
+		homeDir = os.path.join(localPartDir, self.domain, self.mail)
+		if self.hashPw == '_no_':
+			return False
+		
+		s = SaltEncryption()
+
+		if mech in ['PLAIN', 'LOGIN']:
+			state = s.compare(pwd, self.hashPw)
+		else:
+			state = False
+
+		if state:
+			username = ('%s@%s' % (self.mail, self.domain)).lower()
+			data['userdb_user'] = username
+			data['userdb_home'] = homeDir
+			data['userdb_uid'] = self.config.get('mailserver', 'uid')
+			data['userdb_gid'] = self.config.get('mailserver', 'gid')
+			data['userdb_mail'] = 'maildir:%s' % (username,)
+
+			return data
+
+		else:
+			return False
+
+
 	# this is not allowed on client side! Only here....
 	def changePassword(self, pwd):
 		self.pw = pwd
@@ -550,6 +584,7 @@ class MailAccount:
 			ma.id = mail_id
 			ma.quota = quota
 			ma.mail = mail_acc
+			ma.hashPw = mail_pass
 			ma.domain = mail_addr.split('@')[1]
 			ma.altMail = alternative_addr
 			ma.forward = mail_forward.split(',')
