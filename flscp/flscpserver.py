@@ -461,7 +461,7 @@ class FLSXMLRPCServer(SimpleXMLRPCServer, FLSXMLRPCDispatcher):
 	_send_traceback_header = False
 
 	def __init__(self, privkey, pubkey, cacert, addr, requestHandler=FLSRequestHandler,
-					logRequests=True, allow_none=False, encoding=None, bind_and_activate=True):
+					logRequests=True, allow_none=True, encoding=None, bind_and_activate=True):
 		self.logRequests = logRequests
 
 		FLSXMLRPCDispatcher.__init__(self, allow_none, encoding)

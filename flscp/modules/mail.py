@@ -6,6 +6,8 @@ import random
 import datetime
 import logging
 import copy
+import zlib
+import uuid
 from database import MailDatabase, SaslDatabase
 from flsconfig import FLSConfig
 from modules.domain import Domain
@@ -99,8 +101,6 @@ class MailAccount:
 		self.forward = []
 		self.authCode = None
 		self.authValid = None
-		self.log = logging.getLogger('flscp')
-		self.conf = FLSConfig.getInstance()
 
 	def getMailAddress(self):
 		return '%s@%s' % (self.mail, self.domain)
@@ -127,6 +127,7 @@ class MailAccount:
 			return True
 
 	def authenticate(self, mech, pwd):
+		conf = FLSConfig.getInstance()
 		data = {
 			'userdb_user': '',
 			'userdb_home': '',
@@ -134,7 +135,7 @@ class MailAccount:
 			'userdb_gid': '',
 			'userdb_mail': ''
 		}
-		localPartDir = os.path.join(self.conf.get('mailserver', 'basemailpath'), 'virtual')
+		localPartDir = os.path.join(conf.get('mailserver', 'basemailpath'), 'virtual')
 		homeDir = os.path.join(localPartDir, self.domain, self.mail)
 		if self.hashPw == '_no_':
 			return False
@@ -150,8 +151,8 @@ class MailAccount:
 			username = ('%s@%s' % (self.mail, self.domain)).lower()
 			data['userdb_user'] = username
 			data['userdb_home'] = homeDir
-			data['userdb_uid'] = self.config.get('mailserver', 'uid')
-			data['userdb_gid'] = self.config.get('mailserver', 'gid')
+			data['userdb_uid'] = config.get('mailserver', 'uid')
+			data['userdb_gid'] = config.get('mailserver', 'gid')
 			data['userdb_mail'] = 'maildir:%s' % (username,)
 
 			return data
@@ -188,10 +189,14 @@ class MailAccount:
 
 	# this is not allowed on client side! Only here....
 	def generatePassword(self):
-		self.log.info('Generating password for user %s' % (self.mail,))
+		log = logging.getLogger('flscp')
+		log.info('Generating password for user %s' % (self.mail,))
 		self.pw = generate_pass(12)
 
 	def save(self):
+		log = logging.getLogger('flscp')
+		conf = FLSConfig.getInstance()
+
 		if self.state == MailAccount.STATE_CREATE:
 			self.create()
 			return
@@ -214,7 +219,7 @@ class MailAccount:
 
 		# pw entered?
 		if len(self.pw.strip()) > 0:
-			self.log.info('Hash password for user %s' % (self.mail,))
+			log.info('Hash password for user %s' % (self.mail,))
 			self.hashPassword()
 
 		db = MailDatabase.getInstance()
@@ -253,7 +258,7 @@ class MailAccount:
 			params
 		)
 		db.commit()
-		self.log.debug('executed mysql statement: %s' % (cx.statement,))
+		log.debug('executed mysql statement: %s' % (cx.statement,))
 
 		# update credentials...
 		# if pw was entered or type changed
@@ -279,18 +284,18 @@ class MailAccount:
 
 		# rename folders - but only if target directory does not exist
 		# (we had to throw fatal error if target directory exists!)
-		oldPath = '%s/%s/%s/' % (self.conf.get('mailserver', 'basemailpath'), domain, mail)
-		path = '%s/%s/%s/' % (self.conf.get('mailserver', 'basemailpath'), self.domain, self.mail)
+		oldPath = '%s/%s/%s/' % (conf.get('mailserver', 'basemailpath'), domain, mail)
+		path = '%s/%s/%s/' % (conf.get('mailserver', 'basemailpath'), self.domain, self.mail)
 		if os.path.exists(oldPath):
 			if os.path.exists(path):
-				self.log.error('Could not move "%s" to "%s", because it already exists!' % (path,))
+				log.error('Could not move "%s" to "%s", because it already exists!' % (path,))
 			else:
 				try:
 					os.rename(oldPath, path)
 				except OSError as e:
-					self.log.warning('Got OSError - Does directory exists? (%s)' % (e,))
+					log.warning('Got OSError - Does directory exists? (%s)' % (e,))
 				except Exception as e:
-					self.log.warning('Got unexpected exception (%s)!' % (e,))
+					log.warning('Got unexpected exception (%s)!' % (e,))
 
 		cx.close()
 
@@ -307,11 +312,11 @@ class MailAccount:
 				state = m.changeForward()
 
 			if state:
-				self.log.info('User is notified about account change!')
+				log.info('User is notified about account change!')
 			else:
-				self.log.warning('Unknown error while notifying user!')
+				log.warning('Unknown error while notifying user!')
 		else:
-			self.log.info('User is not notified because we have no address of him!')
+			log.info('User is not notified because we have no address of him!')
 
 		# reset info
 		self.pw = ''
@@ -319,6 +324,9 @@ class MailAccount:
 		self.genPw = False
 
 	def delete(self):
+		log = logging.getLogger('flscp')
+		conf = FLSConfig.getInstance()
+
 		# delete!		
 		# 1. remove credentials
 		# 2. remove entry from /etc/postfix/fls/aliases
@@ -339,12 +347,12 @@ class MailAccount:
 			cx.execute(query, (self.id,))
 			for (mail_id, mail_addr,) in cx:
 				(mail, domain) = mail_addr.split('@')
-				path = '%s/%s/%s/' % (self.conf.get('mailserver', 'basemailpath'), domain, mail) 
+				path = '%s/%s/%s/' % (conf.get('mailserver', 'basemailpath'), domain, mail) 
 				if os.path.exists(path):
 					try:
 						os.removedirs(path)
 					except Exception as e:
-						self.log.warning('Error when removing directory: %s' % (e,))
+						log.warning('Error when removing directory: %s' % (e,))
 
 			query = ('DELETE FROM mail_users WHERE mail_id = %s')
 			cx.execute(query, (self.id,))
@@ -361,6 +369,7 @@ class MailAccount:
 		return exists
 
 	def create(self):
+		log = logging.getLogger('flscp')
 		# create:
 		# 1. update mail_users
 		# 2. update credentials, if given
@@ -396,7 +405,7 @@ class MailAccount:
 			)
 		)
 		db.commit()
-		self.log.debug('executed mysql statement: %s' % (cx.statement,))
+		log.debug('executed mysql statement: %s' % (cx.statement,))
 		id = cx.lastrowid
 		if id is None:
 			cx.close()
@@ -439,11 +448,11 @@ class MailAccount:
 				state = m.newForward()
 
 			if state:
-				self.log.info('User is notified about account change!')
+				log.info('User is notified about account change!')
 			else:
-				self.log.warning('Unknown error while notifying user!')
+				log.warning('Unknown error while notifying user!')
 		else:
-			self.log.info('User is not notified because we have no address of him!')
+			log.info('User is not notified because we have no address of him!')
 
 		# reset info
 		self.pw = ''
@@ -461,6 +470,8 @@ class MailAccount:
 		self.state = state
 
 	def updateMailboxes(self, oldMail = None, oldDomain = None):
+		conf = FLSConfig.getInstance()
+		
 		mailAddr = '%s@%s' % (self.mail, self.domain)
 		if oldMail is None:
 			oldMail = self.mail
@@ -469,7 +480,7 @@ class MailAccount:
 		mailOldAddr = '%s@%s' % (oldMail, oldDomain)
 
 		cnt = []
-		with open(self.conf.get('mailserver', 'mailboxes'), 'r') as f:
+		with open(conf.get('mailserver', 'mailboxes'), 'r') as f:
 			cnt = f.read().split('\n')
 
 		cnt = [f for f in cnt if (('\t' in f and f[0:f.index('\t')] != mailOldAddr) or f[0:1] == '#') and len(f.strip()) > 0]
@@ -484,15 +495,17 @@ class MailAccount:
 
 		# now write back
 		try:
-			with open(self.conf.get('mailserver', 'mailboxes'), 'w') as f:
+			with open(conf.get('mailserver', 'mailboxes'), 'w') as f:
 				f.write('\n'.join(cnt))
 		except:
 			return False
 		else:
 			# postmap
-			return hashPostFile(self.conf.get('mailserver', 'mailboxes'), self.conf.get('mailserver', 'postmap'))
+			return hashPostFile(conf.get('mailserver', 'mailboxes'), conf.get('mailserver', 'postmap'))
 
 	def updateAliases(self, oldMail = None, oldDomain = None):
+		conf = FLSConfig.getInstance()
+		
 		mailAddr = '%s@%s' % (self.mail, self.domain)
 		if oldMail is None:
 			oldMail = self.mail
@@ -501,7 +514,7 @@ class MailAccount:
 		mailOldAddr = '%s@%s' % (oldMail, oldDomain)
 
 		cnt = []
-		with open(self.conf.get('mailserver', 'aliases'), 'r') as f:
+		with open(conf.get('mailserver', 'aliases'), 'r') as f:
 			cnt = f.read().split('\n')
 
 		cnt = [f for f in cnt if (('\t' in f and f[0:f.index('\t')] != mailOldAddr) or f[0:1] == '#') and len(f.strip()) > 0]
@@ -519,15 +532,17 @@ class MailAccount:
 
 		# now write back
 		try:
-			with open(self.conf.get('mailserver', 'aliases'), 'w') as f:
+			with open(conf.get('mailserver', 'aliases'), 'w') as f:
 				f.write('\n'.join(cnt))
 		except:
 			return False
 		else:
 			# postmap
-			return hashPostFile(self.conf.get('mailserver', 'aliases'), self.conf.get('mailserver', 'postmap'))
+			return hashPostFile(conf.get('mailserver', 'aliases'), conf.get('mailserver', 'postmap'))
 
 	def updateSenderAccess(self, oldMail = None, oldDomain = None):
+		conf = FLSConfig.getInstance()
+		
 		mailAddr = '%s@%s' % (self.mail, self.domain)
 		if oldMail is None:
 			oldMail = self.mail
@@ -536,7 +551,7 @@ class MailAccount:
 		mailOldAddr = '%s@%s' % (oldMail, oldDomain)
 
 		cnt = []
-		with open(self.conf.get('mailserver', 'senderaccess'), 'r') as f:
+		with open(conf.get('mailserver', 'senderaccess'), 'r') as f:
 			cnt = f.read().split('\n')
 
 		cnt = [f for f in cnt if (('\t' in f and f[0:f.index('\t')] != mailOldAddr) or f[0:1] == '#') and len(f.strip()) > 0]
@@ -550,13 +565,13 @@ class MailAccount:
 
 		# now write back
 		try:
-			with open(self.conf.get('mailserver', 'senderaccess'), 'w') as f:
+			with open(conf.get('mailserver', 'senderaccess'), 'w') as f:
 				f.write('\n'.join(cnt))
 		except:
 			return False
 		else:
 			# postmap
-			return hashPostFile(self.conf.get('mailserver', 'senderaccess'), self.conf.get('mailserver', 'postmap'))
+			return hashPostFile(conf.get('mailserver', 'senderaccess'), conf.get('mailserver', 'postmap'))
 
 	def credentialsKey(self):
 		return '%s\x00%s\x00%s' % (self.mail, self.domain, 'userPassword')
@@ -603,7 +618,11 @@ class MailAccount:
 			return self
 
 	def __eq__(self, obj):
-		self.log.debug('Compare objects!!!')
+		log = logging.getLogger('flscp')
+		log.debug('Compare objects!!!')
+		if obj is None or self is None:
+			return False
+
 		if self.id == obj.id and \
 			self.type == obj.type and \
 			self.mail == obj.mail and \

@@ -130,6 +130,7 @@ class MailForm(QtGui.QDialog):
 		# load domains
 		try:
 			for f in self.rpc.getDomains():
+				print(f)
 				self.ui.fldDomain.addItem(f['domain'], f['id'])
 		except ssl.CertificateError as e:
 			log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
@@ -408,7 +409,7 @@ class FlsServer(xmlrpc.client.ServerProxy):
 	__instance = None
 
 	def __init__(self):
-		super().__init__('https://%s:%i/%s' % (RPCHOST, RPCPORT, RPCPATH), FLSSafeTransport())
+		super().__init__('https://%s:%i/%s' % (RPCHOST, RPCPORT, RPCPATH), FLSSafeTransport(), allow_none=True)
 		FlsServer.__instance = self
 
 	@staticmethod
@@ -1010,6 +1011,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.domains = MailAccountList()
 		try:
 			for item in self.rpc.getDomains():
+				print(item)
 				self.domains.add(Domain.fromDict(item))
 		except ssl.CertificateError as e:
 			log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
@@ -1561,6 +1563,18 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		if len(data) > 0:
 			try:
 				self.rpc.saveMails(data)
+			except TypeError as e:
+				log.error('Uhhh we tried to send things the server does not understood (%s)' % (e,))
+				print(data._items[0])
+				Printer(data._items[0])
+				log.debug('Tried to send: %s' % (str(data),))
+				QtGui.QMessageBox.warning(
+						self, _translate('MainWindow', 'Datenfehler', None), 
+						_translate('MainWindow', 
+							'Bei der Kommunikation mit dem Server ist ein Datenfehler aufgetreten!', 
+							None),
+						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					)
 			except ssl.CertificateError as e:
 				log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
 				QtGui.QMessageBox.critical(

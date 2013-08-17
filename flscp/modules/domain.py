@@ -17,7 +17,6 @@ class Domain:
 		self.created = None
 		self.modified = None
 		self.state = ''
-		self.log = logging.getLogger('flscp')
 
 	def create(self):
 		raise NotImplemented('domains can not be created at the moment!')
@@ -33,7 +32,8 @@ class Domain:
 		self.state = state
 
 	def __eq__(self, obj):
-		self.log.debug('Compare domain objects!!!')
+		log = logging.getLogger('flscp')
+		log.debug('Compare domain objects!!!')
 		if self.id == obj.id and \
 			self.name == obj.name and \
 			self.ipv6 == obj.ipv6 and \
@@ -66,6 +66,7 @@ class Domain:
 
 	@classmethod
 	def getByName(dom, name):
+		log = logging.getLogger('flscp')
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
 		query = ('SELECT domain_id, domain_name FROM domain WHERE domain_name = %s')
@@ -76,7 +77,7 @@ class Domain:
 			dom.id = domain_id
 			dom.name = domain_name
 		except Exception as e:
-			self.log.warning('Could not find domain.')
+			log.warning('Could not find domain.')
 			cx.close()
 			raise KeyError('Domain "%s" could not be found!')
 
