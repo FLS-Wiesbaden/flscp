@@ -281,8 +281,10 @@ class FLSUnixRequestHandler(socketserver.BaseRequestHandler):
 		password = data['AUTH_PASSWORD']
 
 		maccount = MailAccount.getByEMail(userName)
-		maccount.authenticate(authMech, password)
-		pass
+		if maccount is not None:
+			return maccount.authenticate(authMech, password)
+		else:
+			return None
 
 	def chgpwd(self, data):
 		# <username> <pwd>
