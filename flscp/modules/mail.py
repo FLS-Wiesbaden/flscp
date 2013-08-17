@@ -593,7 +593,8 @@ class MailAccount:
 			ma.authCode = authcode
 			ma.authValid = authvalid
 		except Exception as e:
-			self.log.critical('Got error: %s' % (e,))
+			log = logging.getLogger('flscp')
+			log.critical('Got error: %s' % (e,))
 			cx.close()
 			return None
 		else:
