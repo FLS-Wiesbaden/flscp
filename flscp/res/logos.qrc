@@ -10,6 +10,8 @@
     <file>account.png</file>
   </qresource>
   <qresource prefix="section">
+    <file>domain.png</file>
+    <file>database.png</file>
     <file>manageMails.png</file>
     <file>home.png</file>
     <file>keys.png</file>

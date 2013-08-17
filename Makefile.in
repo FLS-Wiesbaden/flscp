@@ -8,6 +8,9 @@ RESOURCES = logos.qrc
 STATIC_LIBS = libs
 TEMPLATES = templates
 PYTHONS = $(wildcard $(PACKAGE)/*.py)
+PYTHON_MODULS = $(wildcard $(PACKAGE)/modules/*.py)
+PYTHON_UIS = $(wildcard $(PACKAGE)/modules/*.py)
+
 RESOURCE_DIR = $(PACKAGE)/res
 UI_DIR = $(PACKAGE)/ui
 python_PYTHON = $(PYTHONS)
@@ -15,6 +18,8 @@ python_PYTHON = $(PYTHONS)
 COMPILED_UI = $(UI_FILES:%.ui=$(buildDir)/$(PACKAGE)/ui_%.py)
 COMPILED_RESOURCES = $(RESOURCES:%.qrc=$(buildDir)/$(PACKAGE)/%_rc.py)
 COMPILED_PYTHONS = $(PYTHONS:%.py=$(buildDir)/%.py)
+COMPILED_PYTHON_MODS = $(PYTHON_MODULS:%.py=$(buildDir)/%.py)
+COMPILED_PYTHON_UIS = $(PYTHON_UIS:%.py=$(buildDir)/%.py)
 
 PYUIC = @PYUIC4@
 PYRCC = @PYRCC4@
@@ -40,9 +45,11 @@ debug: PYPARM := -v
 debug: pythons resources ui
 
 createDir:
-	@if [ ! -d "$(buildDir)/$(PACKAGE)" ]; then mkdir -p $(buildDir)/$(PACKAGE); fi
+	@if [ ! -d "$(buildDir)/$(PACKAGE)/" ]; then mkdir -p $(buildDir)/$(PACKAGE)/; fi
+	@if [ ! -d "$(buildDir)/$(PACKAGE)/modules/" ]; then mkdir -p $(buildDir)/$(PACKAGE)/modules/; fi
+	@if [ ! -d "$(buildDir)/$(PACKAGE)/ui/" ]; then mkdir -p $(buildDir)/$(PACKAGE)/ui/; fi
 
-pythons: $(COMPILED_PYTHONS)
+pythons: $(COMPILED_PYTHONS) $(COMPILED_PYTHON_MODS) $(COMPILED_PYTHON_UIS)
 $(buildDir)/%.py: %.py
 	cp $< $@
 	chmod +x $@
@@ -60,7 +67,7 @@ $(buildDir)/$(PACKAGE)/$(TEMPLATES):
 resources: $(COMPILED_RESOURCES)  
 ui: $(COMPILED_UI)
 
-$(buildDir)/$(PACKAGE)/ui_%.py: $(UI_DIR)/%.ui
+$(buildDir)/$(PACKAGE)/ui/ui_%.py: $(UI_DIR)/%.ui
 	$(PYUIC) $(debugFlg) $< -o $@
  
 $(buildDir)/$(PACKAGE)/%_rc.py: $(RESOURCE_DIR)/%.qrc

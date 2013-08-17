@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 from logging.handlers import WatchedFileHandler
 from ansistrm import ColorizingStreamHandler
-from ui_cp import *
-from ui_mailform import *
-from ui_maileditor import *
+from ui.ui_cp import *
+from ui.ui_mailform import *
+from ui.ui_maileditor import *
 from PyQt4.QtCore import pyqtSlot, pyqtSignal
 from PyQt4 import QtGui
 from PyQt4 import QtCore
@@ -12,7 +12,9 @@ from Printer import Printer
 from pytz import UTC
 import logging, os, sys, re, copy, uuid, zlib, xmlrpc.client, http.client, ssl, socket, datetime
 import tempfile, zipfile, base64
-import flscertification
+from modules import flscertification
+from modules.domain import Domain
+from modules.mail import MailAccountList, MailAccount
 try:
 	import OpenSSL
 except ImportError:
@@ -20,7 +22,7 @@ except ImportError:
 
 __author__  = 'Lukas Schreiner'
 __copyright__ = 'Copyright (C) 2013 - 2013 Website-Team Friedrich-List-Schule-Wiesbaden'
-__version__ = '0.2'
+__version__ = '0.3'
 
 FORMAT = '%(asctime)-15s %(message)s'
 formatter = logging.Formatter(FORMAT, datefmt='%b %d %H:%M:%S')
@@ -34,7 +36,7 @@ workDir = os.path.dirname(os.path.realpath(__file__))
 
 ##### CONFIGURE #####
 # connection
-RPCHOST 		= 'cp.fls-wiesbaden.de'
+RPCHOST 		= '127.0.0.1' 
 RPCPORT 		= 10027
 RPCPATH			= 'RPC2'
 # ssl connection
@@ -56,108 +58,6 @@ def MailValidator(email):
 		return False
 
 	return re.match(r"^[a-zA-Z0-9._%-+]+\@[a-zA-Z0-9._%-]+\.[a-zA-Z]{2,}$", email) != None
-
-class MailAccountList:
-
-	def __init__(self):
-		self._items = []
-
-	def add(self, item):
-		self._items.append(item)
-
-	def remove(self, obj):
-		self._items.remove(obj)
-
-	def __getitem__(self, key):
-		return self._items[key]
-
-	def __setitem__(self, key, value):
-		self._items[key] = value
-
-	def __delitem__(self, key):
-		del(self._items[key])
-
-	def __iter__(self):
-		for f in self._items:
-			yield f
-
-	def __contains__(self, item):
-		return True if item in self._items else False
-
-	def __len__(self):
-		return len(self._items)
-
-	def findById(self, id):
-		item = None
-		try:
-			id = int(id)
-		except:
-			pass
-
-		for f in self._items:
-			if f.id == id:
-				item = f
-				break
-
-		return item
-
-class MailAccount:
-	TYPE_ACCOUNT = 'account'
-	TYPE_FORWARD = 'forward'
-
-	STATE_OK = 'ok'
-	STATE_CHANGE = 'change'
-	STATE_CREATE = 'create'
-	STATE_DELETE = 'delete'
-
-	def __init__(self):
-		self.id = None
-		self.type = MailAccount.TYPE_ACCOUNT
-		self.state = MailAccount.STATE_OK
-		self.mail = ''
-		self.domain = ''
-		self.pw = ''
-		self.genPw = False
-		self.altMail = ''
-		self.forward = []
-
-	def getMailAddress(self):
-		return '%s@%s' % (self.mail, self.domain)
-
-	def generateId(self):
-		self.id = 'Z%s' % (str(zlib.crc32(uuid.uuid4().hex.encode('utf-8')))[0:3],)
-
-	def __eq__(self, obj):
-		log.debug('Compare objects!!!')
-		if self.id == obj.id and \
-			self.type == obj.type and \
-			self.mail == obj.mail and \
-			self.domain == obj.domain and \
-			self.pw == obj.pw and \
-			self.genPw == obj.genPw and \
-			self.altMail == obj.altMail and \
-			self.forward == obj.forward and \
-			self.state == obj.state:
-			return True
-		else:
-			return False
-
-	def __ne__(self, obj):
-		return not self.__eq__(obj)
-
-	@classmethod
-	def fromDict(ma, data):
-		self = ma()
-
-		self.id = data['id']
-		self.type = data['type']
-		self.mail = data['mail']
-		self.domain = data['domain']
-		self.altMail = data['altMail']
-		self.forward = data['forward']
-		self.state = data['state']
-
-		return self
 
 class MailEditor(QtGui.QDialog):
 	
@@ -474,8 +374,6 @@ class MailForm(QtGui.QDialog):
 class FLSSafeTransport(xmlrpc.client.Transport):
 	"""Handles an HTTPS transaction to an XML-RPC server."""
 
-	# FIXME: mostly untested
-
 	def make_connection(self, host):
 		if not hasattr(self, 'timeout'):
 			self.timeout = 5
@@ -488,7 +386,8 @@ class FLSSafeTransport(xmlrpc.client.Transport):
 			"your version of http.client doesn't support HTTPS")
 		# create a HTTPS connection object from a host descriptor
 		# host may be a string, or a (host, x509-dict) tuple
-		context = ssl.SSLContext(ssl.PROTOCOL_SSLv3)
+		#context = ssl.SSLContext(ssl.PROTOCOL_SSLv3)
+		context = ssl.SSLContext(ssl.PROTOCOL_TLSv1)
 		context.verify_mode = ssl.CERT_REQUIRED
 		context.load_verify_locations(CACERT)
 		log.debug('Timeout is: %s' % (self.timeout,))
@@ -500,7 +399,8 @@ class FLSSafeTransport(xmlrpc.client.Transport):
 			key_file=KEYFILE,
 			cert_file=CERTFILE,
 			context=context,
-			timeout=self.timeout
+			timeout=self.timeout,
+			check_hostname=False
 		)
 		return self._connection[1]
 
@@ -531,6 +431,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.version = ''
 
 		self.mails = MailAccountList()
+		self.domains = MailAccountList()
 		self.certs = flscertification.FLSCertificateList()
 		self.splash = QtGui.QSplashScreen(self, QtGui.QPixmap(":/logo/splash.png"))
 		self.splash.show()
@@ -557,8 +458,16 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.ui.actionAboutQt.triggered.connect(self.aboutQt)
 
 		# home
+		self.ui.butHomeDomain.clicked.connect(self.switchToDomain)
 		self.ui.butHomeMail.clicked.connect(self.switchToMail)
 		self.ui.butHomeCert.clicked.connect(self.switchToAdmin)
+
+		# domain tab
+		#self.ui.butDomainAdd.clicked.connect(self.addDomain)
+		#self.ui.butDomainDel.clicked.connect(self.deleteDomain)
+		#self.ui.butDomainReload.clicked.connect(self.reloadDomainTree)
+		#self.ui.butDomainSave.clicked.connect(self.commitDomainData)
+		#self.ui.domainTree.cellDoubleClicked.connect(self.selectedMail)
 
 		# mail tab
 		self.ui.butAdd.clicked.connect(self.addMail)
@@ -646,12 +555,16 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			self.ui.statusbar.addWidget(self.ui.labUser)
 
 	@pyqtSlot()
-	def switchToMail(self):
+	def switchToDomain(self):
 		self.ui.tabWidget.setCurrentIndex(1)
 
 	@pyqtSlot()
-	def switchToAdmin(self):
+	def switchToMail(self):
 		self.ui.tabWidget.setCurrentIndex(2)
+
+	@pyqtSlot()
+	def switchToAdmin(self):
+		self.ui.tabWidget.setCurrentIndex(3)
 
 	@pyqtSlot()
 	def init(self):
@@ -686,7 +599,26 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				self.updateVersion()
 
 			# load the data!
-			self.splash.showMessage('Loading data...', color=QtGui.QColor(255, 255, 255))
+			self.splash.showMessage('Loading domains...', color=QtGui.QColor(255, 255, 255))
+			self.splash.repaint()
+
+			# domains
+			try:
+				self.loadDomains()
+			except xmlrpc.client.Fault as e:
+				log.critical('Could not load domains because of %s' % (e,))
+				QtGui.QMessageBox.critical(
+					self, _translate('MainWindow', 'Daten nicht ladbar', None), 
+					_translate('MainWindow', 
+						'Die Domains konnten nicht abgerufen werden.', 
+						None),
+					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+				)
+			else:
+				self.loadDomainData()
+
+			# load the data!
+			self.splash.showMessage('Loading mails...', color=QtGui.QColor(255, 255, 255))
 			self.splash.repaint()
 
 			# mails
@@ -703,6 +635,10 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				)
 			else:
 				self.loadMailData()
+
+			# load the data!
+			self.splash.showMessage('Loading certs...', color=QtGui.QColor(255, 255, 255))
+			self.splash.repaint()
 
 			# certs
 			try:
@@ -1019,6 +955,49 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		try:
 			for item in self.rpc.getMails():
 				self.mails.add(MailAccount.fromDict(item))
+		except ssl.CertificateError as e:
+			log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
+			QtGui.QMessageBox.critical(
+				self, _translate('MainWindow', 'Warnung', None), 
+				_translate('MainWindow', 
+					'Potentieller Angriff! Server-Zertifikat ist fehlerhaft! Bitte informieren Sie Ihren Administrator!', 
+					None),
+				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+			)
+		except socket.error as e:
+			log.error('Connection to server lost!')
+			QtGui.QMessageBox.critical(
+				self, _translate('MainWindow', 'Warnung', None), 
+				_translate('MainWindow', 
+					'Verbindung zum Server nicht möglich. Bitte versuchen Sie es später noch einmal.', 
+					None),
+				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+			)
+		except xmlrpc.client.ProtocolError as e:
+			if e.errcode == 403:
+				log.warning('Missing rights for loading mails (%s)' % (e,))
+				QtGui.QMessageBox.warning(
+					self, _translate('MainWindow', 'Fehlende Rechte', None), 
+					_translate('MainWindow', 
+						'Sie haben nicht ausreichend Rechte!', 
+						None),
+					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+				)
+			else:
+				log.warning('Unexpected error in protocol: %s' % (e,))
+				QtGui.QMessageBox.warning(
+					self, _translate('MainWindow', 'Unbekannter Fehler', None), 
+					_translate('MainWindow', 
+						'Unbekannter Fehler in der Kommunikation mit dem Server aufgetreten.', 
+						None),
+					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+				)
+
+	def loadDomains(self):
+		self.domains = MailAccountList()
+		try:
+			for item in self.rpc.getDomains():
+				self.domains.add(Domain.fromDict(item))
 		except ssl.CertificateError as e:
 			log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
 			QtGui.QMessageBox.critical(
@@ -1467,6 +1446,47 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			mf.exec_()
 
 		self.loadMailData()
+
+
+	def loadDomainData(self):
+		self.ui.domainTree.setSortingEnabled(False)
+
+		for row in self.domains:
+			item = QtGui.QTreeWidgetItem()
+			try:
+				item.setText(0, '%s' % (row.id,))
+			except Exception as e:
+				log.warning('%s' % (e,))
+				return
+			#item.setTextAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
+			# domain
+			item.setText(1, row.name)
+			# typ
+			item.setText(2, '')
+			# ip/value
+			item.setText(3, row.ipv4)
+			# ipv6
+			item.setText(4, row.ipv6)
+			# state
+			icon = QtGui.QIcon()
+			if row.state == Domain.STATE_OK:
+				icon.addPixmap(QtGui.QPixmap(":/status/ok.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+				item.setText(5, _translate("MainWindow", "OK", None))
+			elif row.state == Domain.STATE_CHANGE:
+				icon.addPixmap(QtGui.QPixmap(":/status/waiting.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+				item.setText(5, _translate("MainWindow", "wird geändert", None))
+			elif row.state == Domain.STATE_CREATE:
+				icon.addPixmap(QtGui.QPixmap(":/status/state_add.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+				item.setText(5, _translate("MainWindow", "wird hinzugefügt", None))
+			elif row.state == Domain.STATE_DELETE:
+				icon.addPixmap(QtGui.QPixmap(":/status/trash.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+				item.setText(5, _translate("MainWindow", "wird gelöscht", None))
+			else:
+				icon.addPixmap(QtGui.QPixmap(":/status/warning.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+				item.setText(5, _translate("MainWindow", "Unbekannt", None))
+			item.setIcon(5, icon)
+			self.ui.domainTree.addTopLevelItem(item)
+		self.ui.domainTree.setSortingEnabled(True)
 
 	@pyqtSlot()
 	def about(self):

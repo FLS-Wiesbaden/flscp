@@ -49,7 +49,7 @@ class SaltEncryption {
      * 
      * @var boolean true => use SHA1 | false => use MD5
      */
-    private $sha1 = true;
+    private $sha1 = True;
 
     /**
      * Length of the salt
@@ -175,17 +175,17 @@ class SaltEncryption {
      * @return void
      */
     public function info() {
-        echo "<b>Improved Hash Algorithm</b><br>";
-        echo "Version: Rolling Release ;-) <br>";
-        echo "Algorithm: " . (($this->sha1 == true AND function_exists("sha1")) ? "SHA1" : "MD5") . "<br>";
-        echo "Rounds: " . $this->rounds . "<br>";
-        echo "Salt-Length: " . $this->saltLng . "<br>";
-        echo "Password: " . ((empty($this->password)) ? "No" : "Yes") . "<br>";
+        echo "<b>Improved Hash Algorithm</b>\n";
+        echo "Version: Rolling Release ;-) \n";
+        echo "Algorithm: " . (($this->sha1 == true AND function_exists("sha1")) ? "SHA1" : "MD5") . "\n";
+        echo "Rounds: " . $this->rounds . "\n";
+        echo "Salt-Length: " . $this->saltLng . "\n";
+        echo "Password: " . ((empty($this->password)) ? "No" : "Yes") . "\n";
 
         // Start Benchmark
         $this->benchmark();
 
-        echo "<br><br><br>";
+        echo "\n\n";
     }
 
     /**
@@ -195,8 +195,8 @@ class SaltEncryption {
      *
      * @return void
      */
-    public function benchmark($num=10) {
-        echo "Generating $num hashs: ";
+    public function benchmark($num=1000) {
+        echo "Generating $num hashs: \n";
 
         $start = (double) microtime() + time();
 
