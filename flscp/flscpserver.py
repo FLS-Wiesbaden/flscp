@@ -389,7 +389,14 @@ class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
 
 			cmd = msg[:1]
 			if cmd == 'H':
-				continue
+				log.info('Got Hello...')
+				tryCompressed = msg.split('\n')
+				if len(tryCompressed) > 1 and tryCompressed[1][:1] == 'L':
+					msg = tryCompressed[1]
+					cmd = msg[:1]
+					log.info('It is a compressed query. Go ahead...')
+				else:
+					continue
 			elif cmd == 'L':
 				namespace, typ, arg = msg[1:].split('/', 3)
 				log.info('I:%s, %s, %s' % (namespace, typ, arg))

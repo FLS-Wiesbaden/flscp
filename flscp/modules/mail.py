@@ -127,6 +127,7 @@ class MailAccount:
 			return True
 
 	def getHomeDir(self):
+		conf = FLSConfig.getInstance()
 		return os.path.join(conf.get('mailserver', 'basemailpath'), 'virtual', self.domain, self.mail)
 
 	def authenticate(self, mech, pwd):
