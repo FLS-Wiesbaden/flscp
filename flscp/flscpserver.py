@@ -397,20 +397,24 @@ class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
 					log.info('It is a compressed query. Go ahead...')
 				else:
 					continue
-			elif cmd == 'L':
-				namespace, typ, arg = msg[1:].split('/', 3)
-				log.info('I:%s, %s, %s' % (namespace, typ, arg))
+			if cmd == 'L':
+				try:
+					namespace, typ, user, pwd, mech = msg[1:].split('/', 5)
+				except ValueError:
+					namespace, typ, user = msg[1:].split('/', 3)
+
+				log.info('I:%s, %s, %s' % (namespace, typ, user))
 
 				# try to find user:
 				if typ == 'userdb':
-					retCode = self.lookup(namespace, typ, arg)
+					retCode = self.lookup(namespace, typ, user)
 					if retCode is False:
 						self.request.sendall('N\n'.encode('utf-8'))
 					else:
 						self.request.sendall(('O%s\n' % (json.dumps(retCode),)).encode('utf-8'))
 				elif typ == 'passdb':
 					# jap.. we have a problem!
-					retCode = self.passdb(namespace, typ, arg)
+					retCode = self.passdb(namespace, typ, user, pwd, mech)
 					if retCode is False:
 						self.request.sendall('N\n'.encode('utf-8'))
 					else:
@@ -431,15 +435,10 @@ class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
 		else:
 			return False
 
-	def passdb(self, namespace, typ, arg):
-		maccount = MailAccount.getByEMail(arg)
+	def passdb(self, namespace, typ, user, pwd, mech):
+		maccount = MailAccount.getByEMail(user)
 		if maccount is not None:
-			return {
-				'password': '',
-				'userdb_home': maccount.getHomeDir(),
-				'userdb_uid': conf.get('mailserver', 'uid'),
-				'userdb_gid': conf.get('mailserver', 'gid')
-			}
+			return maccount.authenticate(pwd, mech)
 		else:
 			return False
 
