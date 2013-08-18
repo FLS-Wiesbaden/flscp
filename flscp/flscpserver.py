@@ -375,11 +375,14 @@ class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
 
 	def handle(self):
 		msg = ''
-		while msg:
+		while True:
 			try:
 				msg = self.request.recv(2048).decode('utf-8')
 			except Exception as e:
 				log.debug('Got some useless data,...')
+				break
+
+			if not msg:
 				break
 			
 			log.debug('Got: %s' % (msg,))
@@ -391,11 +394,31 @@ class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
 				namespace, typ, arg = msg[1:].split('/', 3)
 				log.info('I:%s, %s, %s' % (namespace, typ, arg))
 
-			import pprint
-			pprint.pprint(os.environ)
+				# try to find user:
+				if typ == 'userdb':
+					retCode = self.lookup(namespace, typ, arg)
+					if retCode is False:
+						self.request.sendall('N\n'.encode('utf-8'))
+					else:
+						self.request.sendall(('O%s\n' % (json.dumps(retCode),)).encode('utf-8'))
+				elif typ == 'passdb':
+					# jap.. we have a problem!
+					self.request.send('F\n'.encode('utf-8'))
+				else:
+					self.request.send('F\n'.encode('utf-8'))
+			else:
+				self.request.send('F\n'.encode('utf-8'))
 
-			# we have to analyze the protocol!
-			self.request.send('N\n'.encode('utf-8'))
+	def lookup(self, namespace, typ, arg):
+		maccount = MailAccount.getByEMail(arg)
+		if maccount is not None:
+			return {
+				'home': maccount.getHomeDir(),
+				'uid': conf.get('mailserver', 'uid'),
+				'gid': conf.get('mailserver', 'gid')
+			}
+		else:
+			return False
 
 class FLSRequestHandler(SimpleXMLRPCRequestHandler):
 	rpc_paths = ('/RPC2',)
