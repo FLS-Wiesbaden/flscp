@@ -403,7 +403,11 @@ class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
 						self.request.sendall(('O%s\n' % (json.dumps(retCode),)).encode('utf-8'))
 				elif typ == 'passdb':
 					# jap.. we have a problem!
-					self.request.send('F\n'.encode('utf-8'))
+					retCode = self.passdb(namespace, typ, arg)
+					if retCode is False:
+						self.request.sendall('N\n'.encode('utf-8'))
+					else:
+						self.request.sendall(('O%s\n' % (json.dumps(retCode),)).encode('utf-8'))
 				else:
 					self.request.send('F\n'.encode('utf-8'))
 			else:
@@ -416,6 +420,18 @@ class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
 				'home': maccount.getHomeDir(),
 				'uid': conf.get('mailserver', 'uid'),
 				'gid': conf.get('mailserver', 'gid')
+			}
+		else:
+			return False
+
+	def passdb(self, namespace, typ, arg):
+		maccount = MailAccount.getByEMail(arg)
+		if maccount is not None:
+			return {
+				'password': '',
+				'userdb_home': maccount.getHomeDir(),
+				'userdb_uid': conf.get('mailserver', 'uid'),
+				'userdb_gid': conf.get('mailserver', 'gid')
 			}
 		else:
 			return False
