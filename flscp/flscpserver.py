@@ -282,7 +282,8 @@ class FLSUnixRequestHandler(socketserver.BaseRequestHandler):
 
 		maccount = MailAccount.getByEMail(userName)
 		if maccount is not None:
-			return maccount.authenticate(authMech, password)
+			state = maccount.authenticate(authMech, password)
+			return None if state is False else state
 		else:
 			return None
 
@@ -369,6 +370,32 @@ class FLSUnixRequestHandler(socketserver.BaseRequestHandler):
 			return m.sendNewPassword()
 		else:
 			return False
+
+class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
+
+	def handle(self):
+		msg = ''
+		while msg:
+			try:
+				msg = self.request.recv(2048).decode('utf-8')
+			except Exception as e:
+				log.debug('Got some useless data,...')
+				break
+			
+			log.debug('Got: %s' % (msg,))
+
+			cmd = msg[:1]
+			if cmd == 'H':
+				continue
+			elif cmd == 'L':
+				namespace, typ, arg = msg[1:].split('/', 3)
+				log.info('I:%s, %s, %s' % (namespace, typ, arg))
+
+			import pprint
+			pprint.pprint(os.environ)
+
+			# we have to analyze the protocol!
+			self.request.send('N\n'.encode('utf-8'))
 
 class FLSRequestHandler(SimpleXMLRPCRequestHandler):
 	rpc_paths = ('/RPC2',)
@@ -500,12 +527,15 @@ class FLSCpServer(Thread, FLSXMLRPCServer):
 class FLSCpUnixServer(Thread, UnixStreamServer):
 	allow_reuse_address = True
 
-	def __init__(self, connection):
-		Thread.__init__(self, name='flscp-unix')
+	def __init__(self, connection, requestHandler=FLSUnixRequestHandler, name='flscp-unix'):
+		Thread.__init__(self, name=name)
 		if os.path.exists(connection):
 			# is a server running with this socket?
 			os.unlink(connection)
-		UnixStreamServer.__init__(self, connection, FLSUnixRequestHandler)
+		elif not os.path.exists(os.path.dirname(connection)):
+			os.makedirs(os.path.dirname(connection))
+
+		UnixStreamServer.__init__(self, connection, requestHandler)
 
 	def run(self):
 		# set permission
@@ -525,6 +555,7 @@ if __name__ == '__main__':
 	try:
 		threads.append(FLSCpServer((conf.get('connection', 'host'), conf.getint('connection', 'port'))))
 		threads.append(FLSCpUnixServer(conf.get('connection', 'socket')))
+		threads.append(FLSCpUnixServer(conf.get('connection', 'authsocket'), FLSUnixAuthHandler, 'flscp-dovecot-auth'))
 	except Exception as e:
 		sys.stderr.write('Could not start the server(s), because of %s\n' % (e,))
 		sys.exit(127)

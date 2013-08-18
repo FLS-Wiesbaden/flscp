@@ -28,13 +28,16 @@ code, data = d.decode('utf-8').strip().split(' - ')
 data = json.loads(data)
 if code == '200':
 	os.putenv('HOME', data['userdb_home'])
-	os.environ('HOME', data['userdb_home'])
+	os.environ['HOME'] = data['userdb_home']
 	os.putenv('userdb_uid', data['userdb_uid'])
-	os.environ('userdb_uid', data['userdb_uid'])
+	os.environ['userdb_uid'] = data['userdb_uid']
 	os.putenv('userdb_gid', data['userdb_gid'])
-	os.environ('userdb_gid', data['userdb_gid'])
+	os.environ['userdb_gid'] = data['userdb_gid']
+	os.putenv('EXTRA', '\'userdb_uid=%s\tuserdb_gid=%s\'' % (data['userdb_uid'], data['userdb_gid']))
+	os.environ['EXTRA'] = '\'userdb_uid=%s\tuserdb_gid=%s\'' % (data['userdb_uid'], data['userdb_gid'])
 
-subprocess.call(shlex.split(exitPgm))
+p = subprocess.call(shlex.split(exitPgm))
+p.wait()
 if code == '200':
 	sys.exit(0)
 else:

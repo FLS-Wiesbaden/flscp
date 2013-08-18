@@ -151,8 +151,8 @@ class MailAccount:
 			username = ('%s@%s' % (self.mail, self.domain)).lower()
 			data['userdb_user'] = username
 			data['userdb_home'] = homeDir
-			data['userdb_uid'] = config.get('mailserver', 'uid')
-			data['userdb_gid'] = config.get('mailserver', 'gid')
+			data['userdb_uid'] = conf.get('mailserver', 'uid')
+			data['userdb_gid'] = conf.get('mailserver', 'gid')
 			data['userdb_mail'] = 'maildir:%s' % (username,)
 
 			return data
