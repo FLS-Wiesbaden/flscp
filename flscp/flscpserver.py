@@ -398,6 +398,7 @@ class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
 				else:
 					continue
 			if cmd == 'L':
+				msg = msg.strip()
 				try:
 					namespace, typ, user, pwd, mech = msg[1:].split('/', 5)
 				except ValueError:
