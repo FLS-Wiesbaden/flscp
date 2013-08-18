@@ -438,7 +438,7 @@ class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
 	def passdb(self, namespace, typ, user, pwd, mech):
 		maccount = MailAccount.getByEMail(user)
 		if maccount is not None:
-			return maccount.authenticate(pwd, mech)
+			return maccount.authenticate(mech, pwd)
 		else:
 			return False
 

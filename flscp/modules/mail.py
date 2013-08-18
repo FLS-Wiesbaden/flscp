@@ -132,6 +132,7 @@ class MailAccount:
 
 	def authenticate(self, mech, pwd):
 		conf = FLSConfig.getInstance()
+		log = logging.getLogger('flscp')
 		data = {
 			'userdb_user': '',
 			'userdb_home': '',
@@ -142,6 +143,7 @@ class MailAccount:
 		localPartDir = os.path.join(conf.get('mailserver', 'basemailpath'), 'virtual')
 		homeDir = os.path.join(localPartDir, self.domain, self.mail)
 		if self.hashPw == '_no_':
+			log.debug('User %s can not login, because password is disabled!' % (self.getMailAddress,))
 			return False
 		
 		s = SaltEncryption()
@@ -149,6 +151,7 @@ class MailAccount:
 		if mech in ['PLAIN', 'LOGIN']:
 			state = s.compare(pwd, self.hashPw)
 		else:
+			log.debug('User %s can not login: unsupported auth mechanism "%s"' % (self.getMailAddress, mech))
 			state = False
 
 		if state:
