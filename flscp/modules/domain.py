@@ -3,7 +3,7 @@ import zlib
 import uuid
 import time
 from database import MailDatabase
-from modules.mail import hashPostFile
+from tools import hashPostFile
 
 class DomainAccountList:
 

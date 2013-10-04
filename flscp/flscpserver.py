@@ -398,6 +398,7 @@ class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
 					log.info('It is a compressed query. Go ahead...')
 				else:
 					continue
+					
 			if cmd == 'L':
 				msg = msg.strip()
 				try:
