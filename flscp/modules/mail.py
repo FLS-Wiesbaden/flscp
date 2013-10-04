@@ -138,9 +138,12 @@ class MailAccount:
 			'userdb_home': '',
 			'userdb_uid': '',
 			'userdb_gid': '',
-			'nopassword': 1,
-			#'userdb_mail': ''
+			#'userdb_mail': '',
+			'nopassword': 1
 		}
+		localPartDir = os.path.join(conf.get('mailserver', 'basemailpath'), 'virtual')
+		homeDir = os.path.join(localPartDir, self.domain, self.mail)
+		username = ('%s@%s' % (self.mail, self.domain)).lower()
 		if self.hashPw == '_no_':
 			log.debug('User %s can not login, because password is disabled!' % (self.getMailAddress(),))
 			return False
@@ -150,13 +153,12 @@ class MailAccount:
 		if mech in ['PLAIN', 'LOGIN']:
 			state = s.compare(pwd, self.hashPw)
 		elif mech in ['EXTERNAL']:
-			state = (cert == 'valid' and pwd == '')
+			state = (cert.lower() == 'valid' and pwd == '')
 		else:
 			log.debug('User %s can not login: unsupported auth mechanism "%s"' % (self.getMailAddress(), mech))
 			state = False
 
 		if state:
-			username = ('%s@%s' % (self.mail, self.domain)).lower()
 			data['userdb_user'] = username
 			data['userdb_home'] = self.getHomeDir()
 			data['userdb_uid'] = conf.get('mailserver', 'uid')
