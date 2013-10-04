@@ -155,9 +155,9 @@ class ControlPanel:
 		data = []
 		db = MailDatabase.getInstance()
 		cursor = db.getCursor()
-		query = ('SELECT domain_id, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created, domain_last_modified, domain_status FROM domain')
+		query = ('SELECT domain_id, domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created, domain_last_modified, domain_status FROM domain')
 		cursor.execute(query)
-		for (domain_id, domain_name, ipv6, ipv4, gid, uid, created, modified, state) in cursor:
+		for (domain_id, domain_parent, domain_name, ipv6, ipv4, gid, uid, created, modified, state) in cursor:
 			data.append(
 				{
 					'id': domain_id, 
@@ -166,6 +166,7 @@ class ControlPanel:
 					'ipv4': ipv4,
 					'gid': gid,
 					'uid': uid,
+					'parent': domain_parent,
 					'created': created,
 					'modified': modified,
 					'state': state

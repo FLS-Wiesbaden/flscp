@@ -13,7 +13,7 @@ from pytz import UTC
 import logging, os, sys, re, copy, uuid, zlib, xmlrpc.client, http.client, ssl, socket, datetime
 import tempfile, zipfile, base64
 from modules import flscertification
-from modules.domain import Domain
+from modules.domain import DomainAccountList, Domain
 from modules.mail import MailAccountList, MailAccount
 try:
 	import OpenSSL
@@ -432,7 +432,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.version = ''
 
 		self.mails = MailAccountList()
-		self.domains = MailAccountList()
+		self.domains = DomainAccountList()
 		self.certs = flscertification.FLSCertificateList()
 		self.splash = QtGui.QSplashScreen(self, QtGui.QPixmap(":/logo/splash.png"))
 		self.splash.show()
@@ -466,7 +466,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		# domain tab
 		#self.ui.butDomainAdd.clicked.connect(self.addDomain)
 		#self.ui.butDomainDel.clicked.connect(self.deleteDomain)
-		#self.ui.butDomainReload.clicked.connect(self.reloadDomainTree)
+		self.ui.butDomainReload.clicked.connect(self.reloadDomainTree)
 		#self.ui.butDomainSave.clicked.connect(self.commitDomainData)
 		#self.ui.domainTree.cellDoubleClicked.connect(self.selectedMail)
 
@@ -1008,7 +1008,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				)
 
 	def loadDomains(self):
-		self.domains = MailAccountList()
+		self.domains = DomainAccountList()
 		try:
 			for item in self.rpc.getDomains():
 				print(item)
@@ -1465,43 +1465,97 @@ class FLScpMainWindow(QtGui.QMainWindow):
 
 	def loadDomainData(self):
 		self.ui.domainTree.setSortingEnabled(False)
+		# delete all entries on start!
+		self.ui.domainTree.clear()
 
-		for row in self.domains:
-			item = QtGui.QTreeWidgetItem()
-			try:
-				item.setText(0, '%s' % (row.id,))
-			except Exception as e:
-				log.warning('%s' % (e,))
-				return
-			#item.setTextAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
-			# domain
-			item.setText(1, row.name)
-			# typ
-			item.setText(2, '')
-			# ip/value
-			item.setText(3, row.ipv4)
-			# ipv6
-			item.setText(4, row.ipv6)
-			# state
-			icon = QtGui.QIcon()
-			if row.state == Domain.STATE_OK:
-				icon.addPixmap(QtGui.QPixmap(":/status/ok.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-				item.setText(5, _translate("MainWindow", "OK", None))
-			elif row.state == Domain.STATE_CHANGE:
-				icon.addPixmap(QtGui.QPixmap(":/status/waiting.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-				item.setText(5, _translate("MainWindow", "wird geändert", None))
-			elif row.state == Domain.STATE_CREATE:
-				icon.addPixmap(QtGui.QPixmap(":/status/state_add.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-				item.setText(5, _translate("MainWindow", "wird hinzugefügt", None))
-			elif row.state == Domain.STATE_DELETE:
-				icon.addPixmap(QtGui.QPixmap(":/status/trash.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-				item.setText(5, _translate("MainWindow", "wird gelöscht", None))
-			else:
-				icon.addPixmap(QtGui.QPixmap(":/status/warning.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
-				item.setText(5, _translate("MainWindow", "Unbekannt", None))
-			item.setIcon(5, icon)
-			self.ui.domainTree.addTopLevelItem(item)
+		for row in self.domains.iterTlds():
+			self.insertDomainData(row)
+
+			# find the parent
 		self.ui.domainTree.setSortingEnabled(True)
+
+	def insertDomainData(self, row, parent = None):
+		item = QtGui.QTreeWidgetItem()
+		try:
+			item.setText(0, '%s' % (row.id,))
+		except Exception as e:
+			log.warning('%s' % (e,))
+			return
+		#item.setTextAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
+		# domain
+		item.setText(1, row.name)
+		# typ
+		item.setText(2, '')
+		# ip/value
+		item.setText(3, row.ipv4)
+		# ipv6
+		item.setText(4, row.ipv6)
+		# state
+		icon = QtGui.QIcon()
+		if row.state == Domain.STATE_OK:
+			icon.addPixmap(QtGui.QPixmap(":/status/ok.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+			item.setText(5, _translate("MainWindow", "OK", None))
+		elif row.state == Domain.STATE_CHANGE:
+			icon.addPixmap(QtGui.QPixmap(":/status/waiting.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+			item.setText(5, _translate("MainWindow", "wird geändert", None))
+		elif row.state == Domain.STATE_CREATE:
+			icon.addPixmap(QtGui.QPixmap(":/status/state_add.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+			item.setText(5, _translate("MainWindow", "wird hinzugefügt", None))
+		elif row.state == Domain.STATE_DELETE:
+			icon.addPixmap(QtGui.QPixmap(":/status/trash.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+			item.setText(5, _translate("MainWindow", "wird gelöscht", None))
+		else:
+			icon.addPixmap(QtGui.QPixmap(":/status/warning.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+			item.setText(5, _translate("MainWindow", "Unbekannt", None))
+		item.setIcon(5, icon)
+
+		if parent is None:
+			self.ui.domainTree.addTopLevelItem(item)
+		else:
+			parent.addChild(item)
+
+		# has item chils?
+		for childs in self.domains.iterByParent(row.id):
+			self.insertDomainData(row, item)
+
+
+	@pyqtSlot()
+	def reloadDomainTree(self):
+		self.enableProgressBar()
+		# ask user - because all pending operations will be cancelled!
+		pending = False
+		for f in self.domains:
+			if f.state != Domain.STATE_OK:
+				pending = True
+				break
+
+		loadDomainData = True
+		if pending:
+			msg = QtGui.QMessageBox.question(
+				self, _translate('MainWindow', 'Warnung', None), 
+				_translate('MainWindow', 'Alle Änderungen gehen verloren. Fortfahren?', None),
+				QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.No
+			)
+			if msg != QtGui.QMessageBox.Yes:
+				loadDomainData = False
+
+
+		if loadDomainData:
+			try:
+				self.loadDomains()
+			except xmlrpc.client.Fault as e:
+				log.critical('Could not load domains because of %s' % (e,))
+				QtGui.QMessageBox.critical(
+					self, _translate('MainWindow', 'Daten nicht ladbar', None), 
+					_translate('MainWindow', 
+						'Die Domains konnten nicht abgerufen werden.', 
+						None),
+					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+				)
+			else:
+				self.loadDomainData()
+
+		self.disableProgressBar()
 
 	@pyqtSlot()
 	def about(self):

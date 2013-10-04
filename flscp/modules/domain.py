@@ -5,6 +5,60 @@ import time
 from database import MailDatabase
 from modules.mail import hashPostFile
 
+class DomainAccountList:
+
+	def __init__(self):
+		self._items = []
+
+	def add(self, item):
+		self._items.append(item)
+
+	def remove(self, obj):
+		self._items.remove(obj)
+
+	def __getitem__(self, key):
+		return self._items[key]
+
+	def __setitem__(self, key, value):
+		self._items[key] = value
+
+	def __delitem__(self, key):
+		del(self._items[key])
+
+	def __iter__(self):
+		for f in self._items:
+			yield f
+
+	def __contains__(self, item):
+		return True if item in self._items else False
+
+	def __len__(self):
+		return len(self._items)
+
+	def iterTlds(self, id):
+		for f in self._items:
+			if f.parent is None:
+				yield f
+
+	def iterByParent(self, domainId):
+		for f in self._items:
+			if f.parent == domainId:
+				yield f
+
+	def findById(self, id):
+		item = None
+		try:
+			id = int(id)
+		except:
+			pass
+
+		for f in self._items:
+			if f.id == id:
+				item = f
+				break
+
+		return item
+
 class Domain:
 	STATE_OK = 'ok'
 	STATE_CHANGE = 'change'
@@ -18,6 +72,7 @@ class Domain:
 		self.ipv4 = ''
 		self.gid = ''
 		self.uid = ''
+		self.parent = None
 		self.created = None
 		self.modified = None
 		self.state = ''
@@ -45,13 +100,13 @@ class Domain:
 		cx = db.getCursor()
 		self.state = Domain.STATE_CREATE
 		query = (
-			'INSERT INTO domain (domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created, domain_last_modified, domain_status) ' \
-			'VALUES (%s, %s, %s, %s, %s, %s, %s, %s)'
+			'INSERT INTO domain (domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created, domain_last_modified, domain_status) ' \
+			'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)'
 		)
 		cx.execute(
 			query, 
 			(
-				self.name, self.ipv6, self.ipv4, self.gid, self.uid, 
+				self.parent, self.name, self.ipv6, self.ipv4, self.gid, self.uid, 
 				self.created, self.modified, self.state
 			)
 		)
@@ -99,6 +154,7 @@ class Domain:
 		self.ipv4 = data['ipv4']
 		self.gid = data['gid']
 		self.uid = data['uid']
+		self.parent = data['parent']
 		self.created = data['created']
 		self.modified = data['modified']
 		self.state = data['state']
