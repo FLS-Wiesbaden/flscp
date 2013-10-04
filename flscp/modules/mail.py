@@ -60,6 +60,13 @@ class MailAccountList:
 
 		return item
 
+	def findByDomain(self, domain):
+		for f in self._items:
+			if f.domain == domain:
+				return True
+
+		return False
+
 class MailAccount:
 	TYPE_ACCOUNT = 'account'
 	TYPE_FORWARD = 'forward'

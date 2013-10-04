@@ -465,7 +465,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 
 		# domain tab
 		#self.ui.butDomainAdd.clicked.connect(self.addDomain)
-		#self.ui.butDomainDel.clicked.connect(self.deleteDomain)
+		self.ui.butDomainDel.clicked.connect(self.deleteDomain)
 		self.ui.butDomainReload.clicked.connect(self.reloadDomainTree)
 		#self.ui.butDomainSave.clicked.connect(self.commitDomainData)
 		#self.ui.domainTree.cellDoubleClicked.connect(self.selectedMail)
@@ -1516,8 +1516,34 @@ class FLScpMainWindow(QtGui.QMainWindow):
 
 		# has item chils?
 		for childs in self.domains.iterByParent(row.id):
-			self.insertDomainData(row, item)
+			self.insertDomainData(childs, item)
 
+	@pyqtSlot()
+	def deleteDomain(self):
+		nrSelected = len(self.ui.domainTree.selectionModel().selectedRows())
+		log.info('Have to delete %i items!' % (nrSelected,))
+
+		for selectedRow in self.ui.domainTree.selectedItems():
+			nr = int(selectedRow.text(0))
+			domain = self.domains.findById(nr)
+			if domain is not None:
+				print(domain.state)
+				if domain.state == Domain.STATE_CREATE:
+					# we cancel pending action.
+					self.ui.domainTree.removeItemWidget(selectedRow)
+					self.domains.remove(domain)
+				else:
+					# do not remove (because we want to see the pending action!)
+					# check possibility!
+					# this means: are there mails with this domain?
+					if domain.isDeletable(self.domains, self.mails):
+						domain.state = Domain.STATE_DELETE
+						log.info('state set to delete')
+					else:
+						log.error('cannot delete domain %s!' % (domain.name,))
+						continue
+
+		self.loadDomainData()
 
 	@pyqtSlot()
 	def reloadDomainTree(self):

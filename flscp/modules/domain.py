@@ -59,6 +59,20 @@ class DomainAccountList:
 
 		return item
 
+	def findByParent(self, parent):
+		item = None
+		try:
+			parent = int(parent)
+		except:
+			pass
+
+		for f in self._items:
+			if f.parent == parent:
+				item = f
+				break
+
+		return item
+
 class Domain:
 	STATE_OK = 'ok'
 	STATE_CHANGE = 'change'
@@ -126,6 +140,33 @@ class Domain:
 		cx.close()
 
 		self.state = state
+
+	def getFullDomain(self, domainList):
+		domain = self.name
+
+		if self.parent is not None:
+			parent = domainList.findById(self.parent)
+			if parent is None:
+				return domain
+			else:
+				domain = '%s.%s' % (self.name, parent.getFullDomain(domainList))
+
+		return domain
+
+	def isDeletable(self, domainList, mailList):
+		domain = self.getFullDomain(domainList)
+
+		mail = mailList.findByDomain(domain)
+		if mail:
+			return False
+		else:
+			# is this a parent for somebody?
+			item = domainList.findByParent(self.id)
+
+			if item is None:
+				return True
+			else:
+				return False			
 
 	def __eq__(self, obj):
 		log = logging.getLogger('flscp')
