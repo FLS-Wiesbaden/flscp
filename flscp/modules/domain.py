@@ -35,7 +35,7 @@ class DomainAccountList:
 	def __len__(self):
 		return len(self._items)
 
-	def iterTlds(self, id):
+	def iterTlds(self):
 		for f in self._items:
 			if f.parent is None:
 				yield f
