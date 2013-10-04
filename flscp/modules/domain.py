@@ -1,5 +1,9 @@
 import logging
+import zlib
+import uuid
+import time
 from database import MailDatabase
+from modules.mail import hashPostFile
 
 class Domain:
 	STATE_OK = 'ok'
@@ -18,8 +22,45 @@ class Domain:
 		self.modified = None
 		self.state = ''
 
+	def generateId(self):
+		self.id = 'Z%s' % (str(zlib.crc32(uuid.uuid4().hex.encode('utf-8')))[0:3],)
+
 	def create(self):
-		raise NotImplemented('domains can not be created at the moment!')
+		# 1. create entry in domain
+		# 2. insert the things in domain file of postfix
+		# 3. hash the domain file
+		# 4. create default dns entries?
+		# 5. generate a bind file
+		# 6. reload bind
+		if self.exists():
+			raise KeyError('Domain "%s" already exists!' % (self.name,))
+
+		# is it a valid domain?
+		if len(self.name) <= 0:
+			raise ValueError('No valid domain given!')
+
+		self.created = time.time()
+		self.modified = time.time()
+		db = MailDatabase.getInstance()
+		cx = db.getCursor()
+		self.state = Domain.STATE_CREATE
+		query = (
+			'INSERT INTO domain (domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created, domain_last_modified, domain_status) ' \
+			'VALUES (%s, %s, %s, %s, %s, %s, %s, %s)'
+		)
+		cx.execute(
+			query, 
+			(
+				self.name, self.ipv6, self.ipv4, self.gid, self.uid, 
+				self.created, self.modified, self.state
+			)
+		)
+		db.commit()
+
+		self.updateDomainFile()
+
+	def updateDomainFile(self):
+		pass
 
 	def setState(self, state):
 		db = MailDatabase.getInstance()

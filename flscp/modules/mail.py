@@ -10,7 +10,7 @@ import zlib
 import uuid
 from database import MailDatabase, SaslDatabase
 from flsconfig import FLSConfig
-from modules.domain import Domain
+from modules.domain import *
 from pwgen import generate_pass
 from saltencryption import SaltEncryption
 from mailer import *
@@ -130,7 +130,7 @@ class MailAccount:
 		conf = FLSConfig.getInstance()
 		return os.path.join(conf.get('mailserver', 'basemailpath'), 'virtual', self.domain, self.mail)
 
-	def authenticate(self, mech, pwd):
+	def authenticate(self, mech, pwd, cert = None):
 		conf = FLSConfig.getInstance()
 		log = logging.getLogger('flscp')
 		data = {
@@ -138,10 +138,9 @@ class MailAccount:
 			'userdb_home': '',
 			'userdb_uid': '',
 			'userdb_gid': '',
-			'userdb_mail': ''
+			'nopassword': 1,
+			#'userdb_mail': ''
 		}
-		localPartDir = os.path.join(conf.get('mailserver', 'basemailpath'), 'virtual')
-		homeDir = os.path.join(localPartDir, self.domain, self.mail)
 		if self.hashPw == '_no_':
 			log.debug('User %s can not login, because password is disabled!' % (self.getMailAddress(),))
 			return False
@@ -150,6 +149,8 @@ class MailAccount:
 
 		if mech in ['PLAIN', 'LOGIN']:
 			state = s.compare(pwd, self.hashPw)
+		elif mech in ['EXTERNAL']:
+			state = (cert == 'valid' and pwd == '')
 		else:
 			log.debug('User %s can not login: unsupported auth mechanism "%s"' % (self.getMailAddress(), mech))
 			state = False
@@ -157,10 +158,10 @@ class MailAccount:
 		if state:
 			username = ('%s@%s' % (self.mail, self.domain)).lower()
 			data['userdb_user'] = username
-			data['userdb_home'] = homeDir
+			data['userdb_home'] = self.getHomeDir()
 			data['userdb_uid'] = conf.get('mailserver', 'uid')
 			data['userdb_gid'] = conf.get('mailserver', 'gid')
-			data['userdb_mail'] = 'maildir:%s' % (username,)
+			#data['userdb_mail'] = 'maildir:%s' % (username,)
 
 			return data
 
@@ -529,6 +530,14 @@ class MailAccount:
 		# now add data:
 		if self.state in (MailAccount.STATE_CHANGE, MailAccount.STATE_CREATE):
 			forward = copy.copy(self.forward)
+			# remove all empty things
+			i = 0
+			for f in forward:
+				if len(f.strip()) <= 0:
+					del(forward[i])
+
+				i += 1
+				
 			if self.type == MailAccount.TYPE_ACCOUNT:
 				forward.insert(0, mailAddr)
 			forward = list(set(forward))

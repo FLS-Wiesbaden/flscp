@@ -400,7 +400,7 @@ class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
 			if cmd == 'L':
 				msg = msg.strip()
 				try:
-					namespace, typ, user, pwd, mech = msg[1:].split('/', 5)
+					namespace, typ, user, pwd, mech, cert = msg[1:].split('/', 6)
 				except ValueError:
 					namespace, typ, user = msg[1:].split('/', 3)
 
@@ -415,7 +415,7 @@ class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
 						self.request.sendall(('O%s\n' % (json.dumps(retCode),)).encode('utf-8'))
 				elif typ == 'passdb':
 					# jap.. we have a problem!
-					retCode = self.passdb(namespace, typ, user, pwd, mech)
+					retCode = self.passdb(namespace, typ, user, pwd, mech, cert)
 					if retCode is False:
 						self.request.sendall('N\n'.encode('utf-8'))
 					else:
@@ -436,10 +436,10 @@ class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
 		else:
 			return False
 
-	def passdb(self, namespace, typ, user, pwd, mech):
+	def passdb(self, namespace, typ, user, pwd, mech, cert = None):
 		maccount = MailAccount.getByEMail(user)
 		if maccount is not None:
-			return maccount.authenticate(mech, pwd)
+			return maccount.authenticate(mech, pwd, cert)
 		else:
 			return False
 
