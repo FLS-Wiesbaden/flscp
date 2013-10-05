@@ -465,7 +465,9 @@ class FLScpMainWindow(QtGui.QMainWindow):
 
 		# domain tab
 		#self.ui.butDomainAdd.clicked.connect(self.addDomain)
+		#self.ui.butDomainEdit.clicked.connect(self.editDomain)
 		self.ui.butDomainDel.clicked.connect(self.deleteDomain)
+		self.ui.butDomainDNS.clicked.connect(self.openDNSDomain)
 		self.ui.butDomainReload.clicked.connect(self.reloadDomainTree)
 		#self.ui.butDomainSave.clicked.connect(self.commitDomainData)
 		#self.ui.domainTree.cellDoubleClicked.connect(self.selectedMail)
@@ -1520,30 +1522,176 @@ class FLScpMainWindow(QtGui.QMainWindow):
 
 	@pyqtSlot()
 	def deleteDomain(self):
-		nrSelected = len(self.ui.domainTree.selectionModel().selectedRows())
+		editDNS = False
+
+		elms = self.ui.tabDNS.currentWidget()
+		# first we think, that the selected element contains tree widget:
+		activeTable = elms.findChild(QtGui.QTreeWidget)
+		if activeTable is None:
+			editDNS = True
+			activeTable = elms.findChild(QtGui.QTableWidget)
+			if activeTable is None:
+				return
+
+		if editDNS:
+			self.deleteDNSEntries(activeTable)
+		else:
+			nrSelected = len(self.ui.domainTree.selectionModel().selectedRows())
+			log.info('Have to delete %i items!' % (nrSelected,))
+
+			for selectedRow in self.ui.domainTree.selectedItems():
+				nr = int(selectedRow.text(0))
+				domain = self.domains.findById(nr)
+				if domain is not None:
+					if domain.state == Domain.STATE_CREATE:
+						# we cancel pending action.
+						self.ui.domainTree.removeItemWidget(selectedRow)
+						self.domains.remove(domain)
+					else:
+						# do not remove (because we want to see the pending action!)
+						# check possibility!
+						# this means: are there mails with this domain?
+						if domain.isDeletable(self.domains, self.mails):
+							domain.state = Domain.STATE_DELETE
+							log.info('state set to delete')
+						else:
+							log.error('cannot delete domain %s!' % (domain.name,))
+							continue
+
+			self.loadDomainData()
+
+	def deleteDNSEntries(self, activeTable = None):
+		if activeTable is None:
+			activeTable = self.ui.tabDNS.currentWidget().findChild(QtGui.QTableWidget)
+			if activeTable is None:
+				return
+
+		nrSelected = len(activeTable.selectionModel().selectedRows())
 		log.info('Have to delete %i items!' % (nrSelected,))
+
+		for selectedRow in activeTable.selectionModel().selectedRows():
+			nr = activeTable.item(selectedRow.row(), 0).text()
+			account = None
+
+		#self.loadDNSData(<id>????)
+	
+	def createDNSWidget(self, domain):
+		tabDomainDNS = QtGui.QWidget()
+		verticalLayout = QtGui.QVBoxLayout(tabDomainDNS)
+		tableDNS = QtGui.QTableWidget(tabDomainDNS)
+		tableDNS.setEditTriggers(QtGui.QAbstractItemView.DoubleClicked|QtGui.QAbstractItemView.EditKeyPressed)
+		tableDNS.setAlternatingRowColors(True)
+		tableDNS.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
+		tableDNS.setColumnCount(6)
+		tableDNS.setRowCount(2)
+		tableDNS.setSortingEnabled(False)
+		item = QtGui.QTableWidgetItem()
+		tableDNS.setVerticalHeaderItem(0, item)
+		item = QtGui.QTableWidgetItem()
+		tableDNS.setVerticalHeaderItem(1, item)
+		item = QtGui.QTableWidgetItem()
+		item.setTextAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
+		font = QtGui.QFont()
+		font.setBold(True)
+		font.setWeight(75)
+		item.setFont(font)
+		tableDNS.setHorizontalHeaderItem(0, item)
+		item = QtGui.QTableWidgetItem()
+		item.setTextAlignment(QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
+		font = QtGui.QFont()
+		font.setBold(True)
+		font.setWeight(75)
+		item.setFont(font)
+		tableDNS.setHorizontalHeaderItem(1, item)
+		item = QtGui.QTableWidgetItem()
+		item.setTextAlignment(QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
+		font = QtGui.QFont()
+		font.setBold(True)
+		font.setWeight(75)
+		item.setFont(font)
+		tableDNS.setHorizontalHeaderItem(2, item)
+		item = QtGui.QTableWidgetItem()
+		item.setTextAlignment(QtCore.Qt.AlignHCenter|QtCore.Qt.AlignVCenter|QtCore.Qt.AlignCenter)
+		font = QtGui.QFont()
+		font.setBold(True)
+		font.setWeight(75)
+		item.setFont(font)
+		tableDNS.setHorizontalHeaderItem(3, item)
+		item = QtGui.QTableWidgetItem()
+		item.setTextAlignment(QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
+		font = QtGui.QFont()
+		font.setBold(True)
+		font.setWeight(75)
+		item.setFont(font)
+		tableDNS.setHorizontalHeaderItem(4, item)
+		item = QtGui.QTableWidgetItem()
+		font = QtGui.QFont()
+		font.setBold(True)
+		font.setWeight(75)
+		item.setFont(font)
+		tableDNS.setHorizontalHeaderItem(5, item)
+		tableDNS.horizontalHeaderItem(0).setText(_translate("MainWindow", "#", None))
+		tableDNS.horizontalHeaderItem(1).setText(_translate("MainWindow", "Key", None))
+		tableDNS.horizontalHeaderItem(2).setText(_translate("MainWindow", "Typ", None))
+		tableDNS.horizontalHeaderItem(3).setText(_translate("MainWindow", "Prio", None))
+		tableDNS.horizontalHeaderItem(4).setText(_translate("MainWindow", "Wert", None))
+		tableDNS.horizontalHeaderItem(5).setText(_translate("MainWindow", "Status", None))
+		item = QtGui.QTableWidgetItem()
+		item.setText(_translate("MainWindow", "1", None))
+		tableDNS.setItem(0, 0, item)
+		item = QtGui.QTableWidgetItem()
+		tableDNS.setItem(0, 1, item)
+		item = QtGui.QTableWidgetItem()
+		item.setText(_translate("MainWindow", "MX", None))
+		tableDNS.setItem(0, 2, item)
+		item = QtGui.QTableWidgetItem()
+		item.setText(_translate("MainWindow", "1", None))
+		tableDNS.setItem(0, 3, item)
+		item = QtGui.QTableWidgetItem()
+		item.setText(_translate("MainWindow", "mail.fls-wiesbaden.de", None))
+		tableDNS.setItem(0, 4, item)
+		item = QtGui.QTableWidgetItem()
+		item.setFlags(QtCore.Qt.ItemIsSelectable|QtCore.Qt.ItemIsDragEnabled|QtCore.Qt.ItemIsUserCheckable)
+		tableDNS.setItem(0, 5, item)
+		item = QtGui.QTableWidgetItem()
+		item.setText(_translate("MainWindow", "2", None))
+		tableDNS.setItem(1, 0, item)
+		item = QtGui.QTableWidgetItem()
+		item.setText(_translate("MainWindow", "mail", None))
+		tableDNS.setItem(1, 1, item)
+		item = QtGui.QTableWidgetItem()
+		tableDNS.setItem(1, 2, item)
+		item = QtGui.QTableWidgetItem()
+		item.setText(_translate("MainWindow", "A", None))
+		tableDNS.setItem(1, 3, item)
+		item = QtGui.QTableWidgetItem()
+		item.setText(_translate("MainWindow", "46.38.234.196", None))
+		tableDNS.setItem(1, 4, item)
+		item = QtGui.QTableWidgetItem()
+		item.setFlags(QtCore.Qt.ItemIsSelectable|QtCore.Qt.ItemIsDragEnabled|QtCore.Qt.ItemIsUserCheckable)
+		tableDNS.setItem(1, 5, item)
+		tableDNS.verticalHeader().setVisible(False)
+		tableDNS.horizontalHeader().setCascadingSectionResizes(False)
+		tableDNS.horizontalHeader().setStretchLastSection(False)
+		verticalLayout.addWidget(tableDNS)
+		self.ui.tabDNS.addTab(tabDomainDNS, domain.name)
+
+	@pyqtSlot()
+	def openDNSDomain(self):
+		if self.ui.tabDNS.currentWidget().findChild(QtGui.QTreeWidget) is None:
+			return
+
+		nrSelected = len(self.ui.domainTree.selectionModel().selectedRows())
+		log.info('Have to open %i domains!' % (nrSelected,))
 
 		for selectedRow in self.ui.domainTree.selectedItems():
 			nr = int(selectedRow.text(0))
 			domain = self.domains.findById(nr)
 			if domain is not None:
-				print(domain.state)
-				if domain.state == Domain.STATE_CREATE:
-					# we cancel pending action.
-					self.ui.domainTree.removeItemWidget(selectedRow)
-					self.domains.remove(domain)
-				else:
-					# do not remove (because we want to see the pending action!)
-					# check possibility!
-					# this means: are there mails with this domain?
-					if domain.isDeletable(self.domains, self.mails):
-						domain.state = Domain.STATE_DELETE
-						log.info('state set to delete')
-					else:
-						log.error('cannot delete domain %s!' % (domain.name,))
-						continue
-
-		self.loadDomainData()
+				if domain.state != Domain.STATE_CREATE and \
+					domain.state != Domain.STATE_DELETE:
+					# is a tab with this already open?
+					self.createDNSWidget(domain)
 
 	@pyqtSlot()
 	def reloadDomainTree(self):

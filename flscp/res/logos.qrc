@@ -24,6 +24,7 @@
     <file>warning.png</file>
   </qresource>
   <qresource prefix="actions">
+    <file>edit_dns.png</file>
     <file>info.png</file>
     <file>help.png</file>
     <file>reload.png</file>
