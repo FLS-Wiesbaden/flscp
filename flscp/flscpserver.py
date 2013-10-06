@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # vim: set noet fenc=utf-8 ff=unix sts=0 sw=4 ts=4 : 
-# require: bsddb3
+# require: bsddb3, python-magic
 from logging.handlers import WatchedFileHandler
 from ansistrm import ColorizingStreamHandler
 from Printer import Printer
@@ -14,7 +14,7 @@ from socketserver import UnixStreamServer
 from distutils.version import StrictVersion as V
 import logging, os, sys, shlex, subprocess, smtplib
 import ssl, re, socketserver, socket, io, pickle, configparser, base64, stat
-import zipfile, tempfile, datetime, json
+import zipfile, tempfile, datetime, json, magic
 from database import MailDatabase, SaslDatabase
 from flsconfig import FLSConfig
 from modules.flscertification import *
