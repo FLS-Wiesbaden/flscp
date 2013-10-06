@@ -196,7 +196,7 @@ class ControlPanel:
 	def getLogFile(self, logFile):
 		content = None
 		mime = magic.Magic(mime=True)
-		fileType = mime.from_file(logFile)
+		fileType = mime.from_file(logFile).decode('utf-8')
 
 		if fileType == 'application/x-gzip':
 			try:
