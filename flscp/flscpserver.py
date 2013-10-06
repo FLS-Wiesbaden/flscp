@@ -201,7 +201,9 @@ class ControlPanel:
 		try:
 			if fileType == 'application/x-gzip':
 				with gzip.open(logFile, 'rb') as f:
-					content = f.read().decode('utf-8')
+					content = f.read()
+
+				content = content.decode('utf-8')
 			else:
 				with open(logFile, 'rb') as f:
 					content = f.read().decode('utf-8')
