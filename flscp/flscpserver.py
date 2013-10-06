@@ -198,17 +198,21 @@ class ControlPanel:
 		mime = magic.Magic(mime=True)
 		fileType = mime.from_file(logFile)
 
-		try:
 			if fileType == 'application/x-gzip':
-				with gzip.open(logFile, 'rb') as f:
-					content = f.read()
+				try:
+					f = gzip.open(logFile, 'rb')
+					contentTmp = f.read()
+					f.close()
+					content = contentTmp.decode('utf-8')
+				except Exception as e:
+					log.warning('Could not load logfile "%s" (%s)!' % (logFile, str(e),))
 
-				content = content.decode('utf-8')
 			else:
-				with open(logFile, 'rb') as f:
-					content = f.read().decode('utf-8')
-		except Exception as e:
-			log.warning('Could not load logfile "%s" (%s)!' % (logFile, str(e),))
+				try:
+					with open(logFile, 'rb') as f:
+						content = f.read().decode('utf-8')
+				except Exception as e:
+					log.warning('Could not load logfile "%s" (%s)!' % (logFile, str(e),))
 
 		return '' if content is None else content
 
