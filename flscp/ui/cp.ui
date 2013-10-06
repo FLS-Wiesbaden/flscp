@@ -40,7 +40,7 @@
        <enum>QTabWidget::West</enum>
       </property>
       <property name="currentIndex">
-       <number>1</number>
+       <number>3</number>
       </property>
       <widget class="QWidget" name="tabHome">
        <attribute name="icon">
@@ -91,6 +91,23 @@
           </property>
           <property name="shortcut">
            <string>M</string>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QToolButton" name="butHomeLogs">
+          <property name="text">
+           <string notr="true"/>
+          </property>
+          <property name="icon">
+           <iconset resource="../res/logos.qrc">
+            <normaloff>:/section/logs.png</normaloff>:/section/logs.png</iconset>
+          </property>
+          <property name="iconSize">
+           <size>
+            <width>128</width>
+            <height>128</height>
+           </size>
           </property>
          </widget>
         </item>
@@ -318,7 +335,7 @@
         <item>
          <widget class="QTabWidget" name="tabDNS">
           <property name="currentIndex">
-           <number>1</number>
+           <number>0</number>
           </property>
           <property name="tabsClosable">
            <bool>false</bool>
@@ -484,186 +501,6 @@
                 </font>
                </property>
               </column>
-             </widget>
-            </item>
-           </layout>
-          </widget>
-          <widget class="QWidget" name="tabDNS_1">
-           <attribute name="title">
-            <string>lschreiner.de</string>
-           </attribute>
-           <layout class="QVBoxLayout" name="verticalLayout_5">
-            <item>
-             <widget class="QTableWidget" name="tableDNS_1">
-              <property name="editTriggers">
-               <set>QAbstractItemView::DoubleClicked|QAbstractItemView::EditKeyPressed</set>
-              </property>
-              <property name="alternatingRowColors">
-               <bool>true</bool>
-              </property>
-              <property name="selectionBehavior">
-               <enum>QAbstractItemView::SelectRows</enum>
-              </property>
-              <attribute name="verticalHeaderVisible">
-               <bool>false</bool>
-              </attribute>
-              <row>
-               <property name="text">
-                <string>1</string>
-               </property>
-              </row>
-              <row>
-               <property name="text">
-                <string>2</string>
-               </property>
-              </row>
-              <column>
-               <property name="text">
-                <string>#</string>
-               </property>
-               <property name="font">
-                <font>
-                 <weight>75</weight>
-                 <bold>true</bold>
-                </font>
-               </property>
-               <property name="textAlignment">
-                <set>AlignRight|AlignVCenter</set>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>Key</string>
-               </property>
-               <property name="font">
-                <font>
-                 <weight>75</weight>
-                 <bold>true</bold>
-                </font>
-               </property>
-               <property name="textAlignment">
-                <set>AlignLeft|AlignVCenter</set>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>Typ</string>
-               </property>
-               <property name="font">
-                <font>
-                 <weight>75</weight>
-                 <bold>true</bold>
-                </font>
-               </property>
-               <property name="textAlignment">
-                <set>AlignLeft|AlignVCenter</set>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>Prio</string>
-               </property>
-               <property name="font">
-                <font>
-                 <weight>75</weight>
-                 <bold>true</bold>
-                </font>
-               </property>
-               <property name="textAlignment">
-                <set>AlignHCenter|AlignVCenter|AlignCenter</set>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>Wert</string>
-               </property>
-               <property name="font">
-                <font>
-                 <weight>75</weight>
-                 <bold>true</bold>
-                </font>
-               </property>
-               <property name="textAlignment">
-                <set>AlignLeft|AlignVCenter</set>
-               </property>
-              </column>
-              <column>
-               <property name="text">
-                <string>Status</string>
-               </property>
-               <property name="font">
-                <font>
-                 <weight>75</weight>
-                 <bold>true</bold>
-                </font>
-               </property>
-              </column>
-              <item row="0" column="0">
-               <property name="text">
-                <string>1</string>
-               </property>
-              </item>
-              <item row="0" column="1">
-               <property name="text">
-                <string/>
-               </property>
-              </item>
-              <item row="0" column="2">
-               <property name="text">
-                <string>MX</string>
-               </property>
-              </item>
-              <item row="0" column="3">
-               <property name="text">
-                <string>1</string>
-               </property>
-              </item>
-              <item row="0" column="4">
-               <property name="text">
-                <string>mail.fls-wiesbaden.de</string>
-               </property>
-              </item>
-              <item row="0" column="5">
-               <property name="text">
-                <string/>
-               </property>
-               <property name="flags">
-                <set>ItemIsSelectable|ItemIsDragEnabled|ItemIsUserCheckable</set>
-               </property>
-              </item>
-              <item row="1" column="0">
-               <property name="text">
-                <string>2</string>
-               </property>
-              </item>
-              <item row="1" column="1">
-               <property name="text">
-                <string>mail</string>
-               </property>
-              </item>
-              <item row="1" column="2">
-               <property name="text">
-                <string>A</string>
-               </property>
-              </item>
-              <item row="1" column="3">
-               <property name="text">
-                <string/>
-               </property>
-              </item>
-              <item row="1" column="4">
-               <property name="text">
-                <string>46.38.234.196</string>
-               </property>
-              </item>
-              <item row="1" column="5">
-               <property name="text">
-                <string/>
-               </property>
-               <property name="flags">
-                <set>ItemIsSelectable|ItemIsDragEnabled|ItemIsUserCheckable</set>
-               </property>
-              </item>
              </widget>
             </item>
            </layout>
@@ -952,6 +789,89 @@
            </property>
           </column>
          </widget>
+        </item>
+       </layout>
+      </widget>
+      <widget class="QWidget" name="tabLog">
+       <attribute name="icon">
+        <iconset resource="../res/logos.qrc">
+         <normaloff>:/section/logs.png</normaloff>:/section/logs.png</iconset>
+       </attribute>
+       <attribute name="title">
+        <string>Logs</string>
+       </attribute>
+       <layout class="QVBoxLayout" name="verticalLayout_5">
+        <item>
+         <widget class="QFrame" name="frameLog">
+          <property name="frameShape">
+           <enum>QFrame::StyledPanel</enum>
+          </property>
+          <property name="frameShadow">
+           <enum>QFrame::Raised</enum>
+          </property>
+          <layout class="QGridLayout" name="gridLayout_2">
+           <item row="0" column="0">
+            <widget class="QLabel" name="labLogFile">
+             <property name="text">
+              <string>Log-Datei:</string>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="4">
+            <spacer name="horizontalSpacer_2">
+             <property name="orientation">
+              <enum>Qt::Horizontal</enum>
+             </property>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>40</width>
+               <height>20</height>
+              </size>
+             </property>
+            </spacer>
+           </item>
+           <item row="0" column="3">
+            <widget class="QToolButton" name="butLogReload">
+             <property name="styleSheet">
+              <string notr="true">background:transparent</string>
+             </property>
+             <property name="text">
+              <string notr="true"/>
+             </property>
+             <property name="icon">
+              <iconset resource="../res/logos.qrc">
+               <normaloff>:/actions/reload.png</normaloff>:/actions/reload.png</iconset>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="1">
+            <widget class="QComboBox" name="fldLogFile"/>
+           </item>
+           <item row="0" column="2">
+            <widget class="QToolButton" name="butLogLoad">
+             <property name="styleSheet">
+              <string notr="true">background:transparent</string>
+             </property>
+             <property name="text">
+              <string notr="true"/>
+             </property>
+             <property name="icon">
+              <iconset resource="../res/logos.qrc">
+               <normaloff>:/actions/arrow-right.png</normaloff>:/actions/arrow-right.png</iconset>
+             </property>
+             <property name="iconSize">
+              <size>
+               <width>16</width>
+               <height>16</height>
+              </size>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QTextBrowser" name="logText"/>
         </item>
        </layout>
       </widget>

@@ -10,6 +10,7 @@
     <file>account.png</file>
   </qresource>
   <qresource prefix="section">
+    <file>logs.png</file>
     <file>domain.png</file>
     <file>database.png</file>
     <file>manageMails.png</file>
@@ -24,6 +25,7 @@
     <file>warning.png</file>
   </qresource>
   <qresource prefix="actions">
+    <file>arrow-right.png</file>
     <file>edit_dns.png</file>
     <file>info.png</file>
     <file>help.png</file>

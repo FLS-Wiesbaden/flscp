@@ -461,6 +461,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		# home
 		self.ui.butHomeDomain.clicked.connect(self.switchToDomain)
 		self.ui.butHomeMail.clicked.connect(self.switchToMail)
+		self.ui.butHomeLogs.clicked.connect(self.switchToLogs)
 		self.ui.butHomeCert.clicked.connect(self.switchToAdmin)
 
 		# domain tab
@@ -480,6 +481,10 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.ui.butSave.clicked.connect(self.commitMailData)
 		self.ui.mailTable.cellDoubleClicked.connect(self.selectedMail)
 		self.ui.search.textChanged.connect(self.filterMail)
+
+		# logs tab
+		self.ui.butLogLoad.clicked.connect(self.loadLog)
+		self.ui.butLogReload.clicked.connect(self.reloadLogFileList)
 
 		# certs tab
 		try:
@@ -566,8 +571,108 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.ui.tabWidget.setCurrentIndex(2)
 
 	@pyqtSlot()
-	def switchToAdmin(self):
+	def switchToLogs(self):
 		self.ui.tabWidget.setCurrentIndex(3)
+		self.reloadLogFileList()
+
+	@pyqtSlot()
+	def reloadLogFileList(self):
+		self.enableProgressBar()
+		try:
+			for f in self.rpc.getListOfLogs():
+				self.ui.fldLogFile.addItem(f)
+		except ssl.CertificateError as e:
+			log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
+			QtGui.QMessageBox.critical(
+				self, _translate('MainWindow', 'Warnung', None), 
+				_translate('MainWindow', 
+					'Potentieller Angriff! Server-Zertifikat ist fehlerhaft! Bitte informieren Sie Ihren Administrator!', 
+					None),
+				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+			)
+		except socket.error as e:
+			log.error('Connection to server lost!')
+			QtGui.QMessageBox.critical(
+				self, _translate('MainWindow', 'Warnung', None), 
+				_translate('MainWindow', 
+					'Verbindung zum Server nicht möglich. Bitte versuchen Sie es später noch einmal.', 
+					None),
+				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+			)
+		except xmlrpc.client.ProtocolError as e:
+			if e.errcode == 403:
+				log.warning('Missing rights for loading mails (%s)' % (e,))
+				QtGui.QMessageBox.warning(
+					self, _translate('MainWindow', 'Fehlende Rechte', None), 
+					_translate('MainWindow', 
+						'Sie haben nicht ausreichend Rechte!', 
+						None),
+					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+				)
+			else:
+				log.warning('Unexpected error in protocol: %s' % (e,))
+				QtGui.QMessageBox.warning(
+					self, _translate('MainWindow', 'Unbekannter Fehler', None), 
+					_translate('MainWindow', 
+						'Unbekannter Fehler in der Kommunikation mit dem Server aufgetreten.', 
+						None),
+					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+				)
+
+		self.disableProgressBar()
+
+	@pyqtSlot()
+	def loadLog(self):
+		logFile = self.ui.fldLogFile.currentText().strip()
+		if logFile == '':
+			return
+
+		try:
+			logTxt = self.rpc.getLogFile(logFile)
+			self.ui.logText.setPlainText(logTxt)
+			self.ui.logText.setReadOnly(True)
+			self.ui.logText.setAcceptRichText(False)
+		except ssl.CertificateError as e:
+			log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
+			QtGui.QMessageBox.critical(
+				self, _translate('MainWindow', 'Warnung', None), 
+				_translate('MainWindow', 
+					'Potentieller Angriff! Server-Zertifikat ist fehlerhaft! Bitte informieren Sie Ihren Administrator!', 
+					None),
+				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+			)
+		except socket.error as e:
+			log.error('Connection to server lost!')
+			QtGui.QMessageBox.critical(
+				self, _translate('MainWindow', 'Warnung', None), 
+				_translate('MainWindow', 
+					'Verbindung zum Server nicht möglich. Bitte versuchen Sie es später noch einmal.', 
+					None),
+				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+			)
+		except xmlrpc.client.ProtocolError as e:
+			if e.errcode == 403:
+				log.warning('Missing rights for loading mails (%s)' % (e,))
+				QtGui.QMessageBox.warning(
+					self, _translate('MainWindow', 'Fehlende Rechte', None), 
+					_translate('MainWindow', 
+						'Sie haben nicht ausreichend Rechte!', 
+						None),
+					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+				)
+			else:
+				log.warning('Unexpected error in protocol: %s' % (e,))
+				QtGui.QMessageBox.warning(
+					self, _translate('MainWindow', 'Unbekannter Fehler', None), 
+					_translate('MainWindow', 
+						'Unbekannter Fehler in der Kommunikation mit dem Server aufgetreten.', 
+						None),
+					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+				)
+
+	@pyqtSlot()
+	def switchToAdmin(self):
+		self.ui.tabWidget.setCurrentIndex(4)
 
 	@pyqtSlot()
 	def init(self):

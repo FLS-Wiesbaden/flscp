@@ -177,6 +177,31 @@ class ControlPanel:
 		
 		return data
 
+	def getListOfLogs(self):
+		base = '/var/log/'
+		fileList = []
+		mime = magic.Magic(mime=True)
+
+		for root, dirs, files in os.walk(base):
+			for name in files:
+				fullPath = os.path.join(root, name)
+				fileType = mime.from_file(fullPath)
+				if fileType is not None and fileType.decode('utf-8') == 'text/plain':
+					fileList.append(fullPath)
+
+		return fileList
+
+	def getLogFile(self, logFile):
+		content = None
+
+		try:
+			with open(logFile, 'rb') as f:
+				content = f.read().decode('utf-8')
+		except Exception as e:
+			log.warning('Could not load logfile "%s" (%s)!' % (logFile, str(e),))
+
+		return '' if content is None else content
+
 	def getMails(self):
 		db = MailDatabase.getInstance()
 		domainsRaw = self.getDomains()
