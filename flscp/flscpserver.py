@@ -14,7 +14,7 @@ from socketserver import UnixStreamServer
 from distutils.version import StrictVersion as V
 import logging, os, sys, shlex, subprocess, smtplib
 import ssl, re, socketserver, socket, io, pickle, configparser, base64, stat
-import zipfile, tempfile, datetime, json, magic, gz
+import zipfile, tempfile, datetime, json, magic, gzip
 from database import MailDatabase, SaslDatabase
 from flsconfig import FLSConfig
 from modules.flscertification import *
