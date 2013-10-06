@@ -189,6 +189,7 @@ class ControlPanel:
 				if fileType is not None and fileType.decode('utf-8') == 'text/plain':
 					fileList.append(fullPath)
 
+		fileList.sort()
 		return fileList
 
 	def getLogFile(self, logFile):
