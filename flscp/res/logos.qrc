@@ -25,6 +25,7 @@
     <file>warning.png</file>
   </qresource>
   <qresource prefix="actions">
+    <file>arrow-left.png</file>
     <file>arrow-right.png</file>
     <file>edit_dns.png</file>
     <file>info.png</file>
@@ -35,5 +36,8 @@
     <file>edit.png</file>
     <file>delete.png</file>
     <file>add.png</file>
+  </qresource>
+  <qresource prefix="options">
+    <file>case_insensitive.png</file>
   </qresource>
 </RCC>

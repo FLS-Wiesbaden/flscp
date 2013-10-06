@@ -13,7 +13,7 @@ from pytz import UTC
 import logging, os, sys, re, copy, uuid, zlib, xmlrpc.client, http.client, ssl, socket, datetime
 import tempfile, zipfile, base64
 from modules import flscertification
-from modules.domain import DomainAccountList, Domain
+from modules.domain import DomainList, Domain
 from modules.mail import MailAccountList, MailAccount
 try:
 	import OpenSSL
@@ -432,7 +432,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.version = ''
 
 		self.mails = MailAccountList()
-		self.domains = DomainAccountList()
+		self.domains = DomainList()
 		self.certs = flscertification.FLSCertificateList()
 		self.splash = QtGui.QSplashScreen(self, QtGui.QPixmap(":/logo/splash.png"))
 		self.splash.show()
@@ -485,6 +485,9 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		# logs tab
 		self.ui.butLogLoad.clicked.connect(self.loadLog)
 		self.ui.butLogReload.clicked.connect(self.reloadLogFileList)
+		self.ui.logSearch.textChanged.connect(self.searchLog)
+		self.ui.butLogSearchBack.clicked.connect(self.searchLogBack)
+		self.ui.butLogSearchForw.clicked.connect(self.searchLogForward)
 
 		# certs tab
 		try:
@@ -669,6 +672,37 @@ class FLScpMainWindow(QtGui.QMainWindow):
 						None),
 					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
 				)
+
+	@pyqtSlot(str)
+	def searchLog(self, filterText):
+		options = None
+		log.debug('Search for %s' % (filterText,))
+		if self.ui.butLogChkSensitive.isChecked():
+			options = QtGui.QTextDocument.FindCaseSensitively
+
+		if options is None:
+			self.ui.logText.find(filterText)
+		else:
+			self.ui.logText.find(filterText, options)
+
+	@pyqtSlot()
+	def searchLogBack(self):
+		options = QtGui.QTextDocument.FindBackward
+		if self.ui.butLogChkSensitive.isChecked():
+			options = options | QtGui.QTextDocument.FindCaseSensitively
+		
+		self.ui.logText.find(self.ui.logSearch.text(), options)
+
+	@pyqtSlot()
+	def searchLogForward(self):
+		options = None
+		if self.ui.butLogChkSensitive.isChecked():
+			options = QtGui.QTextDocument.FindCaseSensitively
+
+		if options is None:
+			self.ui.logText.find(self.ui.logSearch.text())
+		else:
+			self.ui.logText.find(self.ui.logSearch.text(), options)
 
 	@pyqtSlot()
 	def switchToAdmin(self):
@@ -1115,7 +1149,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				)
 
 	def loadDomains(self):
-		self.domains = DomainAccountList()
+		self.domains = DomainList()
 		try:
 			for item in self.rpc.getDomains():
 				print(item)

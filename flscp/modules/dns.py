@@ -2,10 +2,8 @@ import logging
 import zlib
 import uuid
 import time
-from database import MailDatabase
-from tools import hashPostFile
 
-class DomainList:
+class DNSList:
 
 	def __init__(self):
 		self._items = []
@@ -40,7 +38,7 @@ class DomainList:
 			if f.parent is None:
 				yield f
 
-	def iterByParent(self, domainId):
+	def iterByDomain(self, domainId):
 		for f in self._items:
 			if f.parent == domainId:
 				yield f

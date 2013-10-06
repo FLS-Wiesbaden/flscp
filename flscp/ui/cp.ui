@@ -40,7 +40,7 @@
        <enum>QTabWidget::West</enum>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>3</number>
       </property>
       <widget class="QWidget" name="tabHome">
        <attribute name="icon">
@@ -871,6 +871,76 @@
                <width>16</width>
                <height>16</height>
               </size>
+             </property>
+            </widget>
+           </item>
+          </layout>
+         </widget>
+        </item>
+        <item>
+         <widget class="QWidget" name="searchFrame" native="true">
+          <layout class="QHBoxLayout" name="horizontalLayout_5">
+           <property name="margin">
+            <number>0</number>
+           </property>
+           <item>
+            <widget class="QLineEdit" name="logSearch">
+             <property name="inputMask">
+              <string/>
+             </property>
+             <property name="text">
+              <string/>
+             </property>
+             <property name="placeholderText">
+              <string>Suchen...</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QPushButton" name="butLogChkSensitive">
+             <property name="text">
+              <string notr="true"/>
+             </property>
+             <property name="icon">
+              <iconset resource="../res/logos.qrc">
+               <normaloff>:/options/case_insensitive.png</normaloff>:/options/case_insensitive.png</iconset>
+             </property>
+             <property name="checkable">
+              <bool>true</bool>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QToolButton" name="butLogSearchBack">
+             <property name="styleSheet">
+              <string notr="true">background:transparent</string>
+             </property>
+             <property name="text">
+              <string notr="true"/>
+             </property>
+             <property name="icon">
+              <iconset resource="../res/logos.qrc">
+               <normaloff>:/actions/arrow-left.png</normaloff>:/actions/arrow-left.png</iconset>
+             </property>
+             <property name="shortcut">
+              <string>Shift+F3</string>
+             </property>
+            </widget>
+           </item>
+           <item>
+            <widget class="QToolButton" name="butLogSearchForw">
+             <property name="styleSheet">
+              <string notr="true">background:transparent</string>
+             </property>
+             <property name="text">
+              <string notr="true"/>
+             </property>
+             <property name="icon">
+              <iconset resource="../res/logos.qrc">
+               <normaloff>:/actions/arrow-right.png</normaloff>:/actions/arrow-right.png</iconset>
+             </property>
+             <property name="shortcut">
+              <string>F3</string>
              </property>
             </widget>
            </item>
