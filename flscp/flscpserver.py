@@ -14,7 +14,7 @@ from socketserver import UnixStreamServer
 from distutils.version import StrictVersion as V
 import logging, os, sys, shlex, subprocess, smtplib
 import ssl, re, socketserver, socket, io, pickle, configparser, base64, stat
-import zipfile, tempfile, datetime, json, magic
+import zipfile, tempfile, datetime, json, magic, gz
 from database import MailDatabase, SaslDatabase
 from flsconfig import FLSConfig
 from modules.flscertification import *
@@ -186,7 +186,8 @@ class ControlPanel:
 			for name in files:
 				fullPath = os.path.join(root, name)
 				fileType = mime.from_file(fullPath)
-				if fileType is not None and fileType.decode('utf-8') == 'text/plain':
+				if fileType is not None and \
+					fileType.decode('utf-8') in ['text/plain', 'application/x-gzip']:
 					fileList.append(fullPath)
 
 		fileList.sort()
@@ -194,10 +195,16 @@ class ControlPanel:
 
 	def getLogFile(self, logFile):
 		content = None
+		mime = magic.Magic(mime=True)
+		fileType = mime.from_file(logFile)
 
 		try:
-			with open(logFile, 'rb') as f:
-				content = f.read().decode('utf-8')
+			if fileType == 'application/x-gzip':
+				with gzip.open(logFile, 'rb') as f:
+					content = f.read().decode('utf-8')
+			else:
+				with open(logFile, 'rb') as f:
+					content = f.read().decode('utf-8')
 		except Exception as e:
 			log.warning('Could not load logfile "%s" (%s)!' % (logFile, str(e),))
 
