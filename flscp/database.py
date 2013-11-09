@@ -1,8 +1,15 @@
 import abc
-import mysql.connector
+try:
+	import mysql.connector
+except:
+	print('There is no database connection possible (server)')
+
 import logging
 from flsconfig import FLSConfig
-import bsddb3 as bsddb
+try:
+	import bsddb3 as bsddb
+except:
+	print('No SaslDatabase available!')
 
 class Database(metaclass=abc.ABCMeta):
 	__instance = None

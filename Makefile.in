@@ -9,7 +9,7 @@ STATIC_LIBS = libs
 TEMPLATES = templates
 PYTHONS = $(wildcard $(PACKAGE)/*.py)
 PYTHON_MODULS = $(wildcard $(PACKAGE)/modules/*.py)
-PYTHON_UIS = $(wildcard $(PACKAGE)/modules/*.py)
+PYTHON_UIS = $(wildcard $(PACKAGE)/ui/*.py)
 
 RESOURCE_DIR = $(PACKAGE)/res
 UI_DIR = $(PACKAGE)/ui

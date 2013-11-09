@@ -36,7 +36,8 @@ workDir = os.path.dirname(os.path.realpath(__file__))
 
 ##### CONFIGURE #####
 # connection
-RPCHOST 		= 'cp.lschreiner.de' 
+#RPCHOST 		= 'cp.lschreiner.de' 
+RPCHOST 		= 'cp.fls-wiesbaden.de' 
 RPCPORT 		= 10027
 RPCPATH			= 'RPC2'
 # ssl connection
@@ -428,6 +429,8 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.ui.mailTable.horizontalHeader().setResizeMode(self.resizeModes['Stretch'])
 		self.ui.adminTable.horizontalHeader().setResizeMode(self.resizeModes['Stretch'])
 		self.ui.adminTable.hideColumn(0)
+		self.progress = None
+		self.stateProgressBar = False
 
 		self.version = ''
 
@@ -817,6 +820,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 
 		# disable splash screen!
 		self.splash.close()
+		#self.stateProgressBar = True
 		self.start()
 
 	def updateVersion(self):
@@ -884,7 +888,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				None),
 			QtGui.QMessageBox.Ok|QtGui.QMessageBox.Cancel, QtGui.QMessageBox.Ok
 		)
-		if msg == QtGui.QMessageBox.Cancel:
+		if answer == QtGui.QMessageBox.Cancel:
 			self.close()
 			return
 
@@ -924,7 +928,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 					None
 				)
 			)
-			self.quit()
+			self.close()
 			return
 
 		pubkey = None
@@ -950,6 +954,8 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				)
 				(passphrase, ok) = passphrase
 				aborted = not ok
+			except Exception as e:
+				print('Other exception while loading cert! %s' % (str(e),))
 			else:
 				loaded = True
 
@@ -962,7 +968,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 					None
 				)
 			)
-			self.quit()
+			self.close()
 			return
 
 		pubkey = pk.get_certificate()
@@ -976,7 +982,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 					None
 				)
 			)
-			self.quit()
+			self.close()
 			return
 
 		if pubkey is None or privkey is None:
@@ -988,7 +994,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 					None
 				)
 			)
-			self.quit()
+			self.close()
 			return
 
 		# save the files!
@@ -1011,7 +1017,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 					None
 				)
 			)
-			self.quit()
+			self.close()
 		else:
 			# success - start the rest!
 			self.rpc = FlsServer.getInstance()
@@ -1203,14 +1209,15 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			QtGui.QWhatsThis.enterWhatsThisMode()
 
 	def enableProgressBar(self):
-		log.debug('Enable Progressbar')
-		self.progress = QtGui.QProgressDialog(
-			_translate('MainWindow', 'Speichern/Laden der Daten', None), 
-			None, 0, 0, self
-		)
-		self.progress.setWindowModality(QtCore.Qt.ApplicationModal)
-		self.progress.setMinimumDuration(1000)
-		self.progress.show()
+		if self.stateProgressBar:
+			log.debug('Enable Progressbar')
+			self.progress = QtGui.QProgressDialog(
+				_translate('MainWindow', 'Speichern/Laden der Daten', None), 
+				None, 0, 0, self
+			)
+			self.progress.setWindowModality(QtCore.Qt.ApplicationModal)
+			self.progress.setMinimumDuration(1000)
+			self.progress.show()
 
 	@pyqtSlot()
 	def disableProgressBar(self):
@@ -2098,6 +2105,14 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.showNormal()
 
 if __name__ == "__main__":
+	if os.path.exists('flscp.log'):
+		try:
+			# clear logfile
+			f = open('flscp.log', 'wb')
+			os.ftruncate(f, 0)
+			f.close()
+		except:
+			pass
 	hdlr = WatchedFileHandler('flscp.log')
 	hdlr.setFormatter(formatter)
 	log.addHandler(hdlr)
