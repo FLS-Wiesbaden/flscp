@@ -36,8 +36,8 @@ workDir = os.path.dirname(os.path.realpath(__file__))
 
 ##### CONFIGURE #####
 # connection
-#RPCHOST 		= 'cp.lschreiner.de' 
-RPCHOST 		= 'cp.fls-wiesbaden.de' 
+RPCHOST 		= 'cp.lschreiner.de' 
+#RPCHOST 		= 'cp.fls-wiesbaden.de' 
 RPCPORT 		= 10027
 RPCPATH			= 'RPC2'
 # ssl connection

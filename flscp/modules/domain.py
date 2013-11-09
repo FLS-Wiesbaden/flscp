@@ -3,6 +3,7 @@ import zlib
 import uuid
 import time
 from database import MailDatabase
+from modules.dns import Dns
 from tools import hashPostFile
 
 class DomainList:
@@ -79,8 +80,8 @@ class Domain:
 	STATE_CREATE = 'create'
 	STATE_DELETE = 'delete'
 
-	def __init__(self):
-		self.id = None
+	def __init__(self, did = None):
+		self.id = did
 		self.name = ''
 		self.ipv6 = ''
 		self.ipv4 = ''
@@ -90,6 +91,42 @@ class Domain:
 		self.created = None
 		self.modified = None
 		self.state = ''
+
+		self.ttl = 3600
+
+	def load(self):
+		if self.id is None:
+			return False
+
+		state = False
+
+		db = MailDatabase.getInstance()
+		cx = db.getCursor()
+		query = (
+			'SELECT domain_id, domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created, ' \
+			'domain_last_modified, domain_status WHERE domain_id = %s LIMIT 1'
+		)
+		try:
+			cx.execute(query, (self.id,))
+			for (did, parent, domain_name, ipv6, ipv4, gid, uid, created, modified, state) in cx:
+				self.id = did
+				self.parent = parent
+				self.name = domain_name
+				self.ipv6 = ipv6
+				self.ipv4 = ipv4
+				self.gid = gid
+				self.uid = uid
+				self.created = created
+				self.modified = modified
+				self.state = state
+		except Exception as e:
+			state = False
+		else:
+			state = True
+		finally:
+			cx.close()
+
+		return state
 
 	def generateId(self):
 		self.id = 'Z%s' % (str(zlib.crc32(uuid.uuid4().hex.encode('utf-8')))[0:3],)
@@ -130,6 +167,26 @@ class Domain:
 
 	def updateDomainFile(self):
 		pass
+
+	def generateBindFile(self):
+		content = []
+		content.append('$ORIGIN %s.' % (self.getFullDomain(),))
+		content.append('$TTL %is' % (self.ttl,))
+		# get soa entry.
+		soa = Dns.getSoaForDomain(self.domainId)
+		if soa is None:
+			raise ValueError('Missing SOA-Entry. Cannot generatee Bind-File before!')
+			return False
+
+		for f in soa.generateDnsEntry:
+			content.append(f)
+
+		# now the rest
+		for dns in Dns.getDnsForDomain(self.domainId):
+			for f in dns.generateDnsEntry():
+				content.append(f)
+
+		return '\n'.join(content)
 
 	def setState(self, state):
 		db = MailDatabase.getInstance()
@@ -215,11 +272,21 @@ class Domain:
 			dom.id = domain_id
 			dom.name = domain_name
 		except Exception as e:
+			dom = None
 			log.warning('Could not find domain.')
+			raise KeyError('Domain "%s" could not be found!' % (name,))
+		finally:
 			cx.close()
-			raise KeyError('Domain "%s" could not be found!')
-
-		cx.close()
 
 		self = dom
+		return self
+
+	@classmethod
+	def getById(dom, did):
+		dom = Domain(did)
+		if dom.load():
+			self = dom
+		else:
+			raise KeyError('Domain with this id does not exist!')
+
 		return self

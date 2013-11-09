@@ -2,6 +2,7 @@ import logging
 import zlib
 import uuid
 import time
+from modules.domain import *
 
 class DNSList:
 
@@ -71,153 +72,182 @@ class DNSList:
 
 		return item
 
-class Domain:
+class Dns:
 	STATE_OK = 'ok'
 	STATE_CHANGE = 'change'
 	STATE_CREATE = 'create'
 	STATE_DELETE = 'delete'
 
+	TYPE_MX = 'MX'
+	TYPE_NS = 'NS'
+	TYPE_SOA = 'SOA'
+	TYPE_A = 'A'
+	TYPE_AAAA = 'AAAA'
+	TYPE_CNAME = 'CNAME'
+	TYPE_TXT = 'TXT'
+	TYPE_SPF = 'SPF'
+	TYPE_SRV = 'SRV'
+
 	def __init__(self):
 		self.id = None
-		self.name = ''
-		self.ipv6 = ''
-		self.ipv4 = ''
-		self.gid = ''
-		self.uid = ''
-		self.parent = None
-		self.created = None
-		self.modified = None
+		self.domainId = ''
+		self.key = ''
+		self.type = ''
+		self.prio = ''
+		self.value = ''
+		self.weight = 0
+		self.port = 0
+		self.dnsAdmin = None
+		self.refreshRate = 7200
+		self.retryRate = 1800
+		self.expireTime = 1209600
+		self.ttl = 3600
 		self.state = ''
 
 	def generateId(self):
 		self.id = 'Z%s' % (str(zlib.crc32(uuid.uuid4().hex.encode('utf-8')))[0:3],)
 
 	def create(self):
-		# 1. create entry in domain
-		# 2. insert the things in domain file of postfix
-		# 3. hash the domain file
-		# 4. create default dns entries?
-		# 5. generate a bind file
-		# 6. reload bind
-		if self.exists():
-			raise KeyError('Domain "%s" already exists!' % (self.name,))
+		# SOA entries are only allowed ONCE!
+		if self.type == Dns.TYPE_SOA and self.exists():
+			raise ValueError('Entry has to be UNIQUE!')
 
 		# is it a valid domain?
-		if len(self.name) <= 0:
-			raise ValueError('No valid domain given!')
+		if not self.validate():
+			raise ValueError('No valid data given!')
 
-		self.created = time.time()
-		self.modified = time.time()
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
-		self.state = Domain.STATE_CREATE
+		self.state = Dns.STATE_CREATE
 		query = (
-			'INSERT INTO domain (domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created, domain_last_modified, domain_status) ' \
-			'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)'
+			'INSERT INTO dns (domain_id, dns_key, dns_type, dns_prio, dns_value, dns_weight, dns_port, dns_admin, ' \
+			'dns_refresh, dns_retry, dns_expire, dns_ttl, status) ' \
+			'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
 		)
 		cx.execute(
 			query, 
 			(
-				self.parent, self.name, self.ipv6, self.ipv4, self.gid, self.uid, 
-				self.created, self.modified, self.state
+				self.domainId, self.key, self.type, self.prio, self.value, self.weight, self.port, self.dnsAdmin,
+				self.refreshRate, self.retryRate, self.expireTime, self.ttl, self.state
 			)
 		)
 		db.commit()
 
-		self.updateDomainFile()
+	def generateDnsEntry(self):
+		content = []
+		# get Domain!
+		try:
+			d = DomainList.findById(self.domainId)
+			if d is None:
+				d = Domain(self.domainId).load()
+		except KeyError:
+			raise
+		else:
+			if d is False or d is None:
+				raise KeyError('Domain for DNS does not exist. Abort!')
+				return
 
-	def updateDomainFile(self):
-		pass
+		if self.type == Dns.TYPE_SOA:
+			timestamp = datetime.datetime.fromtimestamp(int(d.modified)).strftime('%Y%m%d%H%M%S')
+			formattedDnsAdmin = self.dnsAdmin.replace('@', '.')
+			content.append('%s.\tSOA\t%s\t%s. (' % (d.getFullDomain(), self.value, formattedDnsAdmin))
+			content.append('%s' % (timestamp,))
+			content.append('%ss' % (self.refreshRate,))
+			content.append('%ss' % (self.retryRate,))
+			content.append('%ss' % (self.expireTime,))
+			content.append('%ss' % (self.ttl,))
+			content.append(')')
+		elif self.type == Dns.TYPE_MX:
+			content.append('%s\tMX\t%i\t%s' % (self.key, self.prio, self.value))
+		elif self.type == Dns.TYPE_SRV:
+			content.append('%s\t%i\tIN\t%s\t%i\t%i\t%i\t%s' % (
+				self.key, self.ttl, self.type, self.prio, self.weight, self.port, self.value
+			))
+		else:
+			dnsValue = self.value
+			if self.type == Dns.TYPE_TXT or self.type == Dns.TYPE_SPF:
+				if dnsValue[0] != '"':
+					dnsValue = '"%s"' % (dnsValue,)
+			content.append('%s\tIN\t%s\t%s' % (self.key, self.type, dnsValue))
+
+		return content
 
 	def setState(self, state):
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
-		query = ('UPDATE domain SET domain_status = %s WHERE domain_id = %s')
+		query = ('UPDATE dns SET status = %s WHERE dns_id = %i')
 		cx.execute(query, (state, self.id))
 		db.commit()
 		cx.close()
 
-		self.state = state
-
-	def getFullDomain(self, domainList):
-		domain = self.name
-
-		if self.parent is not None:
-			parent = domainList.findById(self.parent)
-			if parent is None:
-				return domain
-			else:
-				domain = '%s.%s' % (self.name, parent.getFullDomain(domainList))
-
-		return domain
-
-	def isDeletable(self, domainList, mailList):
-		domain = self.getFullDomain(domainList)
-
-		mail = mailList.findByDomain(domain)
-		if mail:
-			return False
-		else:
-			# is this a parent for somebody?
-			item = domainList.findByParent(self.id)
-
-			if item is None:
-				return True
-			else:
-				return False			
+		self.state = state	
 
 	def __eq__(self, obj):
 		log = logging.getLogger('flscp')
 		log.debug('Compare domain objects!!!')
-		if self.id == obj.id and \
-			self.name == obj.name and \
-			self.ipv6 == obj.ipv6 and \
-			self.ipv4 == obj.ipv4 and \
-			self.uid  == obj.uid and \
-			self.gid  == obj.gid and \
-			self.state == obj.state:
-			return True
-		else:
-			return False
+
+		state = True
+		for k, v in vars(obj).items():
+			if hasattr(self, k):
+				if getattr(self, k) != v:
+					state = False
+					break
+
+		return state
 
 	def __ne__(self, obj):
 		return not self.__eq__(obj)
 
 	@classmethod
-	def fromDict(ma, data):
-		self = ma()
-
-		self.id = data['id']
-		self.name = data['domain']
-		self.ipv6 = data['ipv6']
-		self.ipv4 = data['ipv4']
-		self.gid = data['gid']
-		self.uid = data['uid']
-		self.parent = data['parent']
-		self.created = data['created']
-		self.modified = data['modified']
-		self.state = data['state']
-
-		return self
-
-	@classmethod
-	def getByName(dom, name):
+	def getSoaForDomain(dom, domainId):
 		log = logging.getLogger('flscp')
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
-		query = ('SELECT domain_id, domain_name FROM domain WHERE domain_name = %s')
+		query = ('SELECT dns_id, domain_id FROM dns WHERE domain_id = %s AND dns_type = %s LIMIT 1')
 		try:
-			cx.execute(query, (name,))
-			(domain_id, domain_name) = cx.fetchone()
-			dom = Domain()
-			dom.id = domain_id
-			dom.name = domain_name
+			cx.execute(query, (domainId, Dns.TYPE_SOA,))
+			(dns_id, domain_id) = cx.fetchone()
+			dom = Dns(dns_id)
+			dom.load()
 		except Exception as e:
-			log.warning('Could not find domain.')
+			dom = None
+			log.warning('Could not find Dns SOA-Entry.')
+			raise KeyError('Dns-Entry "SOA" could not be found!')
+		finally:
 			cx.close()
-			raise KeyError('Domain "%s" could not be found!')
-
-		cx.close()
 
 		self = dom
+		return self
+
+	@staticmethod
+	def getDnsForDomain(dom, domainId):
+		log = logging.getLogger('flscp')
+		db = MailDatabase.getInstance()
+		cx = db.getCursor()
+		dnsses = []
+		query = ('SELECT dns_id, domain_id FROM dns WHERE domain_id = %s AND dns_type != %s')
+		try:
+			for (dns_id, domain_id) in cx.execute(query, (domainId, Dns.TYPE_SOA,)):
+				try:
+					dom = Dns(dns_id)
+					if dom.load():
+						dnsses.append(dom)
+				except Exception as e:
+					pass
+		except Exception as e:
+			dom = None
+			log.warning('Could not find Dns entries for domain')
+		finally:
+			cx.close()
+
+		return dnsses
+
+	@classmethod
+	def fromDict(ma, data):
+		self = ma()
+
+		for k, v in data.items():
+			if hasattr(ma, k):
+				setattr(ma, k, v)
+
 		return self
