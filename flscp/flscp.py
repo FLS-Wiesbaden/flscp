@@ -472,6 +472,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.ui.butDomainReload.clicked.connect(self.reloadDomainTree)
 		#self.ui.butDomainSave.clicked.connect(self.commitDomainData)
 		#self.ui.domainTree.cellDoubleClicked.connect(self.selectedMail)
+		self.ui.tabDNS.tabCloseRequested.connect(self.dnsCloseTab)
 
 		# mail tab
 		self.ui.butAdd.clicked.connect(self.addMail)
@@ -481,6 +482,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.ui.butSave.clicked.connect(self.commitMailData)
 		self.ui.mailTable.cellDoubleClicked.connect(self.selectedMail)
 		self.ui.search.textChanged.connect(self.filterMail)
+		self.setupMailTable()
 
 		# logs tab
 		self.ui.butLogLoad.clicked.connect(self.loadLog)
@@ -499,6 +501,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.ui.butAdminDel.clicked.connect(self.deleteCertificates)
 		self.ui.butAdminSave.clicked.connect(self.commitCertData)
 		self.ui.butAdminReload.clicked.connect(self.reloadCertTable)
+		self.setupCertTable()
 
 	def showLoginUser(self):
 		self.splash.showMessage('Loading user authentication...', color=QtGui.QColor(255, 255, 255))
@@ -1543,6 +1546,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				item.setText(_translate("MainWindow", "Unbekannt", None))
 			item.setIcon(icon)
 			self.ui.mailTable.setItem(rowNr, 3, item)
+
 		self.ui.mailTable.setSortingEnabled(True)
 
 	@pyqtSlot()
@@ -1870,6 +1874,14 @@ class FLScpMainWindow(QtGui.QMainWindow):
 
 		self.disableProgressBar()
 
+	@pyqtSlot(int)
+	def dnsCloseTab(self, idx):
+		if idx == 0:
+			log.info('Cannot close the domain overview!')
+		else:
+			log.info('Close domain tab %i' % (idx,))
+			self.ui.tabDNS.removeTab(idx)
+
 	@pyqtSlot()
 	def about(self):
 		QtGui.QMessageBox.about(self, 'FLS Control Panel', 
@@ -1995,6 +2007,24 @@ class FLScpMainWindow(QtGui.QMainWindow):
 					self.loadMailData()
 		self.disableProgressBar()
 
+	def setupMailTable(self):
+		# create context menu
+		actions = []
+		act = QtGui.QAction(
+			QtGui.QIcon(QtGui.QPixmap(':actions/edit.png')), 
+			_translate("MainWindow", "Bearbeiten", None), self.ui.mailTable
+		)
+		act.triggered.connect(self.editMail)
+		actions.append(act)
+		act = QtGui.QAction(
+			QtGui.QIcon(QtGui.QPixmap(':actions/delete.png')), 
+			_translate("MainWindow", "Löschen", None), self.ui.mailTable
+		)
+		act.triggered.connect(self.deleteMail)
+		actions.append(act)
+		self.ui.mailTable.setContextMenuPolicy(2)
+		self.ui.mailTable.addActions(actions)
+
 	@pyqtSlot()
 	def commitCertData(self):
 		self.enableProgressBar()
@@ -2051,6 +2081,18 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				self.loadCerts()
 				self.loadCertData()
 		self.disableProgressBar()
+
+	def setupCertTable(self):
+		# create context menu
+		actions = []
+		act = QtGui.QAction(
+			QtGui.QIcon(QtGui.QPixmap(':actions/delete.png')), 
+			_translate("MainWindow", "Löschen", None), self.ui.mailTable
+		)
+		act.triggered.connect(self.deleteCertificates)
+		actions.append(act)
+		self.ui.adminTable.setContextMenuPolicy(2)
+		self.ui.adminTable.addActions(actions)
 
 	def start(self):
 		self.showNormal()
