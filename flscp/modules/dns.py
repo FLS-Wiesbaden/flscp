@@ -2,6 +2,8 @@ import logging
 import zlib
 import uuid
 import time
+from PyQt4 import QtCore
+from PyQt4.QtCore import pyqtSignal
 from modules.domain import *
 
 class DNSList:
@@ -58,7 +60,9 @@ class DNSList:
 
 		return item
 
-class Dns:
+class Dns(QtCore.QObject):
+	stateChanged = pyqtSignal(str)
+
 	STATE_OK = 'ok'
 	STATE_CHANGE = 'change'
 	STATE_CREATE = 'create'
@@ -75,6 +79,7 @@ class Dns:
 	TYPE_SRV = 'SRV'
 
 	def __init__(self, did = None):
+		super().__init__()
 		self.id = did
 		self.domainId = ''
 		self.key = ''
@@ -129,7 +134,7 @@ class Dns:
 		cx = db.getCursor()
 		query = (
 			'SELECT dns_id, domain_id, dns_key, dns_type, dns_value, dns_weight, dns_port, dns_admin, dns_refresh, \
-			dns_retry, dns_expire, dns_ttl, status WHERE dns_id = %s LIMIT 1'
+			dns_retry, dns_expire, dns_ttl, status FROM dns WHERE dns_id = %s LIMIT 1'
 		)
 		try:
 			cx.execute(query, (self.id,))
@@ -200,6 +205,12 @@ class Dns:
 
 		return content
 
+	# Call ONLY ON CLIENT SIDE!!!
+	def changeState(self, state):
+		self.state = state
+		self.stateChanged.emit(state)
+
+	# Call ONLY ON SERVER SIDE!!!
 	def setState(self, state):
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
@@ -208,7 +219,7 @@ class Dns:
 		db.commit()
 		cx.close()
 
-		self.state = state	
+		self.state = state
 
 	def __eq__(self, obj):
 		log = logging.getLogger('flscp')
@@ -283,7 +294,7 @@ class Dns:
 		self = ma()
 
 		for k, v in data.items():
-			if hasattr(ma, k):
-				setattr(ma, k, v)
+			if hasattr(self, k):
+				setattr(self, k, v)
 
 		return self

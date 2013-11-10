@@ -62,6 +62,7 @@ def MailValidator(email):
 
 	return re.match(r"^[a-zA-Z0-9._%-+]+\@[a-zA-Z0-9._%-]+\.[a-zA-Z]{2,}$", email) != None
 
+###### START LOADER ######
 class DataLoader(QtCore.QThread):
 	dataLoaded = pyqtSignal(list)
 	certError = pyqtSignal(ssl.CertificateError)
@@ -163,6 +164,89 @@ class DnsListLoader(DataLoader):
 		else:
 			self.dataLoaded.emit(self.domainId, data)
 
+
+###### END LOADER ######
+
+###### START NOTIFIER ######
+class CellChangeNotifier(QtCore.QObject):
+	# Emitted when a widget changed: <table>, <id (dns, domain,..)>, <widget>
+	tableWidgetChanged = pyqtSignal(QtGui.QTableWidget, str, QtGui.QWidget)
+	# Emitted when a widget item changed: <table>, <id (dns, domain,..)>, <widgetitem>
+	tableItemChanged = pyqtSignal(QtGui.QTableWidget, str, QtGui.QTableWidgetItem)
+
+	def __init__(self, table):
+		super().__init__()
+		self.__table = table
+
+	@pyqtSlot(int, int, int, int)
+	def currentCellChanged(self, row, col, prevRow, prevCol):
+		self.cellChanged(row, col)
+
+	@pyqtSlot(int, int)
+	def cellChanged(self, row, column):
+		log.debug('Cell change commited for row, col: %s, %s' % (row, column))
+		# get id
+		id = self.__table.item(row, 0).text()
+
+		widget = self.__table.item(row, column)
+		if widget is None:
+			widget = self.__table.cellWidget(row, column)
+			self.tableWidgetChanged.emit(self.__table, id, widget)
+		else:
+			self.tableItemChanged.emit(self.__table, id, widget)
+
+class WidgetTableChangeNotifier(QtCore.QObject):
+	# Triggered, when index changed: <table>, <id>, <widget>, <value>
+	widgetIndexChanged = pyqtSignal(QtGui.QTableWidget, str, QtGui.QWidget, str)
+
+	def __init__(self, table, row, col, widget):
+		super().__init__()
+		self.__table = table
+		self.__row = row
+		self.__col = col
+		self.__widget = widget
+
+		self.__widget.currentIndexChanged.connect(self.currentIndexChanged)
+
+	@pyqtSlot(int)
+	def currentIndexChanged(self, index):
+		log.debug('Current index changed commited for widget, index: %s, %s' % (str(self.__widget), index))
+		# get id
+		id = self.__table.item(self.__row, 0).text()
+		self.widgetIndexChanged.emit(self.__table, id, self.__widget, self.__widget.itemText(index))
+
+class DnsStateChangeObserver(QtCore.QObject):
+
+	def __init__(self, table, item):
+		super().__init__()
+		self.__table = table
+		self.__item = item
+
+	@pyqtSlot(str)
+	def stateChanged(self, state):
+		icon = QtGui.QIcon()
+		if state == Dns.STATE_OK:
+			icon.addPixmap(QtGui.QPixmap(":/status/ok.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+			self.__item.setText(_translate("MainWindow", "OK", None))
+		elif state == Dns.STATE_CREATE:
+			icon.addPixmap(QtGui.QPixmap(":/status/state_add.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+			self.__item.setText(_translate("MainWindow", "wird hinzugefügt", None))
+		elif state == Dns.STATE_CHANGE:
+			icon.addPixmap(QtGui.QPixmap(":/status/waiting.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+			self.__item.setText(_translate("MainWindow", "wird geändert", None))
+		elif state == Dns.STATE_DELETE:
+			icon.addPixmap(QtGui.QPixmap(":/status/trash.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+			self.__item.setText(_translate("MainWindow", "wird gelöscht", None))
+		else:
+			icon.addPixmap(QtGui.QPixmap(":/status/warning.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+			self.__item.setText(_translate("MainWindow", "Unbekannt", None))
+
+		self.__item.setIcon(icon)
+		log.info('Changed dns state in table for item %s to %s' % (str(self.__item), state))
+
+###### END NOTIFIER ######
+
+###### START WINDOWS ######
 class FlsCpAbout(QtGui.QDialog):
 	def __init__(self, parentMain):
 		QtGui.QDialog.__init__(self, parent=parentMain)
@@ -1120,7 +1204,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				(passphrase, ok) = passphrase
 				aborted = not ok
 			except Exception as e:
-				print('Other exception while loading cert! %s' % (str(e),))
+				log.warning('Other exception while loading cert! %s' % (str(e),))
 			else:
 				loaded = True
 
@@ -1369,7 +1453,6 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.domains = DomainList()
 		try:
 			for item in self.rpc.getDomains():
-				print(item)
 				self.domains.add(Domain.fromDict(item))
 		except ssl.CertificateError as e:
 			log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
@@ -1796,7 +1879,6 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			nr = self.ui.mailTable.item(selectedRow.row(), 0).text()
 			account = self.mails.findById(nr)
 			if account is not None:
-				print(account.state)
 				if account.state == MailAccount.STATE_CREATE:
 					# we cancel pending action.
 					self.ui.mailTable.removeRow(selectedRow.row())		
@@ -2045,7 +2127,8 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		tableDNS.horizontalHeader().setStretchLastSection(False)
 		verticalLayout.addWidget(tableDNS)
 		self.ui.dnsTabs[domain.id] = tabDomainDNS
-		self.ui.dnsTables[domain.id] = tableDNS
+		self.ui.dnsTable[domain.id] = tableDNS
+		self.ui.dnsNotifier[domain.id] = []
 		self.ui.tabDNS.addTab(tabDomainDNS, domain.name)
 		self.reloadDnsDataByDomain(domain.id)
 
@@ -2083,7 +2166,6 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			for f in self.dns.iterByDomain(domain):
 					self.dns.remove(f)
 
-			self.enableProgressBar(self.ui.tabLog, _translate('MainWindow', 'Loading log file list...', None))
 			self.dataLoader = DnsListLoader(self.rpc, domain, self)
 			self.dataLoader.dataLoaded.connect(self.dnsDataLoaded)
 			self.dataLoader.certError.connect(self.dataLoadCertError)
@@ -2110,82 +2192,167 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		dnsTable.setSortingEnabled(False)
 		dnsTable.setRowCount(0)
 
+		typeList = [
+			Dns.TYPE_SOA,
+			Dns.TYPE_NS,
+			Dns.TYPE_MX,
+			Dns.TYPE_A,
+			Dns.TYPE_AAAA,
+			Dns.TYPE_CNAME,
+			Dns.TYPE_TXT,
+			Dns.TYPE_SPF,
+			Dns.TYPE_SRV
+		]
+
 		for dnse in self.dns.iterByDomain(domainId):
 			rowNr = dnsTable.rowCount()
 			dnsTable.insertRow(rowNr)
 			# id
 			item = QtGui.QTableWidgetItem()
 			item.setText('%s' % (dnse.id,))
+			item.setFlags(QtCore.Qt.ItemIsSelectable|QtCore.Qt.ItemIsUserCheckable|QtCore.Qt.ItemIsEnabled)
+			item.setData(QtCore.Qt.UserRole, 'id')
 			dnsTable.setItem(rowNr, 0, item)
 			# key
 			item = QtGui.QTableWidgetItem()
 			item.setText('%s' % (dnse.key,))
+			item.setData(QtCore.Qt.UserRole, 'key')
 			dnsTable.setItem(rowNr, 1, item)
 			# type
-			item = QtGui.QTableWidgetItem()
-			item.setText('%s' % (dnse.type,))
-			dnsTable.setItem(rowNr, 2, item)
+			item = QtGui.QComboBox()
+			item.setProperty('dnsKeyName', 'type')
+			item.addItems(typeList)
+			currentType = item.findText(dnse.type)
+			item.setCurrentIndex(currentType)
+			dnsTable.setCellWidget(rowNr, 2, item)
+			wtcn = WidgetTableChangeNotifier(dnsTable, rowNr, 2, item)
+			item.currentIndexChanged.connect(wtcn.currentIndexChanged)
+			wtcn.widgetIndexChanged.connect(self.dnsWidgetChanged)
+			self.ui.dnsNotifier[domainId].append(wtcn)
 			# prio
 			item = QtGui.QTableWidgetItem()
 			item.setText('%s' % (dnse.prio,))
+			item.setData(QtCore.Qt.UserRole, 'prio')
 			dnsTable.setItem(rowNr, 3, item)
 			# value
 			item = QtGui.QTableWidgetItem()
 			item.setText('%s' % (dnse.value,))
+			item.setData(QtCore.Qt.UserRole, 'value')
 			dnsTable.setItem(rowNr, 4, item)
 			# weight
 			item = QtGui.QTableWidgetItem()
 			item.setText('%s' % (dnse.weight,))
+			item.setData(QtCore.Qt.UserRole, 'weight')
 			dnsTable.setItem(rowNr, 5, item)
 			# port
 			item = QtGui.QTableWidgetItem()
 			item.setText('%s' % (dnse.port,))
+			item.setData(QtCore.Qt.UserRole, 'port')
 			dnsTable.setItem(rowNr, 6, item)
 			# admin
 			item = QtGui.QTableWidgetItem()
 			item.setText('%s' % (dnse.dnsAdmin,))
+			item.setData(QtCore.Qt.UserRole, 'dnsAdmin')
 			dnsTable.setItem(rowNr, 7, item)
 			# refresh
 			item = QtGui.QTableWidgetItem()
 			item.setText('%s' % (dnse.refreshRate,))
+			item.setData(QtCore.Qt.UserRole, 'refreshRate')
 			dnsTable.setItem(rowNr, 8, item)
 			# retry
 			item = QtGui.QTableWidgetItem()
 			item.setText('%s' % (dnse.retryRate,))
+			item.setData(QtCore.Qt.UserRole, 'retryRate')
 			dnsTable.setItem(rowNr, 9, item)
 			# expire
 			item = QtGui.QTableWidgetItem()
 			item.setText('%s' % (dnse.expireTime,))
+			item.setData(QtCore.Qt.UserRole, 'expireTime')
 			dnsTable.setItem(rowNr, 10, item)
 			# ttl
 			item = QtGui.QTableWidgetItem()
 			item.setText('%s' % (dnse.ttl,))
+			item.setData(QtCore.Qt.UserRole, 'ttl')
 			dnsTable.setItem(rowNr, 11, item)
 			# status
 			item = QtGui.QTableWidgetItem()
 			icon = QtGui.QIcon()
-			if cert.state == Dns.STATE_OK:
+			if dnse.state == Dns.STATE_OK:
 				icon.addPixmap(QtGui.QPixmap(":/status/ok.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
 				item.setText(_translate("MainWindow", "OK", None))
-			elif cert.state == Dns.STATE_ADDED:
+			elif dnse.state == Dns.STATE_CREATE:
 				icon.addPixmap(QtGui.QPixmap(":/status/state_add.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
 				item.setText(_translate("MainWindow", "wird hinzugefügt", None))
-			elif cert.state == Dns.STATE_DELETE:
+			elif dnse.state == Dns.STATE_CHANGE:
+				icon.addPixmap(QtGui.QPixmap(":/status/waiting.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+				item.setText(_translate("MainWindow", "wird geändert", None))
+			elif dnse.state == Dns.STATE_DELETE:
 				icon.addPixmap(QtGui.QPixmap(":/status/trash.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
 				item.setText(_translate("MainWindow", "wird gelöscht", None))
 			else:
 				icon.addPixmap(QtGui.QPixmap(":/status/warning.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
 				item.setText(_translate("MainWindow", "Unbekannt", None))
 			item.setIcon(icon)
+			item.setFlags(QtCore.Qt.ItemIsSelectable|QtCore.Qt.ItemIsUserCheckable|QtCore.Qt.ItemIsEnabled)
 			dnsTable.setItem(rowNr, 12, item)
+			dsco = DnsStateChangeObserver(dnsTable, item)
+			dnse.stateChanged.connect(dsco.stateChanged)
+			self.ui.dnsNotifier[domainId].append(dsco)
+
 		dnsTable.setSortingEnabled(True)
+		ccn = CellChangeNotifier(dnsTable)
+		dnsTable.cellChanged.connect(ccn.cellChanged)
+		dnsTable.currentCellChanged.connect(ccn.currentCellChanged)
+		ccn.tableItemChanged.connect(self.dnsItemChanged)
+		self.ui.dnsNotifier[domainId].append(ccn)
+
+	@pyqtSlot(QtGui.QTableWidget, str, QtGui.QTableWidgetItem)
+	def dnsItemChanged(self, table, id, item):
+		# find dns by id
+		dns = self.dns.findById(id)
+
+		# type?
+		dnsProperty = item.data(QtCore.Qt.UserRole)
+		if dnsProperty is None:
+			log.debug('Got a dns item change for dns ID %s with no key name in widget %s' % (id, str(item)))
+			return
+
+		# value
+		value = item.text()
+
+		if getattr(dns, dnsProperty) != value:
+			setattr(dns, dnsProperty, value)
+			if dns.state == Dns.STATE_OK:
+				dns.changeState(Dns.STATE_CHANGE)
+
+		log.debug('Item changed: %s, DNS: %s, Name: %s, Text: %s' % (str(item), id, dnsProperty, item.text()))
+
+	@pyqtSlot(QtGui.QTableWidget, str, QtGui.QWidget, str)
+	def dnsWidgetChanged(self, table, id, widget, value):
+		# find dns by id.
+		dns = self.dns.findById(id)
+		
+		# now we have the value. But what's the type?
+		dnsProperty = widget.property('dnsKeyName')
+		if dnsProperty is None:
+			log.debug('Got a dns item change for dns ID %s with no key name in widget %s' % (id, str(widget)))
+			return
+
+		if getattr(dns, dnsProperty) != value:
+			setattr(dns, dnsProperty, value)
+			if dns.state == Dns.STATE_OK:
+				dns.changeState(Dns.STATE_CHANGE)
+
+		log.debug('Widget changed: %s, DNS: %s, Name: %s, Value: %s' % (str(widget), id, dnsProperty, value))
 
 	@pyqtSlot()
 	def openDNSDomain(self):
 		if not hasattr(self.ui, 'dnsTabs'):
 			self.ui.dnsTabs = {}
-		if not hasattr(self.ui, 'dnsTables'):
-			self.ui.dnsTables = {}
+		if not hasattr(self.ui, 'dnsTable'):
+			self.ui.dnsTable = {}
+		if not hasattr(self.ui, 'dnsNotifier'):
+			self.ui.dnsNotifier = {}
 
 		if self.ui.tabDNS.currentWidget().findChild(QtGui.QTreeWidget) is None:
 			return
@@ -2260,7 +2427,12 @@ class FLScpMainWindow(QtGui.QMainWindow):
 					log.debug('Removing tab + table for %s' % (domainId,))
 					# remove associations.
 					del(self.ui.dnsTabs[domainId])
-					del(self.ui.dnsTables[domainId])
+					del(self.ui.dnsTable[domainId])
+					if hasattr(self.ui, 'dnsNotifier') and domainId in self.ui.dnsNotifier:
+						for item in self.ui.dnsNotifier[domainId]:
+							self.ui.dnsNotifier[domainId].remove(item)
+
+						del(self.ui.dnsNotifier[domainId])
 
 			self.ui.tabDNS.removeTab(idx)
 
