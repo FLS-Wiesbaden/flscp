@@ -1048,8 +1048,8 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		answer = QtGui.QMessageBox.warning(
 			self, _translate('MainWindow', 'Login erforderlich', None), 
 			_translate('MainWindow', 
-				'Es konnte kein Zertifikat zum Login gefunden werden.\n' \
-				'Bitte wählen Sie im nachfolgenden Fenster ein PKCS12-Zertifikat aus.', 
+				'Es konnte kein Zertifikat zum Login gefunden werden.\n \
+				Bitte wählen Sie im nachfolgenden Fenster ein PKCS12-Zertifikat aus.', 
 				None),
 			QtGui.QMessageBox.Ok|QtGui.QMessageBox.Cancel, QtGui.QMessageBox.Ok
 		)

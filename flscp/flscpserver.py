@@ -48,8 +48,8 @@ fread = conf.read(
 	)
 if len(fread) <= 0:
 	sys.stderr.write(
-			'Missing config file in one of server.ini, ~/.flscpserver.ini, ~/.flscp/server.ini, ~/.config/flscp/server.ini, ' \
-			'/etc/flscp/server.ini or /usr/local/etc/flscp/server.ini!\n'
+			'Missing config file in one of server.ini, ~/.flscpserver.ini, ~/.flscp/server.ini, ~/.config/flscp/server.ini, \
+			/etc/flscp/server.ini or /usr/local/etc/flscp/server.ini!\n'
 		)
 	sys.exit(255)
 else:
@@ -157,8 +157,8 @@ class ControlPanel:
 		db = MailDatabase.getInstance()
 		cursor = db.getCursor()
 		query = (
-			'SELECT domain_id, domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created, ' \
-			'domain_last_modified, domain_status FROM domain'
+			'SELECT domain_id, domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created, \
+			domain_last_modified, domain_status FROM domain'
 		)
 		cursor.execute(query)
 		for (domain_id, domain_parent, domain_name, ipv6, ipv4, gid, uid, created, modified, state) in cursor:
@@ -194,7 +194,7 @@ class ControlPanel:
 			dns.load()
 			data.append(dns.toDict())
 			del(dns)
-			
+
 		cursor.close()
 		
 		return data
@@ -248,8 +248,8 @@ class ControlPanel:
 		data = []
 		cursor = db.getCursor()
 		query = (
-			'SELECT mail_id, mail_acc, mail_addr, mail_type, mail_forward, `status`, domain_id, alternative_addr' \
-			'FROM mail_users'
+			'SELECT mail_id, mail_acc, mail_addr, mail_type, mail_forward, `status`, domain_id, alternative_addr \
+			FROM mail_users'
 		)
 		cursor.execute(query)
 		for (mail_id, mail_acc, mail_addr, mail_type, mail_forward, status, domain_id, alternative_addr) in cursor:

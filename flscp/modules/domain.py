@@ -103,8 +103,8 @@ class Domain:
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
 		query = (
-			'SELECT domain_id, domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created, ' \
-			'domain_last_modified, domain_status WHERE domain_id = %s LIMIT 1'
+			'SELECT domain_id, domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created, \
+			domain_last_modified, domain_status WHERE domain_id = %s LIMIT 1'
 		)
 		try:
 			cx.execute(query, (self.id,))
@@ -151,8 +151,8 @@ class Domain:
 		cx = db.getCursor()
 		self.state = Domain.STATE_CREATE
 		query = (
-			'INSERT INTO domain (domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created, domain_last_modified, domain_status) ' \
-			'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)'
+			'INSERT INTO domain (domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created, \
+			domain_last_modified, domain_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)'
 		)
 		cx.execute(
 			query, 

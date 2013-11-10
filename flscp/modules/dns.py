@@ -106,9 +106,9 @@ class Dns:
 		cx = db.getCursor()
 		self.state = Dns.STATE_CREATE
 		query = (
-			'INSERT INTO dns (domain_id, dns_key, dns_type, dns_prio, dns_value, dns_weight, dns_port, dns_admin, ' \
-			'dns_refresh, dns_retry, dns_expire, dns_ttl, status) ' \
-			'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
+			'INSERT INTO dns (domain_id, dns_key, dns_type, dns_prio, dns_value, dns_weight, dns_port, dns_admin, \
+			dns_refresh, dns_retry, dns_expire, dns_ttl, status) \
+			VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
 		)
 		cx.execute(
 			query, 
@@ -233,7 +233,7 @@ class Dns:
 				d[k] = v
 
 		return d
-		
+
 	@classmethod
 	def getSoaForDomain(dom, domainId):
 		log = logging.getLogger('flscp')
