@@ -181,14 +181,21 @@ class ControlPanel:
 		
 		return data
 
-	def getDns(self, domain):
+	def getDns(self, domain = None):
 		data = []
 		db = MailDatabase.getInstance()
 		cursor = db.getCursor()
-		query = (
-			'SELECT dns_id, domain_id FROM dns WHERE domain_id = %s'
-		)
-		cursor.execute(query)
+		if domain is None:
+			query = (
+				'SELECT dns_id, domain_id FROM dns'
+			)
+			cursor.execute(query)
+		else:
+			query = (
+				'SELECT dns_id, domain_id FROM dns WHERE domain_id = %s'
+			)
+			cursor.execute(query, (domain,))
+
 		for (dns_id, domain_id) in cursor:
 			dns = Dns(dns_id)
 			dns.load()
