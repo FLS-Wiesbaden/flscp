@@ -48,7 +48,8 @@ fread = conf.read(
 	)
 if len(fread) <= 0:
 	sys.stderr.write(
-			'Missing config file in one of server.ini, ~/.flscpserver.ini, ~/.flscp/server.ini, ~/.config/flscp/server.ini, /etc/flscp/server.ini or /usr/local/etc/flscp/server.ini!\n'
+			'Missing config file in one of server.ini, ~/.flscpserver.ini, ~/.flscp/server.ini, ~/.config/flscp/server.ini, ' \
+			'/etc/flscp/server.ini or /usr/local/etc/flscp/server.ini!\n'
 		)
 	sys.exit(255)
 else:
@@ -155,7 +156,10 @@ class ControlPanel:
 		data = []
 		db = MailDatabase.getInstance()
 		cursor = db.getCursor()
-		query = ('SELECT domain_id, domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created, domain_last_modified, domain_status FROM domain')
+		query = (
+			'SELECT domain_id, domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created, ' \
+			'domain_last_modified, domain_status FROM domain'
+		)
 		cursor.execute(query)
 		for (domain_id, domain_parent, domain_name, ipv6, ipv4, gid, uid, created, modified, state) in cursor:
 			data.append(
@@ -173,6 +177,24 @@ class ControlPanel:
 				}
 			)
 
+		cursor.close()
+		
+		return data
+
+	def getDns(self, domain):
+		data = []
+		db = MailDatabase.getInstance()
+		cursor = db.getCursor()
+		query = (
+			'SELECT dns_id, domain_id FROM dns WHERE domain_id = %s'
+		)
+		cursor.execute(query)
+		for (dns_id, domain_id) in cursor:
+			dns = Dns(dns_id)
+			dns.load()
+			data.append(dns.toDict())
+			del(dns)
+			
 		cursor.close()
 		
 		return data
@@ -225,7 +247,10 @@ class ControlPanel:
 
 		data = []
 		cursor = db.getCursor()
-		query = ('SELECT mail_id, mail_acc, mail_addr, mail_type, mail_forward, `status`, domain_id, alternative_addr FROM mail_users')
+		query = (
+			'SELECT mail_id, mail_acc, mail_addr, mail_type, mail_forward, `status`, domain_id, alternative_addr' \
+			'FROM mail_users'
+		)
 		cursor.execute(query)
 		for (mail_id, mail_acc, mail_addr, mail_type, mail_forward, status, domain_id, alternative_addr) in cursor:
 			data.append(
@@ -605,7 +630,10 @@ class FLSCpServer(Thread, FLSXMLRPCServer):
 
 	def __init__(self, connection):
 		Thread.__init__(self, name='flscp-rpc')
-		FLSXMLRPCServer.__init__(self, conf.get('connection', 'keyfile'), conf.get('connection', 'certfile'), conf.get('connection', 'cacert'), connection)
+		FLSXMLRPCServer.__init__(
+			self, conf.get('connection', 'keyfile'), conf.get('connection', 'certfile'), 
+			conf.get('connection', 'cacert'), connection
+		)
 		self.register_instance(ControlPanel())
 
 	def run(self):

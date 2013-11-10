@@ -522,6 +522,9 @@
        </layout>
       </widget>
       <widget class="QWidget" name="tabMail">
+       <property name="enabled">
+        <bool>true</bool>
+       </property>
        <attribute name="icon">
         <iconset resource="../res/logos.qrc">
          <normaloff>:/section/manageMails.png</normaloff>:/section/manageMails.png</iconset>
@@ -532,6 +535,9 @@
        <layout class="QVBoxLayout" name="verticalLayout_2">
         <item alignment="Qt::AlignLeft">
          <widget class="QFrame" name="buttonBoxMail">
+          <property name="enabled">
+           <bool>true</bool>
+          </property>
           <property name="sizePolicy">
            <sizepolicy hsizetype="MinimumExpanding" vsizetype="Preferred">
             <horstretch>0</horstretch>
@@ -829,7 +835,7 @@
              </property>
             </widget>
            </item>
-           <item row="0" column="4">
+           <item row="0" column="5">
             <spacer name="horizontalSpacer_2">
              <property name="orientation">
               <enum>Qt::Horizontal</enum>
@@ -844,6 +850,9 @@
            </item>
            <item row="0" column="3">
             <widget class="QToolButton" name="butLogReload">
+             <property name="toolTip">
+              <string>Reload the log file list</string>
+             </property>
              <property name="styleSheet">
               <string notr="true">background:transparent</string>
              </property>
@@ -868,6 +877,9 @@
            </item>
            <item row="0" column="2">
             <widget class="QToolButton" name="butLogLoad">
+             <property name="toolTip">
+              <string>Load selected log file</string>
+             </property>
              <property name="styleSheet">
               <string notr="true">background:transparent</string>
              </property>
@@ -883,6 +895,23 @@
                <width>16</width>
                <height>16</height>
               </size>
+             </property>
+            </widget>
+           </item>
+           <item row="0" column="4">
+            <widget class="QToolButton" name="butLogTrash">
+             <property name="toolTip">
+              <string>Empty the dialog</string>
+             </property>
+             <property name="styleSheet">
+              <string notr="true">background:transparent</string>
+             </property>
+             <property name="text">
+              <string/>
+             </property>
+             <property name="icon">
+              <iconset resource="../res/logos.qrc">
+               <normaloff>:/actions/clear_log.png</normaloff>:/actions/clear_log.png</iconset>
              </property>
             </widget>
            </item>

@@ -41,7 +41,7 @@ class DNSList:
 
 	def iterByDomain(self, domainId):
 		for f in self._items:
-			if f.parent == domainId:
+			if f.domainId == domainId:
 				yield f
 
 	def findById(self, id):
@@ -53,20 +53,6 @@ class DNSList:
 
 		for f in self._items:
 			if f.id == id:
-				item = f
-				break
-
-		return item
-
-	def findByParent(self, parent):
-		item = None
-		try:
-			parent = int(parent)
-		except:
-			pass
-
-		for f in self._items:
-			if f.parent == parent:
 				item = f
 				break
 
@@ -88,8 +74,8 @@ class Dns:
 	TYPE_SPF = 'SPF'
 	TYPE_SRV = 'SRV'
 
-	def __init__(self):
-		self.id = None
+	def __init__(self, did = None):
+		self.id = did
 		self.domainId = ''
 		self.key = ''
 		self.type = ''
@@ -132,6 +118,48 @@ class Dns:
 			)
 		)
 		db.commit()
+
+	def load(self):
+		if self.id is None:
+			return False
+
+		state = False
+
+		db = MailDatabase.getInstance()
+		cx = db.getCursor()
+		query = (
+			'SELECT dns_id, domain_id, dns_key, dns_type, dns_value, dns_weight, dns_port, dns_admin, dns_refresh, \
+			dns_retry, dns_expire, dns_ttl, status WHERE dns_id = %s LIMIT 1'
+		)
+		try:
+			cx.execute(query, (self.id,))
+			(
+				self.id, 
+				self.domainId,
+				self.key,
+				self.type,
+				self.value,
+				self.weight,
+				self.port, 
+				self.dnsAdmin,
+				self.refreshRate,
+				self.retryRate,
+				self.expireTime,
+				self.ttl,
+				self.state
+			) = cx.fetchone()
+
+		except Exception as e:
+			state = False
+		else:
+			state = True
+		finally:
+			cx.close()
+
+		return state
+
+	def validate(self):
+		return True
 
 	def generateDnsEntry(self):
 		content = []
@@ -198,6 +226,14 @@ class Dns:
 	def __ne__(self, obj):
 		return not self.__eq__(obj)
 
+	def toDict(self):
+		d = {}
+		for k, v in vars(self).items():
+			if not k.startswith('_'):
+				d[k] = v
+
+		return d
+		
 	@classmethod
 	def getSoaForDomain(dom, domainId):
 		log = logging.getLogger('flscp')

@@ -3,7 +3,7 @@ buildDir   = build
 debugFlg   = 
 PACKAGE = @PACKAGE_NAME@
 #Directory with ui and resource files
-UI_FILES = cp.ui mailform.ui maileditor.ui
+UI_FILES = cp.ui mailform.ui maileditor.ui about.ui
 RESOURCES = logos.qrc
 STATIC_LIBS = libs
 TEMPLATES = templates
