@@ -196,8 +196,12 @@ class ControlPanel:
 			)
 			cursor.execute(query, (domain,))
 
+		dnsIds = []
 		for (dns_id, domain_id) in cursor:
-			dns = Dns(dns_id)
+			dnsIds.append(dns_id)
+
+		for i in dnsIds:
+			dns = Dns(i)
 			dns.load()
 			data.append(dns.toDict())
 			del(dns)
