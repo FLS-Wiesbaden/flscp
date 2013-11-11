@@ -46,6 +46,13 @@ class DNSList:
 			if f.domainId == domainId:
 				yield f
 
+	def removeByDomain(self, domainId):
+		log = logging.getLogger('flscp')
+		items = [f for f in self._items if f.domainId == domainId]
+		log.debug('Found %i items to delete from dns list.' % (len(items),))
+		for item in items:
+			self.remove(item)
+
 	def findById(self, id):
 		item = None
 		try:
@@ -104,7 +111,8 @@ class Dns(QtCore.QObject):
 			raise ValueError('Entry has to be UNIQUE!')
 
 		# is it a valid domain?
-		if not self.validate():
+		state, msg = self.validate()
+		if not state:
 			raise ValueError('No valid data given!')
 
 		db = MailDatabase.getInstance()
@@ -164,7 +172,58 @@ class Dns(QtCore.QObject):
 		return state
 
 	def validate(self):
-		return True
+		state = True
+		msg = {}
+
+		if self.type == Dns.TYPE_SOA:
+			if len(self.dnsAdmin.strip()) <= 0:
+				msg['dnsAdmin'] = 'You have to set an DNS-Admin-Mail for SOA-Entry.'
+				state = False
+			if len(self.value.strip()) <= 0:
+				msg['dnsAdmin'] = 'You have to set the primary DNS-Server for the Domain.'
+				state = False
+
+			try:
+				int(self.refreshRate)
+			except:
+				msg['refreshRate'] = 'The refresh rate has to be a numerical value between 1200 and 43200 seconds.'
+				state = False
+			else:
+				if int(self.refreshRate) > 43200 or int(self.refreshRate) < 1200:
+					msg['refreshRate'] = 'The refresh rate has to be between 1200 and 43200 seconds.'
+					state = False
+
+			try:
+				int(self.retryRate)
+			except:
+				msg['retryRate'] = 'The refresh rate has to be a numerical value between 180 and 2419200 seconds.'
+				state = False
+			else:
+				if int(self.retryRate) > 2419200 or int(self.retryRate) < 180:
+					msg['retryRate'] = 'The refresh rate has to be between 180 and 2419200 seconds.'
+					state = False
+
+			try:
+				int(self.expireTime)
+			except:
+				msg['expireTime'] = 'The refresh rate has to be a numerical value between 1209600 and 2419200 seconds.'
+				state = False
+			else:
+				if int(self.expireTime) > 2419200 or int(self.expireTime) < 1209600:
+					msg['expireTime'] = 'The expire time has to be between 1209600 and 2419200 seconds.'
+					state = False
+
+			try:
+				int(self.ttl)
+			except:
+				msg['ttl'] = 'The TTL has to be a numerical value between 60 and 2419200 seconds.'
+				state = False
+			else:
+				if int(self.ttl) > 2419200 or int(self.ttl) < 60:
+					msg['ttl'] = 'The TTL has to be between 60 and 2419200 seconds.'
+					state = False
+
+		return state, msg
 
 	def generateDnsEntry(self):
 		content = []

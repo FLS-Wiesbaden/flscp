@@ -26,7 +26,7 @@ except:
 
 __author__  = 'Lukas Schreiner'
 __copyright__ = 'Copyright (C) 2013 - 2013 Website-Team Friedrich-List-Schule-Wiesbaden'
-__version__ = '0.3'
+__version__ = '0.4'
 
 FORMAT = '%(asctime)-15s %(message)s'
 formatter = logging.Formatter(FORMAT, datefmt='%b %d %H:%M:%S')
