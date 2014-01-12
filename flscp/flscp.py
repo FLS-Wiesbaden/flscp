@@ -60,7 +60,7 @@ def MailValidator(email):
 	if email is None:
 		return False
 
-	return re.match(r"^[a-zA-Z0-9._%-+]+\@[a-zA-Z0-9._%-]+\.[a-zA-Z]{2,}$", email) != None
+	return re.match(r"^[a-zA-Z0-9._%\-+]+\@[a-zA-Z0-9._%\-]+\.[a-zA-Z]{2,}$", email) != None
 
 ###### START LOADER ######
 class DataLoader(QtCore.QThread):
