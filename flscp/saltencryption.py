@@ -87,7 +87,7 @@ class SaltEncryption:
 		return key
 
 	def generateSalt(self):
-		salt = base64.b64encode(binascii.unhexlify(hashlib.md5(('%f %d' % math.modf(time.time())).encode('utf-8')).hexdigest()))
+		salt = base64.b64encode(binascii.unhexlify(hashlib.md5(('%f %d' % math.modf(time.time())).encode('utf-8')).hexdigest().encode('utf-8')))
 		return salt[0:self.saltLng]
 
 	def generateHeader(self):
