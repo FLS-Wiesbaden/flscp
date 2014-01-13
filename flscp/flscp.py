@@ -2837,7 +2837,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 
 		if len(data) > 0:
 			try:
-				self.rpc.saveCerts(data)
+				self.rpc.saveCerts(data.__serialize__())
 			except ssl.CertificateError as e:
 				log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
 				QtGui.QMessageBox.critical(

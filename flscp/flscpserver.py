@@ -124,9 +124,7 @@ class ControlPanel:
 
 	def saveCerts(self, certs):
 		#import rpdb2; rpdb2.start_embedded_debugger('test', fDebug=True, fAllowUnencrypted=False, timeout=5)
-		certList = FLSCertificateList()
-		for f in certs['_certs']:
-			certList.add(FLSCertificate.fromPyDict(f))
+		certList = FLSCertificateList.__deserialize__(certs)
 		log.debug('Want to save %i items!' % (len(certList),))
 
 		fullList = self.getCerts()
@@ -566,7 +564,6 @@ class FLSRequestHandler(SimpleXMLRPCRequestHandler):
 			return False
 
 	def do_POST(self):
-
 		if not self.validAuth():
 			self.report_403()
 			return
