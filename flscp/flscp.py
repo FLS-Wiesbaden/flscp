@@ -2913,25 +2913,6 @@ if __name__ == "__main__":
 	log.addHandler(hdlr)
 	log.setLevel(logging.DEBUG)
 
-	from modules.flscertification import FLSCertificateList, FLSCertificate
-	fsc = FLSCertificateList()
-	rmtCert = FLSCertificate.fromDict({'subjectAltName': (('email', 'lukas.schreiner@fls-wiesbaden.de'),), 'notBefore': 'Oct  7 21:09:59 2012 GMT', 'serialNumber': '010925', 'notAfter': 'Oct  7 21:09:59 2014 GMT', 'version': 3, 'subject': ((('commonName', 'Lukas Schreiner'),), (('emailAddress', 'lukas.schreiner@fls-wiesbaden.de'),)), 'issuer': ((('organizationName', 'CAcert Inc.'),), (('organizationalUnitName', 'http://www.CAcert.org'),), (('commonName', 'CAcert Class 3 Root'),))})
-	fsc.add(rmtCert)
-	rmtCert = FLSCertificate.fromDict({'subjectAltName': (('email', 'simon.seyer@fls-wiesbaden.de'),), 'notBefore': 'Oct  7 21:09:59 2013 GMT', 'serialNumber': '071930', 'notAfter': 'Oct  7 21:09:59 2015 GMT', 'version': 3, 'subject': ((('commonName', 'Simon Seyer'),), (('emailAddress', 'simon.seyer@fls-wiesbaden.de'),)), 'issuer': ((('organizationName', 'CAcert Inc.'),), (('organizationalUnitName', 'http://www.CAcert.org'),), (('commonName', 'CAcert Class 3 Root'),))})
-	fsc.add(rmtCert)
-	data = fsc.__serialize__()
-	import pickle
-	with open('test.cxc', 'wb') as f:
-		pickle.dump(data, f)
-	
-	ml = pickle.load(open('test.cxc', 'rb'))
-	data = FLSCertificateList.__deserialize__(ml)
-	from pprint import pprint
-	for f in data:
-		pprint(f)
-		
-	print('\n-\n\n')
-
 	app = QtGui.QApplication(sys.argv)
 	ds = FLScpMainWindow()
 	QtCore.QTimer.singleShot(0, ds.init)
