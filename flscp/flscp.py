@@ -1674,10 +1674,10 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		#cert.version = pubkey.get_version()
 		cert.notBefore = datetime.datetime.strptime(
 			pubkey.get_notBefore().decode('utf-8'), '%Y%m%d%H%M%SZ'
-		).replace(tzinfo=UTC)
+		)
 		cert.notAfter = datetime.datetime.strptime(
 			pubkey.get_notAfter().decode('utf-8'), '%Y%m%d%H%M%SZ'
-		).replace(tzinfo=UTC)
+		)
 		cert.serialNumber = pubkey.get_serial_number()
 
 		return cert
