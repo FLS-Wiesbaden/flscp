@@ -544,7 +544,15 @@ class FLSRequestHandler(SimpleXMLRPCRequestHandler):
 		if rmtCert is None:
 			return False
 
-		ml = pickle.load(open(os.path.expanduser(conf.get('connection', 'authorizekeys')), 'rb'))
+		ml = None
+		with open(os.path.expanduser(conf.get('connection', 'authorizekeys')), 'rb') as f:
+				ml = pickle.load(f)
+
+		if ml is None:
+			ml = FLSCertificateList()
+		else:
+			ml = FLSCertificateList.__deserialize__(ml)
+
 		if len(ml) <= 0:
 			(rmtIP, rmtPort) = self.request.getpeername()
 			log.warning('We don\'t have keys at the moment. So we only allow local users!')
