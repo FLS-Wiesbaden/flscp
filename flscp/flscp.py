@@ -23,8 +23,8 @@ except ImportError:
 	pass
 
 __author__  = 'Lukas Schreiner'
-__copyright__ = 'Copyright (C) 2013 - 2013 Website-Team Friedrich-List-Schule-Wiesbaden'
-__version__ = '0.4'
+__copyright__ = 'Copyright (C) 2013 - 2014 Website-Team Friedrich-List-Schule-Wiesbaden'
+__version__ = '0.5'
 
 FORMAT = '%(asctime)-15s %(message)s'
 formatter = logging.Formatter(FORMAT, datefmt='%b %d %H:%M:%S')
@@ -659,6 +659,7 @@ class FlsServer(xmlrpc.client.ServerProxy):
 		return FlsServer.__instance if FlsServer.__instance is not None else FlsServer()
 
 class FLScpMainWindow(QtGui.QMainWindow):
+	execInit = pyqtSignal()
 
 	def __init__(self):
 		QtGui.QMainWindow.__init__(self)
@@ -677,6 +678,8 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.ui.statusbar.addPermanentWidget(self.ui.progress)
 		self.ui.progress.hide()
 		self.stateProgressBar = False
+		self.loginNeeded = True
+		self.fd = None
 
 		self.version = ''
 
@@ -998,9 +1001,20 @@ class FLScpMainWindow(QtGui.QMainWindow):
 
 	@pyqtSlot()
 	def init(self):
+		self.update()
 		# enable splash screen
+		if self.splash.isVisible() and not self.loginNeeded:
+			self.splash.destroy()
+			self.update()
+			self.splash = QtGui.QSplashScreen(self, QtGui.QPixmap(":/logo/splash.png"))
+			self.splash.show()
+			self.splash.showMessage('Loading application...', color=QtGui.QColor(255, 255, 255))
+			self.splash.update()
+		self.update()
+
 		self.splash.showMessage('Try to connect to server...', color=QtGui.QColor(255, 255, 255))
-		self.splash.repaint()
+		self.splash.update()
+		self.loginNeeded = True
 		
 		if self.rpc is not None:
 			# connection possible ?
@@ -1009,7 +1023,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			try:
 				p = self.rpc.ping()
 			except ssl.SSLError as e:
-				log.debug('Connection not possible: %s' % (e,))
+				log.warning('Connection not possible: %s' % (e,))
 				QtGui.QMessageBox.critical(
 					self, _translate('MainWindow', 'Verbindung nicht möglich', None), 
 					_translate('MainWindow', 
@@ -1021,7 +1035,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				self.close()
 				return
 			except socket.error as e:
-				log.debug('Connection not possible: %s' % (e,))
+				log.warning('Connection not possible: %s' % (e,))
 				QtGui.QMessageBox.critical(
 					self, _translate('MainWindow', 'Verbindung nicht möglich', None), 
 					_translate('MainWindow', 
@@ -1032,18 +1046,40 @@ class FLScpMainWindow(QtGui.QMainWindow):
 
 				self.close()
 				return
+			except xmlrpc.client.ProtocolError as e:
+				# uhhh error?
+				log.warning('Connection not possible: %s - %s' % (e.errcode, e.errmsg))
+				if e.errcode == 403:
+					QtGui.QMessageBox.critical(
+						self, _translate('MainWindow', 'Login nicht möglich', None), 
+						_translate('MainWindow', 
+							'Sie haben keine Berechtigung zum Nutzen der Anwendung.', 
+							None),
+						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					)
+				else:
+					QtGui.QMessageBox.critical(
+						self, _translate('MainWindow', 'Unbekannter Fehler beim Verbinden', None), 
+						_translate('MainWindow', 
+							'Der Server hat die weitere Verbindung abgelehnt.', 
+							None),
+						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					)
+				self.close()
+				return
 			self.rpc.__transport.timeout = timeout
+			self.loginNeeded = False
 
 			# connection possible - now check the version
 			self.splash.showMessage('Check version...', color=QtGui.QColor(255, 255, 255))
-			self.splash.repaint()
+			self.splash.update()
 			upToDate = self.rpc.upToDate(__version__)
 			if not upToDate:
 				self.updateVersion()
 
 			# load the data!
 			self.splash.showMessage('Loading domains...', color=QtGui.QColor(255, 255, 255))
-			self.splash.repaint()
+			self.splash.update()
 
 			# domains
 			try:
@@ -1062,7 +1098,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 
 			# load the data!
 			self.splash.showMessage('Loading mails...', color=QtGui.QColor(255, 255, 255))
-			self.splash.repaint()
+			self.splash.update()
 
 			# mails
 			try:
@@ -1079,7 +1115,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 
 			# load the data!
 			self.splash.showMessage('Loading certs...', color=QtGui.QColor(255, 255, 255))
-			self.splash.repaint()
+			self.splash.update()
 
 			# certs
 			try:
@@ -1094,16 +1130,22 @@ class FLScpMainWindow(QtGui.QMainWindow):
 					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
 				)
 		else:
-			self.initLoginCert()
+			if not self.initLoginCert():
+				self.splash.close()
+				self.stateProgressBar = False
+				self.close()
+				return
 
 		# disable splash screen!
-		self.splash.close()
-		self.stateProgressBar = True
-		self.start()
+		# (it is always a login needed. But sometimes we cannot simply start the application ;))
+		if not self.loginNeeded:
+			self.splash.close()
+			self.stateProgressBar = True
+			self.start()
 
 	def updateVersion(self):
 		self.splash.showMessage('New Version available. Downloading...', color=QtGui.QColor(255, 255, 255))
-		self.splash.repaint()
+		self.splash.update()
 
 		try:
 			data = self.rpc.getCurrentVersion()
@@ -1118,7 +1160,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			)
 		else:
 			self.splash.showMessage('New Version available. Installing...', color=QtGui.QColor(255, 255, 255))
-			self.splash.repaint()
+			self.splash.update()
 			# now save it!
 			data = base64.b64decode(data.encode('utf-8'))
 			d = tempfile.NamedTemporaryFile(suffix='.zip', delete=False)
@@ -1159,17 +1201,20 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			os.unlink(d.name)
 
 	def initLoginCert(self):
+		self.splash.showMessage('Wait for logging in...', color=QtGui.QColor(255, 255, 255))
+		self.splash.update()
+
 		answer = QtGui.QMessageBox.warning(
 			self, _translate('MainWindow', 'Login erforderlich', None), 
 			_translate('MainWindow', 
-				'Es konnte kein Zertifikat zum Login gefunden werden.\n \
-				Bitte wählen Sie im nachfolgenden Fenster ein PKCS12-Zertifikat aus.', 
+				'Es konnte kein Zertifikat zum Login gefunden werden.\n' \
+				'Bitte wählen Sie im nachfolgenden Fenster ein PKCS12-Zertifikat aus.', 
 				None),
 			QtGui.QMessageBox.Ok|QtGui.QMessageBox.Cancel, QtGui.QMessageBox.Ok
 		)
 		if answer == QtGui.QMessageBox.Cancel:
 			self.close()
-			return
+			return False
 
 		try:
 			import OpenSSL
@@ -1183,19 +1228,28 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			)
 
 			self.close()
-			return
+			return False
 
-		fd = QtGui.QFileDialog(self, None)
-		fd.setWindowModality(QtCore.Qt.ApplicationModal)
-		fd.setOption(QtGui.QFileDialog.ReadOnly, True)
+		self.fd = QtGui.QFileDialog(self, None)
+		self.fd.setWindowModality(QtCore.Qt.ApplicationModal)
+		self.fd.setOption(QtGui.QFileDialog.ReadOnly, True)
 		filters = [_translate('MainWindow', 'Zertifikate (*.p12)', None)]
-		fd.setNameFilters(filters)
-		fd.setFileMode(QtGui.QFileDialog.ExistingFile | QtGui.QFileDialog.AcceptOpen)
-		fd.filesSelected.connect(self.loginCertSelected)
-		fd.show()
+		self.fd.setNameFilters(filters)
+		self.fd.setFileMode(QtGui.QFileDialog.ExistingFile | QtGui.QFileDialog.AcceptOpen)
+		self.fd.filesSelected.connect(self.loginCertSelected)
+		# connect slots
+		self.execInit.connect(self.init)
+		# now show the select!
+		self.fd.show()
+
+		return True
 
 	@pyqtSlot(str)
 	def loginCertSelected(self, f):
+		if self.fd is not None:
+			self.fd.destroy()
+			self.update()
+
 		if len(f) > 0:
 			f = f[0]
 		else:
@@ -1301,7 +1355,13 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			# success - start the rest!
 			self.rpc = FlsServer.getInstance()
 			self.showLoginUser()
-			self.init()
+
+			if self.loginNeeded:
+				self.loginNeeded = False
+				
+			# we have to be careful to block not the thread!
+			self.execInit.emit()
+			self.update()
 
 	def loadCerts(self, interactive = False):
 		if interactive:
@@ -1716,7 +1776,19 @@ class FLScpMainWindow(QtGui.QMainWindow):
 						continue
 
 			if pubkey is not None:
-				cert = self.getCert(pubkey)
+				try:
+					cert = self.getCert(pubkey)
+				except:
+					QtGui.QMessageBox.information(
+						self, _translate('MainWindow', 'Fehler', None), 
+						_translate(
+							'MainWindow', 
+							'Zertifikat "%s" ist weder ein gültiges .p12, noch ein gültiges öffentliches Zertifikat!' % (f,), 
+							None
+						)
+					)
+					continue
+
 				self.certs.add(cert)
 				# now display in table?
 				rowNr = self.ui.adminTable.rowCount()
@@ -2840,6 +2912,25 @@ if __name__ == "__main__":
 	hdlr.setFormatter(formatter)
 	log.addHandler(hdlr)
 	log.setLevel(logging.DEBUG)
+
+	from modules.flscertification import FLSCertificateList, FLSCertificate
+	fsc = FLSCertificateList()
+	rmtCert = FLSCertificate.fromDict({'subjectAltName': (('email', 'lukas.schreiner@fls-wiesbaden.de'),), 'notBefore': 'Oct  7 21:09:59 2012 GMT', 'serialNumber': '010925', 'notAfter': 'Oct  7 21:09:59 2014 GMT', 'version': 3, 'subject': ((('commonName', 'Lukas Schreiner'),), (('emailAddress', 'lukas.schreiner@fls-wiesbaden.de'),)), 'issuer': ((('organizationName', 'CAcert Inc.'),), (('organizationalUnitName', 'http://www.CAcert.org'),), (('commonName', 'CAcert Class 3 Root'),))})
+	fsc.add(rmtCert)
+	rmtCert = FLSCertificate.fromDict({'subjectAltName': (('email', 'simon.seyer@fls-wiesbaden.de'),), 'notBefore': 'Oct  7 21:09:59 2013 GMT', 'serialNumber': '071930', 'notAfter': 'Oct  7 21:09:59 2015 GMT', 'version': 3, 'subject': ((('commonName', 'Simon Seyer'),), (('emailAddress', 'simon.seyer@fls-wiesbaden.de'),)), 'issuer': ((('organizationName', 'CAcert Inc.'),), (('organizationalUnitName', 'http://www.CAcert.org'),), (('commonName', 'CAcert Class 3 Root'),))})
+	fsc.add(rmtCert)
+	data = fsc.__serialize__()
+	import pickle
+	with open('test.cxc', 'wb') as f:
+		pickle.dump(data, f)
+	
+	ml = pickle.load(open('test.cxc', 'rb'))
+	data = FLSCertificateList.__deserialize__(ml)
+	from pprint import pprint
+	for f in data:
+		pprint(f)
+		
+	print('\n-\n\n')
 
 	app = QtGui.QApplication(sys.argv)
 	ds = FLScpMainWindow()

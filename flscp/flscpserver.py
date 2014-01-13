@@ -25,8 +25,8 @@ except:
 	fcntl = None
 
 __author__  = 'Lukas Schreiner'
-__copyright__ = 'Copyright (C) 2013 - 2013 Website-Team Friedrich-List-Schule-Wiesbaden'
-__version__ = '0.4'
+__copyright__ = 'Copyright (C) 2013 - 2014 Website-Team Friedrich-List-Schule-Wiesbaden'
+__version__ = '0.5'
 
 FORMAT = '%(asctime)-15s %(message)s'
 formatter = logging.Formatter(FORMAT, datefmt='%b %d %H:%M:%S')
@@ -111,14 +111,16 @@ class ControlPanel:
 					zip.write(p, arcname)
 
 	def getCerts(self):
-		data = FLSCertificateList()
 		if not os.path.exists(os.path.expanduser(conf.get('connection', 'authorizekeys'))):
-			return data
-
-		with open(os.path.expanduser(conf.get('connection', 'authorizekeys')), 'rb') as f:
-			data = pickle.load(f)
-
-		return data
+			return FLSCertificateList()
+		else:
+			data = None
+			with open(os.path.expanduser(conf.get('connection', 'authorizekeys')), 'rb') as f:
+				data = pickle.load(f)
+			if data is None:
+				return FLSCertificateList()
+			else:
+				return FLSCertificateList.__deserialize__(data)
 
 	def saveCerts(self, certs):
 		#import rpdb2; rpdb2.start_embedded_debugger('test', fDebug=True, fAllowUnencrypted=False, timeout=5)
@@ -145,8 +147,9 @@ class ControlPanel:
 			if not os.path.exists(os.path.dirname(os.path.expanduser(conf.get('connection', 'authorizekeys')))):
 				os.makedirs(os.path.dirname(conf.get('connection', 'authorizekeys')), 0o750)
 
+		data = fullList.__serialize__()
 		with open(os.path.expanduser(conf.get('connection', 'authorizekeys')), 'wb') as f:
-			pickle.dump(fullList, f)
+			pickle.dump(data, f)
 
 		os.chmod(os.path.expanduser(conf.get('connection', 'authorizekeys')), 0o600)
 

@@ -8,6 +8,26 @@ class FLSCertificateGeneralSubject:
 		self.commonName = None
 		self.emailAddress = None
 
+	def __serialize__(self):
+		data = {}
+		for k, v in vars(self).items():
+			try:
+				data[k] = v.__serialize__()
+			except:
+				data[k] = v
+
+		return data
+
+	@classmethod
+	def __deserialize__(self, data):
+		self = self()
+
+		for k,v in data.items():
+			if k in ['commonName', 'emailAddress']:
+				setattr(self, k, v)
+
+		return self
+
 	def __hash__(self):
 		return hash('cn=%s,ea=%s' % (self.commonName, self.emailAddress))
 
@@ -27,6 +47,16 @@ class FLSCertificateIssuer(FLSCertificateGeneralSubject):
 		sh.organizationalUnitName = obj['organizationalUnitName']
 
 		self = sh
+		return self
+
+	@classmethod
+	def __deserialize__(self, data):
+		self = self()
+
+		for k,v in data.items():
+			if k in ['commonName', 'emailAddress', 'organizationName', 'organizationalUnitName']:
+				setattr(self, k, v)
+
 		return self
 
 	def __hash__(self):
@@ -91,6 +121,40 @@ class FLSCertificate:
 			'sn=%s,sub=%s,iss=%s' % (
 				self.serialNumber, self.subject.__hash__(), self.issuer.__hash__())
 			)
+
+	def __serialize__(self):
+		data = {}
+		for k, v in vars(self).items():
+			try:
+				data[k] = v.__serialize__()
+			except:
+				if isinstance(v, datetime.datetime):
+					data[k] = v.isoformat()
+				else:
+					data[k] = v
+
+		return data
+
+	@classmethod
+	def __deserialize__(self, data):
+		self = self()
+
+		for k,v in data.items():
+			if k in ['notBefore', 'notAfter']:
+				newV = datetime.datetime.strptime(
+					v, '%Y-%m-%dT%H:%M:%S.%f' if '.' in v else '%Y-%m-%dT%H:%M:%S'
+				)
+				setattr(self, k, newV)
+			elif k in ['subject']:
+				newV = FLSCertificateSubject.__deserialize__(v)
+				setattr(self, k, newV)
+			elif k in ['issuer']:
+				newV = FLSCertificateIssuer.__deserialize__(v)
+				setattr(self, k, newV)
+			elif k in ['state', 'serialNumber']:
+				setattr(self, k, int(v))
+
+		return self
 
 	@classmethod
 	def fromDict(sh, obj):
@@ -207,6 +271,22 @@ class FLSCertificateList:
 				return f
 
 		return None
+
+	def __serialize__(self):
+		data = []
+		for k in self._certs:
+			data.append(k.__serialize__())
+
+		return data
+
+	@classmethod
+	def __deserialize__(self, data):
+		self = self()
+
+		for k in data:
+			self.add(FLSCertificate.__deserialize__(k))
+
+		return self
 
 	@classmethod
 	def fromPyDict(sh, obj):
