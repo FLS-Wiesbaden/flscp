@@ -106,11 +106,17 @@ class FLSCertificate:
 
 		self.subject = subject
 
-	def setSerialNumber(self, srn):
-		try:
-			self.serialNumber = int(srn)
-		except ValueError:
-			# convert!
+	def setSerialNumber(self, srn, convert = False):
+		if not convert:
+			try:
+				self.serialNumber = int(srn)
+			except ValueError:
+				# convert!
+				try:
+					self.serialNumber = int(srn, 16)
+				except:
+					raise
+		else:
 			try:
 				self.serialNumber = int(srn, 16)
 			except:
@@ -178,7 +184,7 @@ class FLSCertificate:
 		#if 'version' in obj:
 		#	sh.version = obj['version']
 		if 'serialNumber' in obj:
-			sh.setSerialNumber(obj['serialNumber'])
+			sh.setSerialNumber(obj['serialNumber'], True)
 
 		now = datetime.datetime.now().replace(tzinfo=datetime.timezone.utc)
 		if sh.serialNumber is None or sh.notAfter is None or sh.notBefore is None:
