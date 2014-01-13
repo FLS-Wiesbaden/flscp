@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import datetime
+from pytz import UTC
 
 class FLSCertificateGeneralSubject:
 
@@ -171,8 +172,10 @@ class FLSCertificate:
 			sh.setSubject(subject)
 		if 'notAfter' in obj:
 			sh.notAfter = datetime.datetime.strptime(obj['notAfter'], '%b %d %H:%M:%S %Y %Z')
+			sh.notAfter = sh.notAfter.replace(tzinfo=UTC)
 		if 'notBefore' in obj:
 			sh.notBefore = datetime.datetime.strptime(obj['notBefore'], '%b %d %H:%M:%S %Y %Z')
+			sh.notBefore = sh.notBefore.replace(tzinfo=UTC)
 		#if 'version' in obj:
 		#	sh.version = obj['version']
 		if 'serialNumber' in obj:
