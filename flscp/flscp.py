@@ -10,7 +10,6 @@ from PyQt4.QtCore import pyqtSlot, pyqtSignal
 from PyQt4 import QtGui
 from PyQt4 import QtCore
 from Printer import Printer
-from pytz import UTC
 import logging, os, sys, re, copy, uuid, zlib, xmlrpc.client, http.client, ssl, socket, datetime
 import tempfile, zipfile, base64
 from modules import flscertification
@@ -1674,10 +1673,10 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		#cert.version = pubkey.get_version()
 		cert.notBefore = datetime.datetime.strptime(
 			pubkey.get_notBefore().decode('utf-8'), '%Y%m%d%H%M%SZ'
-		).replace(tzinfo=UTC)
+		).replace(tzinfo=datetime.timezone.utc)
 		cert.notAfter = datetime.datetime.strptime(
 			pubkey.get_notAfter().decode('utf-8'), '%Y%m%d%H%M%SZ'
-		).replace(tzinfo=UTC)
+		).replace(tzinfo=datetime.timezone.utc)
 		cert.serialNumber = pubkey.get_serial_number()
 
 		return cert
