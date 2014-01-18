@@ -16,6 +16,12 @@ from saltencryption import SaltEncryption
 from mailer import *
 from tools import hashPostFile
 
+def MailValidator(email):
+	if email is None:
+		return False
+
+	return re.match(r"^[a-zA-Z0-9._%\-+]+\@[a-zA-Z0-9._%\-]+\.[a-zA-Z]{2,}$", email) != None
+
 class MailAccountList:
 
 	def __init__(self):

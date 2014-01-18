@@ -15,7 +15,7 @@ import tempfile, zipfile, base64
 from modules import flscertification
 from modules.domain import DomainList, Domain
 from modules.dns import DNSList, Dns
-from modules.mail import MailAccountList, MailAccount
+from modules.mail import MailAccountList, MailAccount, MailValidator
 try:
 	import OpenSSL
 except ImportError:
@@ -37,8 +37,8 @@ workDir = os.path.dirname(os.path.realpath(__file__))
 
 ##### CONFIGURE #####
 # connection
-#RPCHOST 		= 'cp.lschreiner.de' 
-RPCHOST 		= 'cp.fls-wiesbaden.de' 
+RPCHOST 		= 'cp.lschreiner.de' 
+#RPCHOST 		= 'cp.fls-wiesbaden.de' 
 RPCPORT 		= 10027
 RPCPATH			= 'RPC2'
 # ssl connection
@@ -54,12 +54,6 @@ try:
 except AttributeError:
 	def _translate(context, text, disambig):
 		return QtGui.QApplication.translate(context, text, disambig)
-
-def MailValidator(email):
-	if email is None:
-		return False
-
-	return re.match(r"^[a-zA-Z0-9._%\-+]+\@[a-zA-Z0-9._%\-]+\.[a-zA-Z]{2,}$", email) != None
 
 ###### START LOADER ######
 class DataLoader(QtCore.QThread):
@@ -2543,22 +2537,26 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				dns.changeState(Dns.STATE_CHANGE)
 			# find row for item
 			log.info('I know the row for update the validating style: %i!' % (row,))
+			# now change the editable-flag of the other columns!
+			if dnsProperty == 'type':
+				visibleList = dns.getValidCombination()
+			else:
+				visibleList = []
+
 			# validate the new items
 			state, msg = dns.validate()
-			self.updateDnsValidation(table, row, state, msg)
+			self.updateDnsValidation(table, row, state, msg, True if dnsProperty == 'type' else False, visibleList)
 
 		log.debug('Widget changed: DNS: %s, Name: %s, Value: %s' % ( id, dnsProperty, value))
 
-	def updateDnsValidation(self, table, row, state, msg):
+	def updateDnsValidation(self, table, row, state, msg, typeChange = False, visibleList = []):
 		curCol = 0
 		maxCol = table.columnCount()
 
 		brush = QtGui.QBrush(QtGui.QColor(255, 207, 207))
 		if state:
-			brush.setStyle(QtCore.Qt.NoBrush)
 			log.info('DNS change is valid!')
 		else:
-			brush.setStyle(QtCore.Qt.SolidPattern)
 			log.info('DNS change is not valid!')
 
 		while curCol < maxCol:
@@ -2577,10 +2575,22 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			else:
 				item.setToolTip('')
 
+			if typeChange and name not in ['id', 'key', 'type']:
+				if name in visibleList:
+					log.debug('Enable %s!' % (name,))
+					item.setFlags(item.flags() | QtCore.Qt.ItemIsEditable)
+				else:
+					log.debug('Disable %s!' % (name,))
+					item.setFlags(item.flags() &~ QtCore.Qt.ItemIsEditable)
+
 			try:
+				if not state and name in msg:
+					brush.setStyle(QtCore.Qt.SolidPattern)
+				else:
+					brush.setStyle(QtCore.Qt.NoBrush)
 				item.setBackground(brush)
-			except:
-				log.error('Cannot set the background for widgets!!!!')
+			except Exception as e:
+				log.error('Cannot set the background for widgets!!!!: %s' % (str(e),))
 				pass
 
 			curCol += 1

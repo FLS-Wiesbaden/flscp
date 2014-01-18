@@ -5,6 +5,7 @@ import time
 from PyQt4 import QtCore
 from PyQt4.QtCore import pyqtSignal
 from modules.domain import *
+from modules.mail import MailValidator
 
 class DNSList:
 
@@ -91,11 +92,11 @@ class Dns(QtCore.QObject):
 		self.domainId = ''
 		self.key = ''
 		self.type = ''
-		self.prio = ''
+		self.prio = 0
 		self.value = ''
 		self.weight = 0
 		self.port = 0
-		self.dnsAdmin = None
+		self.dnsAdmin = ''
 		self.refreshRate = 7200
 		self.retryRate = 1800
 		self.expireTime = 1209600
@@ -174,54 +175,72 @@ class Dns(QtCore.QObject):
 	def validate(self):
 		state = True
 		msg = {}
-
+		visibleList = self.getValidCombination()
+		fields = []
+		# key 
+		fld = ValidationField('key', ValidationField.TYPE_STR)
+		fld.canEmpty = False if fld.name in visibleList else True
+		fld.setErrMsg = 'You have to set the key!'
+		fields.append(fld)
+		# prio
+		fld = ValidationField('prio', ValidationField.TYPE_INT)
+		fld.canEmpty = False if fld.name in visibleList else True
+		fld.setErrMsg = 'You have to set the prio (numerical value)!'
+		fields.append(fld)
+		# value - careful: can be an IP, NS, ...
+		fld = ValidationField('value', ValidationField.TYPE_STR)
+		fld.canEmpty = False if fld.name in visibleList else True
 		if self.type == Dns.TYPE_SOA:
-			if len(self.dnsAdmin.strip()) <= 0:
-				msg['dnsAdmin'] = 'You have to set an DNS-Admin-Mail for SOA-Entry.'
-				state = False
-			if len(self.value.strip()) <= 0:
-				msg['dnsAdmin'] = 'You have to set the primary DNS-Server for the Domain.'
-				state = False
+			fld.setErrMsg = 'You have to set the primary DNS-Server for the Domain.'
+		else:
+			fld.setErrMsg = 'You have to fill the value!'
+		fields.append(fld)
+		# weight
+		fld = ValidationField('weight', ValidationField.TYPE_RANGE & ValidationField.TYPE_INT)
+		fld.canEmpty = False if fld.name in visibleList else True
+		fld.setRange(0, 65535)
+		fld.setErrMsg = 'The weight has to be a numerical value between 0 and 65535.'
+		fields.append(fld)
+		# port
+		fld = ValidationField('port', ValidationField.TYPE_RANGE & ValidationField.TYPE_INT)
+		fld.canEmpty = False if fld.name in visibleList else True
+		fld.setRange(0, 65535)
+		fld.setErrMsg = 'The port has to be a numerical value between 0 and 65535.'
+		fields.append(fld)
+		# dnsAdmin
+		fld = ValidationField('dnsAdmin', ValidationField.TYPE_MAIL)
+		fld.canEmpty = False if fld.name in visibleList else True
+		fld.setErrMsg = 'You have to set an DNS-Admin-Mail!'
+		fields.append(fld)
+		# refreshRate
+		fld = ValidationField('refreshRate', ValidationField.TYPE_RANGE & ValidationField.TYPE_INT)
+		fld.canEmpty = False if fld.name in visibleList else True
+		fld.setRange(1200, 43200)
+		fld.setErrMsg = 'The refresh rate has to be a numerical value between 1200 and 43200 seconds.'
+		fields.append(fld)
+		# retryRate
+		fld = ValidationField('retryRate', ValidationField.TYPE_RANGE & ValidationField.TYPE_INT)
+		fld.canEmpty = False if fld.name in visibleList else True
+		fld.setRange(180, 2419200)
+		fld.setErrMsg = 'The refresh rate has to be a numerical value between 180 and 2419200 seconds.'
+		fields.append(fld)
+		# expireTime
+		fld = ValidationField('expireTime', ValidationField.TYPE_RANGE & ValidationField.TYPE_INT)
+		fld.canEmpty = False if fld.name in visibleList else True
+		fld.setRange(1209600, 2419200)
+		fld.setErrMsg = 'The expire time has to be between 1209600 and 2419200 seconds.'
+		fields.append(fld)
+		# ttl
+		fld = ValidationField('ttl', ValidationField.TYPE_RANGE & ValidationField.TYPE_INT)
+		fld.canEmpty = False if fld.name in visibleList else True
+		fld.setRange(60, 2419200)
+		fld.setErrMsg = 'The TTL has to be between 60 and 2419200 seconds.'
+		fields.append(fld)
 
-			try:
-				int(self.refreshRate)
-			except:
-				msg['refreshRate'] = 'The refresh rate has to be a numerical value between 1200 and 43200 seconds.'
+		for f in fields:
+			if not f.isValid(getattr(self, f.name)):
 				state = False
-			else:
-				if int(self.refreshRate) > 43200 or int(self.refreshRate) < 1200:
-					msg['refreshRate'] = 'The refresh rate has to be between 1200 and 43200 seconds.'
-					state = False
-
-			try:
-				int(self.retryRate)
-			except:
-				msg['retryRate'] = 'The refresh rate has to be a numerical value between 180 and 2419200 seconds.'
-				state = False
-			else:
-				if int(self.retryRate) > 2419200 or int(self.retryRate) < 180:
-					msg['retryRate'] = 'The refresh rate has to be between 180 and 2419200 seconds.'
-					state = False
-
-			try:
-				int(self.expireTime)
-			except:
-				msg['expireTime'] = 'The refresh rate has to be a numerical value between 1209600 and 2419200 seconds.'
-				state = False
-			else:
-				if int(self.expireTime) > 2419200 or int(self.expireTime) < 1209600:
-					msg['expireTime'] = 'The expire time has to be between 1209600 and 2419200 seconds.'
-					state = False
-
-			try:
-				int(self.ttl)
-			except:
-				msg['ttl'] = 'The TTL has to be a numerical value between 60 and 2419200 seconds.'
-				state = False
-			else:
-				if int(self.ttl) > 2419200 or int(self.ttl) < 60:
-					msg['ttl'] = 'The TTL has to be between 60 and 2419200 seconds.'
-					state = False
+				msg[f.name] = f.getErrMsg()
 
 		return state, msg
 
@@ -279,6 +298,45 @@ class Dns(QtCore.QObject):
 		cx.close()
 
 		self.state = state
+
+	def getValidCombination(self):
+		visibleList = ['key', 'type', 'value', 'ttl']
+		if self.type == Dns.TYPE_A:
+			visibleList += []
+		elif self.type == Dns.TYPE_AAAA:
+			visibleList += []
+		elif self.type == Dns.TYPE_CNAME:
+			visibleList += []
+		elif self.type == Dns.TYPE_MX:
+			visibleList += ['prio']
+		elif self.type == Dns.TYPE_SOA:
+			visibleList += ['dnsAdmin', 'refreshRate', 'retryRate', 'expireTime']
+		elif self.type == Dns.TYPE_TXT:
+			visibleList += []
+		elif self.type == Dns.TYPE_SPF:
+			visibleList += []
+		elif self.type == Dns.TYPE_SRV:
+			visibleList += ['port', 'weight', 'prio']
+		elif self.type == Dns.TYPE_NS:
+			visibleList += []
+
+		return visibleList
+
+	def getDefault(self, key):
+		defaultList = {
+			'key': '',
+			'type': Dns.TYPE_A,
+			'value': '',
+			'ttl': 3600,
+			'prio': 0,
+			'dnsAdmin': '',
+			'refreshRate': 7200,
+			'retryRate': 1800,
+			'expireTime': 1209600,
+			'port': 0,
+			'weight': 0,
+			'state': Dns.STATE_CREATE
+		}
 
 	def __eq__(self, obj):
 		log = logging.getLogger('flscp')
@@ -357,3 +415,68 @@ class Dns(QtCore.QObject):
 				setattr(self, k, v)
 
 		return self
+
+class ValidationField: 
+	TYPE_INT = 1
+	TYPE_STR = 2
+	TYPE_RANGE = 4
+	TYPE_BOOL = 8
+	TYPE_ENUM = 16
+	TYPE_MAIL = 32
+
+	def __init__(self, name, fldType = 2, canEmpty = True):
+		self.name = name
+		self.fldType = fldType
+		self.canEmpty = canEmpty
+		self.rangeStart = 0
+		self.rangeEnd = 0
+		self.enumList = []
+
+		self.errMsg = 'The element %s is invalid!' % (self.name,)
+
+	def setErrMsg(self, errMsg):
+		self.errMsg = errMsg
+
+	def getErrMsg(self):
+		return self.errMsg
+
+	def setEnumList(self, eList):
+		self.enumList = eList
+
+	def setRange(self, start, end):
+		self.rangeStart = start
+		self.rangeEnd = end
+
+	def isValid(self, value):
+		state = True
+		if not self.canEmpty and value == '':
+			state = False
+		elif self.fldType == ValidationField.TYPE_INT:
+			try:
+				int(value)
+			except:
+				state = False
+		elif self.fldType == ValidationField.TYPE_RANGE:
+			if value > self.rangeEnd or value < self.rangeStart:
+				state = False
+		elif self.fldType == (ValidationField.TYPE_RANGE & ValidationField.TYPE_INT):
+			try:
+				value = int(value)
+			except:
+				state = False
+			else:
+				if value > self.rangeEnd or value < self.rangeStart:
+					state = False
+		elif self.fldType == ValidationField.TYPE_BOOL:
+			if value not in ['True', 'False', True, False]:
+				state = False
+		elif self.fldType == ValidationField.TYPE_ENUM:
+			if value not in self.enumList:
+				state = False
+		elif self.fldType == ValidationField.TYPE_STR:
+			# nothing???
+			pass
+		elif self.fldType == ValidationField.TYPE_MAIL:
+			state = MailValidator(value)
+
+		return state
