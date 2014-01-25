@@ -25,6 +25,7 @@
     <file>warning.png</file>
   </qresource>
   <qresource prefix="actions">
+    <file>page_text.png</file>
     <file>clear_log.png</file>
     <file>arrow-left.png</file>
     <file>arrow-right.png</file>

@@ -6,6 +6,7 @@ from ui.ui_cp import *
 from ui.ui_about import *
 from ui.ui_mailform import *
 from ui.ui_maileditor import *
+from ui.ui_output import *
 from PyQt4.QtCore import pyqtSlot, pyqtSignal
 from PyQt4 import QtGui
 from PyQt4 import QtCore
@@ -157,6 +158,26 @@ class DnsListLoader(DataLoader):
 		else:
 			self.dataLoaded.emit(self.domainId, data)
 
+class DomainZoneFileLoader(DataLoader):
+
+	def __init__(self, rpc, domainId = None, parent = None):
+		super().__init__(rpc, parent)
+		self.domainId = domainId
+
+	def run(self):
+		try:
+			data = self.rpc.getDomainZoneFile()
+		except ssl.CertificateError as e:
+			self.certError.emit(e)
+		except socket.error as e:
+			self.socketError.emit(e)
+		except xmlrpc.client.ProtocolError as e:
+			self.protocolError.emit(e)
+		except Exception as e:
+			self.unknownError.emit(e)
+		else:
+			self.dataLoaded.emit(data)
+
 
 ###### END LOADER ######
 
@@ -294,6 +315,24 @@ class FlsCpAbout(QtGui.QDialog):
 		self.ui.textVersionPy.setText(sys.version)
 
 		self.show()
+
+class FlsCpOutput(QtGui.QDialog):
+	def __init__(self, parentMain = None):
+		QtGui.QDialog.__init__(self, parent=parentMain)
+
+		self.ui = Ui_OutputDialog()
+		self.ui.setupUi(self)
+
+	def setText(self, text):
+		self.ui.plainTextEdit.setText(text)
+
+	@pyqtSlot(str)
+	@classmethod
+	def showOutput(cpo, text):
+		cpo = FlsCpOutput()
+		cpo.setText(text)
+		cpo.show()
+		return cpo
 
 class MailEditor(QtGui.QDialog):
 	
@@ -714,6 +753,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		#self.ui.butDomainAdd.clicked.connect(self.addDomain)
 		#self.ui.butDomainEdit.clicked.connect(self.editDomain)
 		self.ui.butDomainDel.clicked.connect(self.deleteDomain)
+		self.ui.butDomainFile.clicked.connect(self.generateBindFile)
 		self.ui.butDomainDNS.clicked.connect(self.openDNSDomain)
 		self.ui.butDomainReload.clicked.connect(self.reloadDomainTree)
 		self.ui.butDomainSave.clicked.connect(self.commitDomainData)
@@ -2114,8 +2154,24 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			else:
 				activeTable.removeRow(selectedRow.row())
 				self.dns.remove(dns)
-		# FIXME!
-		#self.loadDNSData(<id>????)
+
+	@pyqtSlot()
+	def deleteDomain(self):
+		elms = self.ui.tabDNS.currentWidget()
+		# first we think, that the selected element contains tree widget:
+		activeTable = elms.findChild(QtGui.QTreeWidget)
+		if activeTable is None:
+			return
+
+		nrSelected = len(self.ui.domainTree.selectionModel().selectedRows())
+		log.info('Have to delete %i items!' % (nrSelected,))
+
+		for selectedRow in self.ui.domainTree.selectedItems():
+			nr = int(selectedRow.text(0))
+			# now get the zone file
+			dzfl = DomainZoneFileLoader(nr)
+			dzfl.dataLoaded.connect(FlsCpOutput.showOutput)
+			dzfl.start()
 	
 	def createDNSWidget(self, domain):
 		tabDomainDNS = QtGui.QWidget()
@@ -2501,7 +2557,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		# value
 		value = item.text()
 
-		if hasattr(dns, dnsProperty) and getattr(dns, dnsProperty) != value:
+		if hasattr(dns, dnsProperty) and str(getattr(dns, dnsProperty)) != str(value):
 			setattr(dns, dnsProperty, value)
 			if dns.state == Dns.STATE_OK:
 				dns.changeState(Dns.STATE_CHANGE)
@@ -2531,7 +2587,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			log.debug('Widget change not interesting: DNS: %s, Name: %s' % (id, dnsProperty))
 			return
 
-		if hasattr(dns, dnsProperty) and getattr(dns, dnsProperty) != value:
+		if hasattr(dns, dnsProperty) and str(getattr(dns, dnsProperty)) != str(value):
 			setattr(dns, dnsProperty, value)
 			if dns.state == Dns.STATE_OK:
 				dns.changeState(Dns.STATE_CHANGE)
@@ -2821,23 +2877,16 @@ class FLScpMainWindow(QtGui.QMainWindow):
 					)
 
 			else:
-				try:
-					#self.loadMails()
-					pass
-				except xmlrpc.client.Fault as e:
-					log.critical('Could not load mails because of %s' % (e,))
-					QtGui.QMessageBox.critical(
-						self, _translate('MainWindow', 'Daten nicht ladbar', None), 
-						_translate('MainWindow', 
-							'Die E-Mail-Konten konnten nicht abgerufen werden.', 
-							None),
-						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
-					)
-				else:
-					#self.loadMailData()
-					pass
+				self.reloadDnsDataByDomain(domainId, interactive=False)
+
 		self.disableProgressBar()
-		
+		# DEBUG: show the generated DNS!
+		ou = FlsCpOutput()
+		soaDns = Dns.getSoaForDomain(domainId)
+		if soaDns is not None:
+			dd = soaDns.generateDnsEntry()
+			ou.setText(dd)
+			ou.show()
 
 	@pyqtSlot()
 	def about(self):

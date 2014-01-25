@@ -465,7 +465,7 @@ class Dns(QtCore.QObject):
 		return self
 
 	@staticmethod
-	def getDnsForDomain(dom, domainId):
+	def getDnsForDomain(domainId):
 		log = logging.getLogger('flscp')
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()

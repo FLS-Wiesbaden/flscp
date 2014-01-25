@@ -227,6 +227,15 @@ class ControlPanel:
 
 		return True
 
+	def getDomainZoneFile(self, domainId):
+		content = ''
+		d = Domain(domainId)
+		if not d.load():
+			return content
+
+		content = d.generateBindFile()
+		return content
+
 	def getListOfLogs(self):
 		base = '/var/log/'
 		fileList = []
