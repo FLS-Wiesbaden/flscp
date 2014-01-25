@@ -345,7 +345,7 @@ class Dns(QtCore.QObject):
 			from datetime import datetime
 			timestamp = datetime.fromtimestamp(int(d.modified)).strftime('%Y%m%d%H%M%S')
 			formattedDnsAdmin = self.dnsAdmin.replace('@', '.')
-			content.append('%s.\tSOA\t%s\t%s. (' % (d.getFullDomain(), self.value, formattedDnsAdmin))
+			content.append('%s.\tSOA\t%s\t%s. (' % (d.getFullDomain(dl), self.value, formattedDnsAdmin))
 			content.append('%s' % (timestamp,))
 			content.append('%ss' % (self.refreshRate,))
 			content.append('%ss' % (self.retryRate,))
