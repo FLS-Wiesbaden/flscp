@@ -475,7 +475,8 @@ class Dns(QtCore.QObject):
 		dnsses = []
 		query = ('SELECT dns_id, domain_id FROM dns WHERE domain_id = %s AND dns_type != %s')
 		try:
-			for (dns_id, domain_id) in cx.execute(query, (domainId, Dns.TYPE_SOA)):
+			cx.execute(query, (domainId, Dns.TYPE_SOA))
+			for (dns_id, domain_id,) in cx:
 				try:
 					dom = Dns(dns_id)
 					if dom.load():
