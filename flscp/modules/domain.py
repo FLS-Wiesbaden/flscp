@@ -176,7 +176,7 @@ class Domain:
 		content.append('$ORIGIN %s.' % (self.getFullDomain(DomainList()),))
 		content.append('$TTL %is' % (self.ttl,))
 		# get soa entry.
-		soa = Dns.getSoaForDomain(self.domainId)
+		soa = Dns.getSoaForDomain(self.id)
 		if soa is None:
 			raise ValueError('Missing SOA-Entry. Cannot generatee Bind-File before!')
 			return False
@@ -185,7 +185,7 @@ class Domain:
 			content.append(f)
 
 		# now the rest
-		for dns in Dns.getDnsForDomain(self.domainId):
+		for dns in Dns.getDnsForDomain(self.id):
 			for f in dns.generateDnsEntry():
 				content.append(f)
 
