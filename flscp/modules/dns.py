@@ -5,7 +5,6 @@ import time
 from PyQt4 import QtCore
 from PyQt4.QtCore import pyqtSignal
 from modules.domain import *
-from modules.mail import MailValidator
 
 class DNSList:
 
@@ -559,6 +558,7 @@ class ValidationField:
 			# nothing???
 			pass
 		elif self.fldType == ValidationField.TYPE_MAIL and value is not None and len(value.strip()) > 0:
+			from modules.mail import MailValidator
 			state = MailValidator(value)
 
 		return state

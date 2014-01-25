@@ -10,7 +10,7 @@ import zlib
 import uuid
 from database import MailDatabase, SaslDatabase
 from flsconfig import FLSConfig
-from modules.domain import *
+from modules.domain import Domain
 from pwgen import generate_pass
 from saltencryption import SaltEncryption
 from mailer import *
