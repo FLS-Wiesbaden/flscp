@@ -95,7 +95,9 @@ class Domain:
 		self.ttl = 3600
 
 	def load(self):
+		log = logging.getLogger('flscp')
 		if self.id is None:
+			log.info('Can not load data for a domain with no id!')
 			return False
 
 		state = False
@@ -120,6 +122,7 @@ class Domain:
 				self.modified = modified
 				self.state = state
 		except Exception as e:
+			log.warning('Could not load the domain %s because of %s' % (self.id, str(e)))
 			state = False
 		else:
 			state = True

@@ -231,9 +231,11 @@ class ControlPanel:
 		content = ''
 		d = Domain(domainId)
 		if not d.load():
+			log.warning('Could not get the domain %s' % (domainId,))
 			return content
 
 		content = d.generateBindFile()
+		log.debug('Generated the domain bind file for domain %s' % (domainId,))
 		return content
 
 	def getListOfLogs(self):

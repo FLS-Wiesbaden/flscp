@@ -159,6 +159,7 @@ class DnsListLoader(DataLoader):
 			self.dataLoaded.emit(self.domainId, data)
 
 class DomainZoneFileLoader(DataLoader):
+	dataLoaded = pyqtSignal(str)
 
 	def __init__(self, rpc, domainId = None, parent = None):
 		super().__init__(rpc, parent)
@@ -166,7 +167,7 @@ class DomainZoneFileLoader(DataLoader):
 
 	def run(self):
 		try:
-			data = self.rpc.getDomainZoneFile()
+			data = self.rpc.getDomainZoneFile(self.domainId)
 		except ssl.CertificateError as e:
 			self.certError.emit(e)
 		except socket.error as e:
@@ -327,12 +328,10 @@ class FlsCpOutput(QtGui.QDialog):
 		self.ui.plainTextEdit.setText(text)
 
 	@pyqtSlot(str)
-	@classmethod
-	def showOutput(cpo, text):
-		cpo = FlsCpOutput()
-		cpo.setText(text)
-		cpo.show()
-		return cpo
+	def showOutput(self, text):
+		print(text)
+		self.setText(text)
+		self.show()
 
 class MailEditor(QtGui.QDialog):
 	
@@ -2156,7 +2155,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				self.dns.remove(dns)
 
 	@pyqtSlot()
-	def deleteDomain(self):
+	def generateBindFile(self):
 		elms = self.ui.tabDNS.currentWidget()
 		# first we think, that the selected element contains tree widget:
 		activeTable = elms.findChild(QtGui.QTreeWidget)
@@ -2164,14 +2163,26 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			return
 
 		nrSelected = len(self.ui.domainTree.selectionModel().selectedRows())
-		log.info('Have to delete %i items!' % (nrSelected,))
+		log.info('Have to generate bind file for %i items!' % (nrSelected,))
 
+		zoneFiles = []
 		for selectedRow in self.ui.domainTree.selectedItems():
 			nr = int(selectedRow.text(0))
 			# now get the zone file
-			dzfl = DomainZoneFileLoader(nr)
-			dzfl.dataLoaded.connect(FlsCpOutput.showOutput)
-			dzfl.start()
+			try:
+				zoneFiles.append(self.rpc.getDomainZoneFile(nr))
+			except Exception as e:
+				pass
+
+		for f in zoneFiles:
+			self.zoneFileLoaded(f)
+
+	@pyqtSlot(str)
+	def zoneFileLoaded(self, text):
+		print(text)
+		#fco = FlsCpOutput()
+		#fco.setText(text)
+		#fco.show()
 	
 	def createDNSWidget(self, domain):
 		tabDomainDNS = QtGui.QWidget()
