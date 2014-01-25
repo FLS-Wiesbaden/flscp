@@ -3,7 +3,6 @@ import zlib
 import uuid
 import time
 from database import MailDatabase
-from modules.dns import Dns
 from tools import hashPostFile
 
 class DomainList:
@@ -176,6 +175,7 @@ class Domain:
 		content.append('$ORIGIN %s.' % (self.getFullDomain(DomainList()),))
 		content.append('$TTL %is' % (self.ttl,))
 		# get soa entry.
+		from modules.dns import Dns
 		soa = Dns.getSoaForDomain(self.id)
 		if soa is None:
 			raise ValueError('Missing SOA-Entry. Cannot generatee Bind-File before!')
