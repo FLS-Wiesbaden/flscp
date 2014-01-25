@@ -325,13 +325,15 @@ class Dns(QtCore.QObject):
 
 		return state, msg
 
-	def generateDnsEntry(self):
+	def generateDnsEntry(self, dl):
 		content = []
 		# get Domain!
 		try:
-			d = DomainList.findById(self.domainId)
+			d = dl.findById(self.domainId)
 			if d is None:
-				d = Domain(self.domainId).load()
+				d = Domain(self.domainId)
+				d.load()
+				dl.add(d)
 		except KeyError:
 			raise
 		else:

@@ -171,8 +171,9 @@ class Domain:
 		pass
 
 	def generateBindFile(self):
+		dl = DomainList()
 		content = []
-		content.append('$ORIGIN %s.' % (self.getFullDomain(DomainList()),))
+		content.append('$ORIGIN %s.' % (self.getFullDomain(dl),))
 		content.append('$TTL %is' % (self.ttl,))
 		# get soa entry.
 		from modules.dns import Dns
@@ -181,12 +182,12 @@ class Domain:
 			raise ValueError('Missing SOA-Entry. Cannot generatee Bind-File before!')
 			return False
 
-		for f in soa.generateDnsEntry():
+		for f in soa.generateDnsEntry(dl):
 			content.append(f)
 
 		# now the rest
 		for dns in Dns.getDnsForDomain(self.id):
-			for f in dns.generateDnsEntry():
+			for f in dns.generateDnsEntry(dl):
 				content.append(f)
 
 		return '\n'.join(content)
