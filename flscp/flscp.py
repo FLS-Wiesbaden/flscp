@@ -2307,16 +2307,14 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		domainId = table.property('domainId')
 		log.info('Have to generate bind file for domain %s!' % (domainId,))
 		try:
-			fco = FlsCpOutput()
-			fco.setText(self.rpc.getDomainZoneFile(nr))
-			fco.show()
+			self.zoneFileLoaded(self.rpc.getDomainZoneFile(nr))
 		except Exception as e:
 			pass
 
 	@pyqtSlot(str)
 	def zoneFileLoaded(self, text):
 		print(text)
-		fco = FlsCpOutput()
+		fco = FlsCpOutput(self)
 		fco.setText(text)
 		fco.show()
 	
