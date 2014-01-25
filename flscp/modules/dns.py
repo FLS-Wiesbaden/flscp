@@ -473,22 +473,25 @@ class Dns(QtCore.QObject):
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
 		dnsses = []
+		dnsId = []
 		query = ('SELECT dns_id, domain_id FROM dns WHERE domain_id = %s AND dns_type != %s')
 		try:
 			cx.execute(query, (domainId, Dns.TYPE_SOA))
 			for (dns_id, domain_id,) in cx:
-				try:
-					dom = Dns(dns_id)
-					if dom.load():
-						dnsses.append(dom)
-				except Exception as e:
-					log.warning('Could not load the dns with dns_id = %s [%s]' % (dns_id, str(e)))
-					pass
+				dnsId.append(dnsId)
 		except Exception as e:
 			dom = None
 			log.warning('Could not find Dns entries for domain [%s] ' % (str(e),))
 		finally:
 			cx.close()
+
+		for dns_id in dnsId:
+			try:
+				dom = Dns(dns_id)
+				if dom.load():
+					dnsses.append(dom)
+			except Exception as e:
+				log.warning('Could not load the dns with dns_id = %s [%s]' % (dns_id, str(e)))
 
 		return dnsses
 
