@@ -106,7 +106,7 @@ class Domain:
 		cx = db.getCursor()
 		query = (
 			'SELECT domain_id, domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created, \
-			domain_last_modified, domain_status WHERE domain_id = %s LIMIT 1'
+			domain_last_modified, domain_status FROM domain WHERE domain_id = %s LIMIT 1'
 		)
 		try:
 			cx.execute(query, (self.id,))
