@@ -478,7 +478,7 @@ class Dns(QtCore.QObject):
 		try:
 			cx.execute(query, (domainId, Dns.TYPE_SOA))
 			for (dns_id, domain_id,) in cx:
-				dnsId.append(dnsId)
+				dnsId.append(dns_id)
 		except Exception as e:
 			dom = None
 			log.warning('Could not find Dns entries for domain [%s] ' % (str(e),))
