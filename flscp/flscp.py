@@ -158,28 +158,6 @@ class DnsListLoader(DataLoader):
 		else:
 			self.dataLoaded.emit(self.domainId, data)
 
-class DomainZoneFileLoader(DataLoader):
-	dataLoaded = pyqtSignal(str)
-
-	def __init__(self, rpc, domainId = None, parent = None):
-		super().__init__(rpc, parent)
-		self.domainId = domainId
-
-	def run(self):
-		try:
-			data = self.rpc.getDomainZoneFile(self.domainId)
-		except ssl.CertificateError as e:
-			self.certError.emit(e)
-		except socket.error as e:
-			self.socketError.emit(e)
-		except xmlrpc.client.ProtocolError as e:
-			self.protocolError.emit(e)
-		except Exception as e:
-			self.unknownError.emit(e)
-		else:
-			self.dataLoaded.emit(data)
-
-
 ###### END LOADER ######
 
 ###### START NOTIFIER ######
@@ -325,7 +303,7 @@ class FlsCpOutput(QtGui.QDialog):
 		self.ui.setupUi(self)
 
 	def setText(self, text):
-		self.ui.plainTextEdit.setText(text)
+		self.ui.plainTextEdit.setPlainText(text)
 
 	@pyqtSlot(str)
 	def showOutput(self, text):
@@ -749,7 +727,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.ui.butHomeCert.clicked.connect(self.switchToAdmin)
 
 		# domain tab
-		#self.ui.butDomainAdd.clicked.connect(self.addDomain)
+		self.ui.butDomainAdd.clicked.connect(self.addDomain)
 		#self.ui.butDomainEdit.clicked.connect(self.editDomain)
 		self.ui.butDomainDel.clicked.connect(self.deleteDomain)
 		self.ui.butDomainFile.clicked.connect(self.generateBindFile)
@@ -2092,6 +2070,151 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			self.insertDomainData(childs, item)
 
 	@pyqtSlot()
+	def addDomain(self):
+		addDNS = False
+
+		elms = self.ui.tabDNS.currentWidget()
+		# first we think, that the selected element contains tree widget:
+		activeTable = elms.findChild(QtGui.QTreeWidget)
+		if activeTable is None:
+			addDNS = True
+			activeTable = elms.findChild(QtGui.QTableWidget)
+			if activeTable is None:
+				return
+
+		if addDNS:
+			self.addDNSEntry(dnsTable=activeTable)
+		else:
+			# not implemented at the moment! FIXME
+			pass
+
+	def addDNSEntry(self, triggered = False, dnsTable = False):
+		if dnsTable is None:
+			dnsTable = self.ui.tabDNS.currentWidget().findChild(QtGui.QTableWidget)
+			if dnsTable is None:
+				return
+
+		domainId = dnsTable.property('domainId')
+		# first: create a new DNS Entry
+		dnse = Dns()
+		dnse.generateId()
+		dnse.domainId = domainId
+		dnse.state = Dns.STATE_CREATE
+		# add to the global list!
+		self.dns.add(dnse)
+
+		# now add to the dnsTable!
+		dnsTable.setRowCount(dnsTable.rowCount())
+		typeList = [
+			Dns.TYPE_SOA,
+			Dns.TYPE_NS,
+			Dns.TYPE_MX,
+			Dns.TYPE_A,
+			Dns.TYPE_AAAA,
+			Dns.TYPE_CNAME,
+			Dns.TYPE_TXT,
+			Dns.TYPE_SPF,
+			Dns.TYPE_SRV
+		]
+
+		rowNr = dnsTable.rowCount()
+		dnsTable.insertRow(rowNr)
+		# id
+		item = QtGui.QTableWidgetItem()
+		item.setText('%s' % (dnse.id,))
+		item.setFlags(QtCore.Qt.ItemIsSelectable|QtCore.Qt.ItemIsUserCheckable|QtCore.Qt.ItemIsEnabled)
+		item.setData(QtCore.Qt.UserRole, 'id')
+		item.setData(QtCore.Qt.UserRole + 5, True) # changes not relevant
+		dnsTable.setItem(rowNr, 0, item)
+		# key
+		item = QtGui.QTableWidgetItem()
+		item.setText('%s' % (dnse.key,))
+		item.setData(QtCore.Qt.UserRole, 'key')
+		dnsTable.setItem(rowNr, 1, item)
+		# type
+		item = QtGui.QComboBox()
+		item.setProperty('dnsKeyName', 'type')
+		item.addItems(typeList)
+		currentType = item.findText(dnse.type)
+		item.setCurrentIndex(currentType)
+		dnsTable.setCellWidget(rowNr, 2, item)
+		wtcn = WidgetTableChangeNotifier(dnsTable, rowNr, 2, item)
+		item.currentIndexChanged.connect(wtcn.currentIndexChanged)
+		wtcn.widgetIndexChanged.connect(self.dnsWidgetChanged)
+		self.ui.dnsNotifier[domainId].append(wtcn)
+		# prio
+		item = QtGui.QTableWidgetItem()
+		item.setText('%s' % (dnse.prio,))
+		item.setData(QtCore.Qt.UserRole, 'prio')
+		dnsTable.setItem(rowNr, 3, item)
+		# value
+		item = QtGui.QTableWidgetItem()
+		item.setText('%s' % (dnse.value,))
+		item.setData(QtCore.Qt.UserRole, 'value')
+		dnsTable.setItem(rowNr, 4, item)
+		# weight
+		item = QtGui.QTableWidgetItem()
+		item.setText('%s' % (dnse.weight,))
+		item.setData(QtCore.Qt.UserRole, 'weight')
+		dnsTable.setItem(rowNr, 5, item)
+		# port
+		item = QtGui.QTableWidgetItem()
+		item.setText('%s' % (dnse.port,))
+		item.setData(QtCore.Qt.UserRole, 'port')
+		dnsTable.setItem(rowNr, 6, item)
+		# admin
+		item = QtGui.QTableWidgetItem()
+		item.setText('%s' % (dnse.dnsAdmin,))
+		item.setData(QtCore.Qt.UserRole, 'dnsAdmin')
+		dnsTable.setItem(rowNr, 7, item)
+		# refresh
+		item = QtGui.QTableWidgetItem()
+		item.setText('%s' % (dnse.refreshRate,))
+		item.setData(QtCore.Qt.UserRole, 'refreshRate')
+		dnsTable.setItem(rowNr, 8, item)
+		# retry
+		item = QtGui.QTableWidgetItem()
+		item.setText('%s' % (dnse.retryRate,))
+		item.setData(QtCore.Qt.UserRole, 'retryRate')
+		dnsTable.setItem(rowNr, 9, item)
+		# expire
+		item = QtGui.QTableWidgetItem()
+		item.setText('%s' % (dnse.expireTime,))
+		item.setData(QtCore.Qt.UserRole, 'expireTime')
+		dnsTable.setItem(rowNr, 10, item)
+		# ttl
+		item = QtGui.QTableWidgetItem()
+		item.setText('%s' % (dnse.ttl,))
+		item.setData(QtCore.Qt.UserRole, 'ttl')
+		dnsTable.setItem(rowNr, 11, item)
+		# status
+		item = QtGui.QTableWidgetItem()
+		icon = QtGui.QIcon()
+		if dnse.state == Dns.STATE_OK:
+			icon.addPixmap(QtGui.QPixmap(":/status/ok.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+			item.setText(_translate("MainWindow", "OK", None))
+		elif dnse.state == Dns.STATE_CREATE:
+			icon.addPixmap(QtGui.QPixmap(":/status/state_add.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+			item.setText(_translate("MainWindow", "wird hinzugefügt", None))
+		elif dnse.state == Dns.STATE_CHANGE:
+			icon.addPixmap(QtGui.QPixmap(":/status/waiting.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+			item.setText(_translate("MainWindow", "wird geändert", None))
+		elif dnse.state == Dns.STATE_DELETE:
+			icon.addPixmap(QtGui.QPixmap(":/status/trash.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+			item.setText(_translate("MainWindow", "wird gelöscht", None))
+		else:
+			icon.addPixmap(QtGui.QPixmap(":/status/warning.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+			item.setText(_translate("MainWindow", "Unbekannt", None))
+		item.setIcon(icon)
+		item.setFlags(QtCore.Qt.ItemIsSelectable|QtCore.Qt.ItemIsUserCheckable|QtCore.Qt.ItemIsEnabled)
+		item.setData(QtCore.Qt.UserRole, 'state')
+		item.setData(QtCore.Qt.UserRole + 5, True) # changes not relevant
+		dnsTable.setItem(rowNr, 12, item)
+		dsco = DnsStateChangeObserver(dnsTable, item, dnse)
+		dnse.stateChanged.connect(dsco.stateChanged)
+		self.ui.dnsNotifier[domainId].append(dsco)
+
+	@pyqtSlot()
 	def deleteDomain(self):
 		editDNS = False
 
@@ -2160,6 +2283,9 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		# first we think, that the selected element contains tree widget:
 		activeTable = elms.findChild(QtGui.QTreeWidget)
 		if activeTable is None:
+			activeTable = elms.findChild(QtGui.QTableWidget)
+			if activeTable is not None:
+				self.generateBindFileByDns(activeTable)
 			return
 
 		nrSelected = len(self.ui.domainTree.selectionModel().selectedRows())
@@ -2177,12 +2303,22 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		for f in zoneFiles:
 			self.zoneFileLoaded(f)
 
+	def generateBindFileByDns(self, table):
+		domainId = table.property('domainId')
+		log.info('Have to generate bind file for domain %s!' % (domainId,))
+		try:
+			fco = FlsCpOutput()
+			fco.setText(self.rpc.getDomainZoneFile(nr))
+			fco.show()
+		except Exception as e:
+			pass
+
 	@pyqtSlot(str)
 	def zoneFileLoaded(self, text):
 		print(text)
-		#fco = FlsCpOutput()
-		#fco.setText(text)
-		#fco.show()
+		fco = FlsCpOutput()
+		fco.setText(text)
+		fco.show()
 	
 	def createDNSWidget(self, domain):
 		tabDomainDNS = QtGui.QWidget()
@@ -2891,13 +3027,6 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				self.reloadDnsDataByDomain(domainId, interactive=False)
 
 		self.disableProgressBar()
-		# DEBUG: show the generated DNS!
-		ou = FlsCpOutput()
-		soaDns = Dns.getSoaForDomain(domainId)
-		if soaDns is not None:
-			dd = soaDns.generateDnsEntry()
-			ou.setText(dd)
-			ou.show()
 
 	@pyqtSlot()
 	def about(self):
