@@ -181,7 +181,7 @@ class Dns(QtCore.QObject):
 				query,
 				(
 					self.key, self.type, self.prio, self.value, self.weight, self.port, self.dnsAdmin,
-					self.refreshRate, self.retryRate, self.expireTime, self.ttl, self.state
+					self.refreshRate, self.retryRate, self.expireTime, self.ttl, self.state, self.id
 				)
 			)
 		except Exception as e:
