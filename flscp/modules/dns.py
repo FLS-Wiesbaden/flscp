@@ -373,7 +373,7 @@ class Dns(QtCore.QObject):
 	def setState(self, state):
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
-		query = ('UPDATE dns SET status = %s WHERE dns_id = %i')
+		query = ('UPDATE dns SET status = %s WHERE dns_id = %s')
 		cx.execute(query, (state, self.id))
 		db.commit()
 		cx.close()
