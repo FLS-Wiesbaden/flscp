@@ -19,6 +19,7 @@ from database import MailDatabase, SaslDatabase
 from flsconfig import FLSConfig
 from modules.flscertification import *
 from modules.mail import *
+from modules.domain import Dns, DNSList
 try:
 	import fcntl
 except:
