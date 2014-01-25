@@ -181,7 +181,7 @@ class Domain:
 			raise ValueError('Missing SOA-Entry. Cannot generatee Bind-File before!')
 			return False
 
-		for f in soa.generateDnsEntry:
+		for f in soa.generateDnsEntry():
 			content.append(f)
 
 		# now the rest
