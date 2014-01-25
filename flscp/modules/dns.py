@@ -342,7 +342,8 @@ class Dns(QtCore.QObject):
 				return
 
 		if self.type == Dns.TYPE_SOA:
-			timestamp = datetime.datetime.fromtimestamp(int(d.modified)).strftime('%Y%m%d%H%M%S')
+			from datetime import datetime
+			timestamp = datetime.fromtimestamp(int(d.modified)).strftime('%Y%m%d%H%M%S')
 			formattedDnsAdmin = self.dnsAdmin.replace('@', '.')
 			content.append('%s.\tSOA\t%s\t%s. (' % (d.getFullDomain(), self.value, formattedDnsAdmin))
 			content.append('%s' % (timestamp,))
