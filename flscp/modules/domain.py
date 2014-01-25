@@ -173,7 +173,7 @@ class Domain:
 
 	def generateBindFile(self):
 		content = []
-		content.append('$ORIGIN %s.' % (self.getFullDomain(),))
+		content.append('$ORIGIN %s.' % (self.getFullDomain(DomainList()),))
 		content.append('$TTL %is' % (self.ttl,))
 		# get soa entry.
 		soa = Dns.getSoaForDomain(self.domainId)
