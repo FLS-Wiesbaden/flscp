@@ -2772,7 +2772,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.enableProgressBar()
 		if len(dList) > 0:
 			try:
-				self.rpc.saveDns(dList)
+				self.rpc.saveDns(domainId, dList)
 			except TypeError as e:
 				log.error('Uhhh we tried to send things the server does not understood (%s)' % (e,))
 				log.debug('Tried to send: %s' % (str(data),))
