@@ -106,6 +106,14 @@ class Dns(QtCore.QObject):
 	def generateId(self):
 		self.id = 'Z%s' % (str(zlib.crc32(uuid.uuid4().hex.encode('utf-8')))[0:3],)
 
+	def save(self):
+		if self.state == Dns.STATE_CREATE:
+			return self.create()
+		elif self.state == Dns.STATE_CHANGE:
+			return self.update()
+		elif self.state == Dns.STATE_DELETE:
+			return self.delete()
+
 	def create(self):
 		# SOA entries are only allowed ONCE!
 		if self.type == Dns.TYPE_SOA and self.exists():
@@ -132,6 +140,80 @@ class Dns(QtCore.QObject):
 			)
 		)
 		db.commit()
+		# now get the dns id
+		id = cx.lastrowid
+		if id is None:
+			cx.close()
+			return False
+		else:
+			self.id = id
+			cx.close()
+
+		# all fine! set the state!
+		self.setState(Dns.STATE_OK)
+
+	def update(self):
+		# is it valid?
+		retCode = True
+		state, msg = self.validate()
+		if not state:
+			raise ValueError('No valid Dns Entry!!!')
+
+		db = MailDatabase.getInstance()
+		cx = db.getCursor()
+		query = (
+			'UPDATE dns \
+			SET dns_key = %s, \
+				dns_type = %s, \
+				dns_prio = %s, \
+				dns_value = %s, \
+				dns_weight = %s, \
+				dns_port = %s, \
+				dns_admin = %s, \
+				dns_refresh = %s, \
+				dns_retry = %s, \
+				dns_expire = %s, \
+				dns_ttl = %s, \
+				status = %s \
+			WHERE dns_id = %s'
+		)
+		try:
+			cx.execute(
+				query,
+				(
+					self.key, self.type, self.prio, self.value, self.weight, self.port, self.dnsAdmin,
+					self.refreshRate, self.retryRate, self.expireTime, self.ttl, self.state
+				)
+			)
+		except Exception as e:
+			log = logging.getLogger('flscp')
+			log.warning('Could not save the dns entry %s (%s)' % (self.id, str(e)))
+			retCode = False
+		else:
+			db.commit()
+		finally:
+			cx.close()
+
+		# all fine! set the state!
+		self.setState(Dns.STATE_OK)
+
+		return retCode
+
+	def delete(self):
+		state = True
+		db = MailDatabase.getInstance()
+		cx = db.getCursor()
+		query = (
+			'DELETE FROM dns WHERE dns_id = %s'
+		)
+		try:
+			cx.execute(query, (self.id,))
+		except:
+			state = False
+		db.commit()
+		cx.close()
+
+		return state
 
 	def load(self):
 		if self.id is None:
@@ -476,7 +558,7 @@ class ValidationField:
 		elif self.fldType == ValidationField.TYPE_STR:
 			# nothing???
 			pass
-		elif self.fldType == ValidationField.TYPE_MAIL:
+		elif self.fldType == ValidationField.TYPE_MAIL and value is not None and len(value.strip()) > 0:
 			state = MailValidator(value)
 
 		return state

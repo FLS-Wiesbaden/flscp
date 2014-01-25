@@ -716,7 +716,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.ui.butDomainDel.clicked.connect(self.deleteDomain)
 		self.ui.butDomainDNS.clicked.connect(self.openDNSDomain)
 		self.ui.butDomainReload.clicked.connect(self.reloadDomainTree)
-		#self.ui.butDomainSave.clicked.connect(self.commitDomainData)
+		self.ui.butDomainSave.clicked.connect(self.commitDomainData)
 		#self.ui.domainTree.cellDoubleClicked.connect(self.selectedMail)
 
 		self.ui.tabDNS.tabCloseRequested.connect(self.dnsCloseTab)
@@ -2114,7 +2114,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			else:
 				activeTable.removeRow(selectedRow.row())
 				self.dns.remove(dns)
-
+		# FIXME!
 		#self.loadDNSData(<id>????)
 	
 	def createDNSWidget(self, domain):
@@ -2694,6 +2694,150 @@ class FLScpMainWindow(QtGui.QMainWindow):
 						del(self.ui.dnsNotifier[domainId])
 
 			self.ui.tabDNS.removeTab(idx)
+
+	@pyqtSlot()
+	def commitDomainData(self):
+		editDNS = False
+
+		elms = self.ui.tabDNS.currentWidget()
+		# first we think, that the selected element contains tree widget:
+		activeTable = elms.findChild(QtGui.QTreeWidget)
+		if activeTable is None:
+			editDNS = True
+			activeTable = elms.findChild(QtGui.QTableWidget)
+			if activeTable is None:
+				return
+
+		if editDNS:
+			self.saveDNSEntries(activeTable=activeTable)
+		else:
+			# FIXME!
+			#nrSelected = len(self.ui.domainTree.selectionModel().selectedRows())
+			#log.info('Have to delete %i items!' % (nrSelected,))
+
+			#for selectedRow in self.ui.domainTree.selectedItems():
+			#	nr = int(selectedRow.text(0))
+			#	domain = self.domains.findById(nr)
+			#	if domain is not None:
+			#		if domain.state == Domain.STATE_CREATE:
+			#			# we cancel pending action.
+			#			self.ui.domainTree.removeItemWidget(selectedRow)
+			#			self.domains.remove(domain)
+			#		else:
+			#			# do not remove (because we want to see the pending action!)
+			#			# check possibility!
+			#			# this means: are there mails with this domain?
+			#			if domain.isDeletable(self.domains, self.mails):
+			#				domain.state = Domain.STATE_DELETE
+			#				log.info('state set to delete')
+			#			else:
+			#				log.error('cannot delete domain %s!' % (domain.name,))
+			#				continue
+
+			#self.loadDomainData()
+			pass
+
+	@pyqtSlot(bool)
+	def saveDNSEntries(self, triggered = False, activeTable = None):
+		if activeTable is None:
+			activeTable = self.ui.tabDNS.currentWidget().findChild(QtGui.QTableWidget)
+			if activeTable is None:
+				return
+
+		# first: check whether all dns entries are valid!
+		domainId = activeTable.property('domainId')
+		if domainId is None:
+			return
+
+		dList = DNSList()
+		errors = False
+		for dns in self.dns.iterByDomain(domainId):
+			if not dns.validate():
+				errors = True
+				break
+			else:
+				dList.add(dns)
+
+		if errors:
+			QtGui.QMessageBox.warning(
+				self, _translate('MainWindow', 'DNs-Fehler', None), 
+				_translate('MainWindow', 
+					'Die DNS-Tabelle enthält Fehler und kann nicht gespeichert werden.', 
+					None),
+				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+			)
+			return
+
+		# All is ok. Now save (but only for given domain!)
+		self.enableProgressBar()
+		if len(dList) > 0:
+			try:
+				self.rpc.saveDns(dList)
+			except TypeError as e:
+				log.error('Uhhh we tried to send things the server does not understood (%s)' % (e,))
+				log.debug('Tried to send: %s' % (str(data),))
+				QtGui.QMessageBox.warning(
+						self, _translate('MainWindow', 'Datenfehler', None), 
+						_translate('MainWindow', 
+							'Bei der Kommunikation mit dem Server ist ein Datenfehler aufgetreten!', 
+							None),
+						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					)
+			except ssl.CertificateError as e:
+				log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
+				QtGui.QMessageBox.critical(
+					self, _translate('MainWindow', 'Warnung', None), 
+					_translate('MainWindow', 
+						'Potentieller Angriff! Server-Zertifikat ist fehlerhaft! Bitte informieren Sie Ihren Administrator!', 
+						None),
+					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+				)
+			except socket.error as e:
+				QtGui.QMessageBox.critical(
+					self, _translate('MainWindow', 'Warnung', None), 
+					_translate('MainWindow', 
+						'Verbindung zum Server nicht möglich. Bitte versuchen Sie es später noch einmal.', 
+						None),
+					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+				)
+			except xmlrpc.client.ProtocolError as e:
+				if e.errcode == 403:
+					log.warning('Missing rights for loading mails (%s)' % (e,))
+					QtGui.QMessageBox.warning(
+						self, _translate('MainWindow', 'Fehlende Rechte', None), 
+						_translate('MainWindow', 
+							'Sie haben nicht ausreichend Rechte!', 
+							None),
+						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					)
+				else:
+					log.warning('Unexpected error in protocol: %s' % (e,))
+					QtGui.QMessageBox.warning(
+						self, _translate('MainWindow', 'Unbekannter Fehler', None), 
+						_translate('MainWindow', 
+							'Unbekannter Fehler in der Kommunikation mit dem Server aufgetreten.', 
+							None),
+						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					)
+
+			else:
+				try:
+					#self.loadMails()
+					pass
+				except xmlrpc.client.Fault as e:
+					log.critical('Could not load mails because of %s' % (e,))
+					QtGui.QMessageBox.critical(
+						self, _translate('MainWindow', 'Daten nicht ladbar', None), 
+						_translate('MainWindow', 
+							'Die E-Mail-Konten konnten nicht abgerufen werden.', 
+							None),
+						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					)
+				else:
+					#self.loadMailData()
+					pass
+		self.disableProgressBar()
+		
 
 	@pyqtSlot()
 	def about(self):

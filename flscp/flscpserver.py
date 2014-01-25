@@ -211,6 +211,21 @@ class ControlPanel:
 		
 		return data
 
+	def saveDns(self, domain, dns):
+		dnsList = DNSList()
+		for f in dns['_items']:
+			dnsList.add(Dns.fromDict(f))
+		log.debug('Want to save %i dns items!' % (len(dnsList),))
+
+		for d in dnsList:
+			d.save()
+
+		if len(dnsList) > 0:
+			# regenerate the dns file ??
+			pass
+
+		return True
+
 	def getListOfLogs(self):
 		base = '/var/log/'
 		fileList = []
