@@ -202,11 +202,17 @@ class Domain:
 
 		self.state = state
 
-	def getFullDomain(self, domainList):
+	def getFullDomain(self, domainList = None):
 		domain = self.name
 
 		if self.parent is not None:
-			parent = domainList.findById(self.parent)
+			if domainList is not None:
+				parent = domainList.findById(self.parent)
+			else:
+				parent = Domain(self.parent)
+				if not parent.load():
+					parent = None
+
 			if parent is None:
 				return domain
 			else:

@@ -230,9 +230,8 @@ class ControlPanel:
 		return data
 
 	def saveDns(self, domain, dns):
-		from modules.domain import DomainList, Domain
+		from modules.domain import Domain
 		dnsList = DNSList()
-		domainList = DomainList()
 		for f in dns['_items']:
 			dnsList.add(Dns.fromDict(f))
 		log.debug('Want to save %i dns items!' % (len(dnsList),))
@@ -245,7 +244,7 @@ class ControlPanel:
 			# now we need the Domain
 			dom = Domain(domain)
 			# we need the fully qualified domain name!
-			fqdn = dom.getFullDomain(domainList)
+			fqdn = dom.getFullDomain()
 			# now try to save it!
 			fileName = '%s.db' % (fqdn,)
 			try:
