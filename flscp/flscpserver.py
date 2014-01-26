@@ -76,7 +76,7 @@ def reloadDns():
 		return True
 
 	state = True
-	cmd = shlex.split('%s') % (conf.get('dns', 'reload'),)
+	cmd = shlex.split('%s' % (conf.get('dns', 'reload'),))
 	with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as p:
 		out = p.stdout.read()
 		err = p.stderr.read()
