@@ -230,6 +230,7 @@ class ControlPanel:
 		return data
 
 	def saveDns(self, domain, dns):
+		from modules.domain import DomainList, Domain
 		dnsList = DNSList()
 		domainList = DomainList()
 		for f in dns['_items']:
@@ -264,6 +265,7 @@ class ControlPanel:
 		return True
 
 	def getDomainZoneFile(self, domainId):
+		from modules.domain import Domain
 		content = ''
 		d = Domain(domainId)
 		if not d.load():
