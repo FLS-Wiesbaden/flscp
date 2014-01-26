@@ -77,14 +77,17 @@ def reloadDns():
 
 	state = True
 	cmd = shlex.split('%s' % (conf.get('dns', 'reload'),))
-	with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as p:
-		out = p.stdout.read()
-		err = p.stderr.read()
-		if len(out) > 0:
-			log.info(out)
-		if len(err) > 0:
-			log.warning(err)
-			state = False
+	try:
+		with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as p:
+			out = p.stdout.read()
+			err = p.stderr.read()
+			if len(out) > 0:
+				log.info(out)
+			if len(err) > 0:
+				log.warning(err)
+				state = False
+	except Exception as e:
+		raise
 
 	return state
 
@@ -243,6 +246,10 @@ class ControlPanel:
 			content = self.getDomainZoneFile(domain)
 			# now we need the Domain
 			dom = Domain(domain)
+			if not dom.load():
+				log.warning('Could not load the domain %s for generating zone file!' % (domain,))
+				return False
+
 			# we need the fully qualified domain name!
 			fqdn = dom.getFullDomain()
 			# now try to save it!
@@ -256,10 +263,12 @@ class ControlPanel:
 				log.info('Update the DNS-Service-Database %s' % (os.path.join(conf.get('dns', 'cache'), fileName),))
 
 			# reload 
-			if reloadDns():
-				log.info('DNS-Service reloaded with success!')
+			try:
+				reloadDns()
+			except Exception as e:
+				log.critical('Could not reload the DNS-Service because of %s!' % (str(e),))
 			else:
-				log.warning('Could not reload the DNS-Service!')
+				log.info('DNS-Service reloaded with success!')
 
 		return True
 

@@ -211,6 +211,8 @@ class Domain:
 			else:
 				parent = Domain(self.parent)
 				if not parent.load():
+					log = logging.getLogger('flscp')
+					log.warning('Could not get the parent with did = %s' % (self.parent,))
 					parent = None
 
 			if parent is None:
