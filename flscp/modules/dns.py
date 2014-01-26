@@ -223,7 +223,7 @@ class Dns(QtCore.QObject):
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
 		query = (
-			'SELECT dns_id, domain_id, dns_key, dns_type, dns_value, dns_weight, dns_port, dns_admin, dns_refresh, \
+			'SELECT dns_id, domain_id, dns_key, dns_type, dns_value, dns_prio, dns_weight, dns_port, dns_admin, dns_refresh, \
 			dns_retry, dns_expire, dns_ttl, status FROM dns WHERE dns_id = %s LIMIT 1'
 		)
 		try:
@@ -234,6 +234,7 @@ class Dns(QtCore.QObject):
 				self.key,
 				self.type,
 				self.value,
+				self.prio,
 				self.weight,
 				self.port, 
 				self.dnsAdmin,
