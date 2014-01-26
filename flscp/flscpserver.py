@@ -70,6 +70,23 @@ def reloadPostfix():
 
 	return state
 
+def reloadDns():
+	# do that only if dns is enabled.
+	if not conf.getboolean('dns', 'active'):
+		return True
+
+	state = True
+	cmd = shlex.split('%s') % (conf.get('dns', 'reload'),)
+	with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as p:
+		out = p.stdout.read()
+		err = p.stderr.read()
+		if len(out) > 0:
+			log.info(out)
+		if len(err) > 0:
+			log.warning(err)
+			state = False
+
+	return state
 
 class ControlPanel:
 
@@ -214,6 +231,7 @@ class ControlPanel:
 
 	def saveDns(self, domain, dns):
 		dnsList = DNSList()
+		domainList = DomainList()
 		for f in dns['_items']:
 			dnsList.add(Dns.fromDict(f))
 		log.debug('Want to save %i dns items!' % (len(dnsList),))
@@ -221,9 +239,27 @@ class ControlPanel:
 		for d in dnsList:
 			d.save()
 
-		if len(dnsList) > 0:
-			# regenerate the dns file ??
-			pass
+		if len(domain.strip()) > 0 and conf.getboolean('dns', 'active'):
+			content = self.getDomainZoneFile(domain)
+			# now we need the Domain
+			dom = Domain(domain)
+			# we need the fully qualified domain name!
+			fqdn = dom.getFullDomain(domainList)
+			# now try to save it!
+			fileName = '%s.db' % (fqdn,)
+			try:
+				with open(os.path.join(conf.get('dns', 'cache'), fileName), 'wb') as f:
+					f.write(content.encode('utf-8'))
+			except Exception as e:
+				log.warning('Could not update the database file for the DNS-Service because of %s' % (str(e),))
+			else:
+				log.info('Update the DNS-Service-Database %s' % (os.path.join(conf.get('dns', 'cache'), fileName),))
+
+			# reload 
+			if reloadDns():
+				log.info('DNS-Service reloaded with success!')
+			else:
+				log.warning('Could not reload the DNS-Service!')
 
 		return True
 
@@ -488,11 +524,10 @@ class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
 
 			if not msg:
 				break
-			
-			log.debug('Got: %s' % (msg,))
 
 			cmd = msg[:1]
 			if cmd == 'H':
+				log.debug('Got: %s' % (msg,))
 				log.info('Got Hello...')
 				tryCompressed = msg.split('\n')
 				if len(tryCompressed) > 1 and tryCompressed[1][:1] == 'L':
@@ -500,14 +535,16 @@ class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
 					cmd = msg[:1]
 					log.info('It is a compressed query. Go ahead...')
 				else:
-					continue
-					
-			if cmd == 'L':
+					continue		
+			elif cmd == 'L':
 				msg = msg.strip()
 				try:
 					namespace, typ, user, pwd, mech, cert = msg[1:].split('/', 6)
 				except ValueError:
+					log.debug('Got: %s' % (msg,))
 					namespace, typ, user = msg[1:].split('/', 3)
+				else:
+					log.debug('Got: %s%s/%s/%s/%s/%s/%s' % (cmd, namespace, typ, user, '***', mech, cert))
 
 				log.info('I:%s, %s, %s' % (namespace, typ, user))
 
@@ -528,6 +565,7 @@ class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
 				else:
 					self.request.send('F\n'.encode('utf-8'))
 			else:
+				log.debug('Got: %s' % (msg,))
 				self.request.send('F\n'.encode('utf-8'))
 
 	def lookup(self, namespace, typ, arg):

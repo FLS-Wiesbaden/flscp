@@ -607,6 +607,13 @@ class MailAccount:
 		cx = db.getCursor()
 		query = ('SELECT * FROM mail_users WHERE mail_addr = %s')
 		cx.execute(query, ('%s' % (mail,),))
+		if cx is None:
+			try:
+				cx.close()
+			except:
+				pass
+			return None
+
 		try:
 			(mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, quota, mail_addr, alternative_addr, authcode, authvalid,) = cx.fetchone()
 			ma.id = mail_id
