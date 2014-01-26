@@ -240,7 +240,7 @@ class ControlPanel:
 		for d in dnsList:
 			d.save()
 
-		if len(domain.strip()) > 0 and conf.getboolean('dns', 'active'):
+		if domain is not None and (type(domain) == int or len(domain.strip()) > 0) and conf.getboolean('dns', 'active'):
 			content = self.getDomainZoneFile(domain)
 			# now we need the Domain
 			dom = Domain(domain)
