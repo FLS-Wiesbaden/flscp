@@ -546,7 +546,9 @@ class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
 					log.info('It is a compressed query. Go ahead...')
 				else:
 					continue		
-			elif cmd == 'L':
+			# be careful! Don't make a elif out of this, because we can get an
+			# compressed lookup so the first cmd will be "H"!!!
+			if cmd == 'L':
 				msg = msg.strip()
 				try:
 					namespace, typ, user, pwd, mech, cert = msg[1:].split('/', 6)
