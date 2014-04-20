@@ -259,7 +259,7 @@ class ControlPanel:
 			data.append(
 				{
 					'id': domain_id, 
-					'domain': domain_name,
+					'name': domain_name,
 					'ipv6': ipv6,
 					'ipv4': ipv4,
 					'gid': gid,
@@ -331,7 +331,7 @@ class ControlPanel:
 			if not os.path.exists(path):
 				addToZoneFile = True
 			try:
-				with open(path), 'wb') as f:
+				with open(path, 'wb') as f:
 					f.write(content.encode('utf-8'))
 			except Exception as e:
 				log.warning('Could not update the database file for the DNS-Service because of %s' % (str(e),))
@@ -350,8 +350,8 @@ class ControlPanel:
 
 		return True
 
-	def saveDomain(self, domains):
-		from modules.domain import Domain, domainList
+	def saveDomains(self, domains):
+		from modules.domain import Domain, DomainList
 		domainList = DomainList()
 		for f in domains['_items']:
 			domainList.add(Domain.fromDict(f))

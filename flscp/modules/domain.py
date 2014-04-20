@@ -319,7 +319,7 @@ class Domain:
 		self = ma()
 
 		self.id = data['id']
-		self.name = data['domain']
+		self.name = data['name']
 		self.ipv6 = data['ipv6']
 		self.ipv4 = data['ipv4']
 		self.gid = data['gid']
@@ -330,6 +330,14 @@ class Domain:
 		self.state = data['state']
 
 		return self
+
+	def toDict(self):
+		d = {}
+		for k, v in vars(self).items():
+			if not k.startswith('_'):
+				d[k] = v
+
+		return d
 
 	@classmethod
 	def getByName(dom, name):

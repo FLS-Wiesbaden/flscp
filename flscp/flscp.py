@@ -3140,7 +3140,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 						# do not remove (because we want to see the pending action!)
 						# check possibility!
 						# this means: are there mails with this domain?
-						if domain.state == Domain.STATE_DELETE and !domain.isDeletable(self.domains, self.mails):
+						if domain.state == Domain.STATE_DELETE and not domain.isDeletable(self.domains, self.mails):
 							log.error('cannot delete domain %s!' % (domain.name,))
 							continue
 						else:
