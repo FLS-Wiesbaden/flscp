@@ -230,6 +230,17 @@ class Domain:
 		)
 		db.commit()
 
+	def exists(self):
+		exists = False
+		# FIXME
+		db = MailDatabase.getInstance()
+		cx = db.getCursor()
+		query = ('SELECT domain_id FROM domain WHERE domain_name = %s and domain_parent = %s')
+		cx.execute(query, (self.name, self.parent))
+		exists = len(cx.fetchall()) > 0
+		cx.close()
+		return exists
+
 	def generateBindFile(self):
 		dl = DomainList()
 		content = []

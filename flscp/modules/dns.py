@@ -214,6 +214,17 @@ class Dns(QtCore.QObject):
 
 		return state
 
+	def exists(self):
+		exists = False
+		db = MailDatabase.getInstance()
+		cx = db.getCursor()
+		# should be only called for SOA-Type
+		query = ('SELECT dns_id FROM dns WHERE dns_type = %s and domain_id = %s')
+		cx.execute(query, (self.type, self.domainId))
+		exists = len(cx.fetchall()) > 0
+		cx.close()
+		return exists
+
 	def load(self):
 		if self.id is None:
 			return False
