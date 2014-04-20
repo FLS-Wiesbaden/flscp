@@ -433,7 +433,7 @@ class ControlPanel:
 		domainsRaw = self.getDomains()
 		domains = {}
 		for f in domainsRaw:
-			domains[f['id']] = f['domain']
+			domains[f['id']] = f['name']
 
 		data = []
 		cursor = db.getCursor()
