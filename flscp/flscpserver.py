@@ -160,7 +160,7 @@ class ControlPanel:
 			# now write
 			data = '\n'.join(content)
 			try:
-				with open(path, 'rb') as f:
+				with open(path, 'wb') as f:
 					f.write(data.encode('utf-8'))
 			except:
 				log.error('Could not write the zone configuration file!')
@@ -191,7 +191,7 @@ class ControlPanel:
 			# write back
 			data = '\n'.join(content)
 			try:
-				with open(path, 'rb') as f:
+				with open(path, 'wb') as f:
 					f.write(data.encode('utf-8'))
 			except:
 				log.error('Could not write the zone configuration file!')
