@@ -25,7 +25,7 @@ except ImportError:
 
 __author__  = 'Lukas Schreiner'
 __copyright__ = 'Copyright (C) 2013 - 2014 Website-Team Friedrich-List-Schule-Wiesbaden'
-__version__ = '0.5'
+__version__ = '0.6'
 
 FORMAT = '%(asctime)-15s %(message)s'
 formatter = logging.Formatter(FORMAT, datefmt='%b %d %H:%M:%S')
@@ -3124,13 +3124,8 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		if editDNS:
 			self.saveDNSEntries(activeTable=activeTable)
 		else:
-			nrSelected = len(self.ui.domainTree.selectionModel().selectedRows())
-			log.info('Have to save %i domains!' % (nrSelected,))
-
 			domainList = DomainList()
-			for selectedRow in self.ui.domainTree.selectedItems():
-				nr = int(selectedRow.text(0))
-				domain = self.domains.findById(nr)
+			for domain in self.domains:
 				if domain is not None:
 					if domain.state == Domain.STATE_CREATE:
 						# we cancel pending creation action.

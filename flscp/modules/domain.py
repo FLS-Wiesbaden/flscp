@@ -184,9 +184,6 @@ class Domain:
 		db.commit()
 
 	def update(self):
-		if not self.exists():
-			raise KeyError('Domain "%s" does not exists!' % (self.name,))
-
 		# is it a valid domain?
 		if len(self.name) <= 0:
 			raise ValueError('No valid domain given!')
