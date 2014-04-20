@@ -27,7 +27,7 @@ except:
 
 __author__  = 'Lukas Schreiner'
 __copyright__ = 'Copyright (C) 2013 - 2014 Website-Team Friedrich-List-Schule-Wiesbaden'
-__version__ = '0.5'
+__version__ = '0.6'
 
 FORMAT = '%(asctime)-15s %(message)s'
 formatter = logging.Formatter(FORMAT, datefmt='%b %d %H:%M:%S')
@@ -130,6 +130,78 @@ class ControlPanel:
 					if f.endswith('.ini'):
 						arcname = arcname.replace(f, f + '.example')
 					zip.write(p, arcname)
+
+	def __addZoneFile(self, domain, zoneFile):
+		path = conf.get('dns', 'zoneConfig')
+		content = []
+		if os.path.exists(path):
+			with open(path, 'rb') as f:
+				content = f.read().decode('utf-8').replace('\r\n', '\n').split('\n')
+
+		fullDomain = domain.getFullDomain()
+		pattern = '// dmn [%s] cfg entry BEGIN.' % (fullDomain,)
+		# check if our file does exists.
+		alreadyExist = False
+		for f in content:
+			if pattern in f:
+				alreadyExist = True
+
+		if not alreadyExist:
+			# start comment
+			content.append('\n')
+			content.append('// dmn [%s] cfg entry BEGIN.' % (fullDomain,))
+			content.append('zone "%s" {' % (fullDomain,))
+			content.append('\ttype master;')
+			content.append('\tfile "%s";' % (zoneFile,))
+			content.append('\tnotify YES;')
+			content.append('};')
+			content.append('// dmn [%s] cfg entry END.' % (fullDomain,))
+
+			# now write
+			data = '\n'.join(content)
+			try:
+				with open(path, 'rb') as f:
+					f.write(data.encode('utf-8'))
+			except:
+				log.error('Could not write the zone configuration file!')
+
+	def __removeZoneFile(self, domain, zoneFile):
+		fullDomain = domain.getFullDomain()
+		patternStart = '// dmn [%s] cfg entry BEGIN.' % (fullDomain,)
+		patternEnd = '// dmn [%s] cfg entry END.' % (fullDomain,)
+		path = conf.get('dns', 'zoneConfig')
+		content = []
+
+		if os.path.exists(path):
+			with open(path, 'rb') as f:
+				content = f.read().decode('utf-8').replace('\r\n', '\n').split('\n')
+			# now search
+			start = False
+			for line in content:
+				if not start and patternStart in line:
+					start = True
+
+				if start:
+					content.remove(line)
+
+				if start and patternEnd in line:
+					start = False
+					break
+
+			# write back
+			data = '\n'.join(content)
+			try:
+				with open(path, 'rb') as f:
+					f.write(data.encode('utf-8'))
+			except:
+				log.error('Could not write the zone configuration file!')
+
+		# remove the cache file
+		if os.path.exists(zoneFile):
+			try:
+				os.unlink(zoneFile)
+			except:
+				log.error('Could not delete zone file %s' % (zoneFile,))
 
 	def getCerts(self):
 		if not os.path.exists(os.path.expanduser(conf.get('connection', 'authorizekeys'))):
@@ -254,13 +326,19 @@ class ControlPanel:
 			fqdn = dom.getFullDomain()
 			# now try to save it!
 			fileName = '%s.db' % (fqdn,)
+			path = os.path.join(conf.get('dns', 'cache'), fileName)
+			addToZoneFile = False
+			if not os.path.exists(path):
+				addToZoneFile = True
 			try:
-				with open(os.path.join(conf.get('dns', 'cache'), fileName), 'wb') as f:
+				with open(path), 'wb') as f:
 					f.write(content.encode('utf-8'))
 			except Exception as e:
 				log.warning('Could not update the database file for the DNS-Service because of %s' % (str(e),))
 			else:
 				log.info('Update the DNS-Service-Database %s' % (os.path.join(conf.get('dns', 'cache'), fileName),))
+				if addToZoneFile:
+					self.__addZoneFile(path)
 
 			# reload 
 			try:
@@ -271,6 +349,33 @@ class ControlPanel:
 				log.info('DNS-Service reloaded with success!')
 
 		return True
+
+	def saveDomain(self, domains):
+		from modules.domain import Domain, domainList
+		domainList = DomainList()
+		for f in domains['_items']:
+			domainList.add(Domain.fromDict(f))
+		log.debug('Want to save %i domains' % (len(domainList),))
+
+		for domain in domainList:
+			domain.save()
+			# check if corresponding dns file exists.
+			
+			if conf.getboolean('dns', 'active'):
+				fqdn = domain.getFullDomain()
+				fileName = '%s.db' % (fqdn,)
+				path = os.path.join(conf.get('dns', 'cache'), fileName)
+				if domain.state != Domain.STATE_DELETE:
+					if not os.path.exists(path):
+						try:
+							with open(path, 'wb') as f:
+								f.write('\n'.encode('utf-8'))
+						except:
+							pass
+						else:
+							self.__addZoneFile(domain, path)
+				else:
+					self.__removeZoneFile(domain, path)
 
 	def getDomainZoneFile(self, domainId):
 		from modules.domain import Domain

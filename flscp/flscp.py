@@ -7,6 +7,7 @@ from ui.ui_about import *
 from ui.ui_mailform import *
 from ui.ui_maileditor import *
 from ui.ui_output import *
+from ui.ui_domain import *
 from PyQt4.QtCore import pyqtSlot, pyqtSignal
 from PyQt4 import QtGui
 from PyQt4 import QtCore
@@ -379,10 +380,13 @@ class MailForm(QtGui.QDialog):
 		self.initFields()
 
 	def initFields(self):
+		dl = DomainList()
 		# load domains
 		try:
 			for f in self.rpc.getDomains():
-				self.ui.fldDomain.addItem(f['domain'], f['id'])
+				d = Domain.fromDict(f)
+				dl.add(d)
+				#self.ui.fldDomain.addItem(f['fullDomain'], f['id'])
 		except ssl.CertificateError as e:
 			log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
 		except socket.error as e:
@@ -392,6 +396,9 @@ class MailForm(QtGui.QDialog):
 				log.warning('Missing rights for loading mails (%s)' % (e,))
 			else:
 				log.warning('Unexpected error in protocol: %s' % (e,))
+
+		for domain in dl:
+			self.ui.fldDomain.addItem(domain.getFullDomain(dl), domain.id)
 		
 		if self.account is None:
 			return
@@ -623,6 +630,122 @@ class MailForm(QtGui.QDialog):
 		for selectedItem in self.ui.fldForward.selectedItems():
 			self.ui.fldForward.takeItem(self.ui.fldForward.row(selectedItem))
 
+class DomainEditor(QtGui.QDialog):
+	
+	def __init__(self, domainList, domain = None, parentDomain = None, parent = None):
+		QtGui.QDialog.__init__(self, parent=parent)
+
+		self.domain = domain
+		self.domainList = domainList
+		self.parentDomain = parentDomain
+		self.accepted = False
+		self.ui = Ui_Domain()
+		self.ui.setupUi(self)
+
+		self.ui.buttonBox.accepted.connect(self.setAcceptState)
+		self.ui.buttonBox.rejected.connect(self.setRejectState)
+
+		if self.parentDomain is not None:
+			self.ui.txtParent.setText(self.parentDomain.getFullDomain(domainList))
+		elif self.domain is not None:
+			if self.domain.parent is not None:
+				self.parentDomain = self.domainList.findById(self.domain.parent)
+				self.ui.txtParent.setText(self.parentDomain.getFullDomain(domainList))
+
+		if self.domain is not None:
+			self.ui.txtDomain.setText(self.domain.name)
+			self.ui.txtIPv4.setText(self.domain.ipv4)
+			self.ui.txtIPv6.setText(self.domain.ipv6)
+			self.ui.txtDomain.setReadOnly(True)
+
+		self.ui.txtIPv4.textChanged.connect(self.validIPv4)
+
+	@pyqtSlot()
+	def validIPv4(self):
+		log.debug('Check if given IPv4-address is valid')
+		palette = QtGui.QPalette()
+		error = False
+
+		if len(self.ui.txtIPv4.text().strip()) <= 0:
+			self.ui.txtIPv4.setPalette(None)
+		else:
+			try:
+				part1, part2, part3, part4 = self.ui.txtIPv4.text().strip().split('.')
+			except:
+				error = True
+			else:
+				try:
+					part1 = int(part1)
+					part2 = int(part2)
+					part3 = int(part3)
+					part4 = int(part4)
+				except:
+					error = True
+				else:
+					# all are valid integers. 
+					if part1 <= 0 or part4 <= 0:
+						error = True
+					elif part1 > 255 or part2 > 255 or part3 > 255 or part4 >= 255:
+						error = True
+
+		if error:
+			palette.setColor(self.ui.txtIPv4.backgroundRole(), QtGui.QColor(255, 110, 110))
+		else:
+			palette.setColor(self.ui.txtIPv4.backgroundRole(), QtGui.QColor(151, 255, 139))
+
+		self.ui.txtIPv4.setPalette(palette)
+
+	@pyqtSlot()
+	def setAcceptState(self):
+		self.accepted = True
+		# full name:
+		name = self.ui.txtDomain.text().strip()
+		if self.parentDomain is not None:
+			name = '%s.%s' % (name, self.parentDomain.getFullDomain(self.domainList))
+
+
+		if self.domain is None and self.domainList.existDomain(name):
+			QtGui.QMessageBox.warning(
+				self, _translate('MainWindow', 'Domain anlegen', None), 
+				_translate('MainWindow', 
+					'Die anzulegende Domain existiert bereits!', 
+					None),
+				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+			)
+		elif self.domain is not None:
+			if (self.domain.ipv4.strip() != self.getIPv4().strip() or self.domain.ipv6.strip() != self.getIPv6().strip()) \
+				and self.domain.state == Domain.STATE_OK:
+				self.domain.state = Domain.STATE_CHANGE
+
+			self.domain.ipv4 = self.getIPv4().strip()
+			self.domain.ipv6 = self.getIPv6().strip()
+		else:
+			nD = Domain()
+			nD.generateId()
+			if self.parentDomain is not None:
+				nD.parent = self.parentDomain.id
+			nD.name = self.getDomain()
+			nD.ipv4 = self.getIPv4().strip()
+			nD.ipv6 = self.getIPv6().strip()
+			nD.state = Domain.STATE_CREATE
+			self.domain = nD
+			self.accept()
+
+	@pyqtSlot()
+	def setRejectState(self):
+		self.accepted = False
+		self.reject()
+
+	def getDomain(self):
+		return self.ui.txtDomain.text()
+
+	def getIPv4(self):
+		return self.ui.txtIPv4.text()
+
+	def getIPv6(self):
+		return self.ui.txtIPv6.text()
+
+###### END WINDOWS ######
 class FLSSafeTransport(xmlrpc.client.Transport):
 	"""Handles an HTTPS transaction to an XML-RPC server."""
 
@@ -728,7 +851,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 
 		# domain tab
 		self.ui.butDomainAdd.clicked.connect(self.addDomain)
-		#self.ui.butDomainEdit.clicked.connect(self.editDomain)
+		self.ui.butDomainEdit.clicked.connect(self.editDomain)
 		self.ui.butDomainDel.clicked.connect(self.deleteDomain)
 		self.ui.butDomainFile.clicked.connect(self.generateBindFile)
 		self.ui.butDomainDNS.clicked.connect(self.openDNSDomain)
@@ -2085,8 +2208,58 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		if addDNS:
 			self.addDNSEntry(dnsTable=activeTable)
 		else:
-			# not implemented at the moment! FIXME
-			pass
+			# if we have something selected, than lets use that as parent!
+			selectedIds = []
+			for selectedRow in self.ui.domainTree.selectedItems():
+				selectedIds.append(selectedRow.text(0))
+
+			parentDomain = None
+			if len(selectedIds) == 1:
+				parentDomain = self.domains.findById(selectedIds[0])
+
+			de = DomainEditor(self.domains, parentDomain=parentDomain, parent=self)
+			de.show()
+			de.exec_()
+			if de.accepted:
+				log.debug('Yes... domain can be added. Can we?')
+				nD = de.domain
+				if nD is not None:
+					self.domains.add(nD)
+					self.loadDomainData()
+			else:
+				log.debug('No... domain creation was cancelled!')
+
+	@pyqtSlot()
+	def editDomain(self):
+		editDNS = False
+
+		elms = self.ui.tabDNS.currentWidget()
+		# first we think, that the selected element contains tree widget:
+		activeTable = elms.findChild(QtGui.QTreeWidget)
+		if activeTable is None:
+			editDNS = True
+			activeTable = elms.findChild(QtGui.QTableWidget)
+			if activeTable is None:
+				return
+
+		if editDNS:
+			# eehm... we do not support it ;)
+			return
+		else:
+			# if we have something selected, than lets use that as parent!
+			for selectedRow in self.ui.domainTree.selectedItems():
+				did = selectedRow.text(0)
+				domain = self.domains.findById(did)
+				if domain is not None:
+					de = DomainEditor(self.domains, domain=domain, parent=self)
+					de.show()
+					de.exec_()
+					if de.accepted:
+						log.debug('Yes... domain can be saved. Can we?')
+						self.loadDomainData()
+					else:
+						log.debug('No... domain editing was cancelled!')
+						# so do nothing! ;)
 
 	def addDNSEntry(self, triggered = False, dnsTable = False):
 		if dnsTable is None:
@@ -2298,7 +2471,16 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			try:
 				zoneFiles.append(self.rpc.getDomainZoneFile(nr))
 			except Exception as e:
-				pass
+				log.error('Could not generate zone file: %s' % (str(e),))
+				QtGui.QMessageBox.warning(
+					self, _translate('MainWindow', 'Zonen-Erstellung', None), 
+					_translate(
+						'MainWindow', 
+						'BIND-Datei konnte nicht erzeugt werden, weil nicht alle erforderlichen DNS-Einträge erstellt worden sind! ' +
+						'Haben Sie bereits alle Änderungen gespeichert?', 
+						None
+					)
+				)
 
 		for f in zoneFiles:
 			self.zoneFileLoaded(f)
@@ -2313,7 +2495,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 
 	@pyqtSlot(str)
 	def zoneFileLoaded(self, text):
-		print(text)
+		log.debug(text)
 		fco = FlsCpOutput(self)
 		fco.setText(text)
 		fco.show()
@@ -2811,14 +2993,37 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		nrSelected = len(self.ui.domainTree.selectionModel().selectedRows())
 		log.info('Have to open %i domains!' % (nrSelected,))
 
+		firstSave = False
+		alreadyDelete = False
 		for selectedRow in self.ui.domainTree.selectedItems():
-			nr = int(selectedRow.text(0))
+			nr = selectedRow.text(0)
 			domain = self.domains.findById(nr)
 			if domain is not None:
 				if domain.state != Domain.STATE_CREATE and \
 					domain.state != Domain.STATE_DELETE:
 					# is a tab with this already open?
 					self.createDNSWidget(domain)
+				elif domain.state == Domain.STATE_CREATE:
+					firstSave = True
+				elif domain.state == Domain.STATE_DELETE:
+					alreadyDelete = True
+
+		if alreadyDelete:
+			QtGui.QMessageBox.information(
+				self, _translate('MainWindow', 'DNS-Einstellungen ändern', None), 
+				_translate('MainWindow', 
+					'Die Domain wird bereits entfernt. DNS-Einstellungen können nicht vorgenommen werden.',
+					None),
+				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+			)
+		elif firstSave:
+			QtGui.QMessageBox.information(
+				self, _translate('MainWindow', 'DNS-Einstellungen ändern', None), 
+				_translate('MainWindow', 
+					'Bitte speichern Sie zunächst die neu angelegten Domains!',
+					None),
+				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+			)
 
 	@pyqtSlot()
 	def reloadDomainTree(self):
@@ -2871,6 +3076,13 @@ class FLScpMainWindow(QtGui.QMainWindow):
 	def dnsCloseTab(self, idx):
 		if idx == 0:
 			log.info('Cannot close the domain overview!')
+			QtGui.QMessageBox.information(
+				self, _translate('MainWindow', 'Domain-Tab', None), 
+				_translate('MainWindow', 
+					'Die Überssichtsseite kann nicht geschlossen werden.', 
+					None),
+				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+			)
 		else:
 			log.info('Close domain tab %i' % (idx,))
 			# find the item
@@ -2912,31 +3124,81 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		if editDNS:
 			self.saveDNSEntries(activeTable=activeTable)
 		else:
-			# FIXME!
-			#nrSelected = len(self.ui.domainTree.selectionModel().selectedRows())
-			#log.info('Have to delete %i items!' % (nrSelected,))
+			nrSelected = len(self.ui.domainTree.selectionModel().selectedRows())
+			log.info('Have to save %i domains!' % (nrSelected,))
 
-			#for selectedRow in self.ui.domainTree.selectedItems():
-			#	nr = int(selectedRow.text(0))
-			#	domain = self.domains.findById(nr)
-			#	if domain is not None:
-			#		if domain.state == Domain.STATE_CREATE:
-			#			# we cancel pending action.
-			#			self.ui.domainTree.removeItemWidget(selectedRow)
-			#			self.domains.remove(domain)
-			#		else:
-			#			# do not remove (because we want to see the pending action!)
-			#			# check possibility!
-			#			# this means: are there mails with this domain?
-			#			if domain.isDeletable(self.domains, self.mails):
-			#				domain.state = Domain.STATE_DELETE
-			#				log.info('state set to delete')
-			#			else:
-			#				log.error('cannot delete domain %s!' % (domain.name,))
-			#				continue
+			domainList = DomainList()
+			for selectedRow in self.ui.domainTree.selectedItems():
+				nr = int(selectedRow.text(0))
+				domain = self.domains.findById(nr)
+				if domain is not None:
+					if domain.state == Domain.STATE_CREATE:
+						# we cancel pending creation action.
+						self.ui.domainTree.removeItemWidget(selectedRow)
+						self.domains.remove(domain)
+					else:
+						# do not remove (because we want to see the pending action!)
+						# check possibility!
+						# this means: are there mails with this domain?
+						if domain.state == Domain.STATE_DELETE and !domain.isDeletable(self.domains, self.mails):
+							log.error('cannot delete domain %s!' % (domain.name,))
+							continue
+						else:
+							domainList.add(domain)
 
-			#self.loadDomainData()
-			pass
+			if len(domainList) > 0:
+				try:
+					self.rpc.saveDomains(domainList)
+				except TypeError as e:
+					log.error('Uhhh we tried to send things the server does not understood (%s)' % (e,))
+					log.debug('Tried to send: %s' % (str(data),))
+					QtGui.QMessageBox.warning(
+							self, _translate('MainWindow', 'Datenfehler', None), 
+							_translate('MainWindow', 
+								'Bei der Kommunikation mit dem Server ist ein Datenfehler aufgetreten!', 
+								None),
+							QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+						)
+				except ssl.CertificateError as e:
+					log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
+					QtGui.QMessageBox.critical(
+						self, _translate('MainWindow', 'Warnung', None), 
+						_translate('MainWindow', 
+							'Potentieller Angriff! Server-Zertifikat ist fehlerhaft! Bitte informieren Sie Ihren Administrator!', 
+							None),
+						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					)
+				except socket.error as e:
+					QtGui.QMessageBox.critical(
+						self, _translate('MainWindow', 'Warnung', None), 
+						_translate('MainWindow', 
+							'Verbindung zum Server nicht möglich. Bitte versuchen Sie es später noch einmal.', 
+							None),
+						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					)
+				except xmlrpc.client.ProtocolError as e:
+					if e.errcode == 403:
+						log.warning('Missing rights for loading mails (%s)' % (e,))
+						QtGui.QMessageBox.warning(
+							self, _translate('MainWindow', 'Fehlende Rechte', None), 
+							_translate('MainWindow', 
+								'Sie haben nicht ausreichend Rechte!', 
+								None),
+							QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+						)
+					else:
+						log.warning('Unexpected error in protocol: %s' % (e,))
+						QtGui.QMessageBox.warning(
+							self, _translate('MainWindow', 'Unbekannter Fehler', None), 
+							_translate('MainWindow', 
+								'Unbekannter Fehler in der Kommunikation mit dem Server aufgetreten.', 
+								None),
+							QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+						)
+				else:
+					self.loadDomainData()
+
+		self.disableProgressBar()
 
 	@pyqtSlot(bool)
 	def saveDNSEntries(self, triggered = False, activeTable = None):

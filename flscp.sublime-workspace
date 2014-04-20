@@ -4,6 +4,46 @@
 		"selected_items":
 		[
 			[
+				"reload",
+				"reloadDns"
+			],
+			[
+				"zoneFile",
+				"zoneFileLoaded"
+			],
+			[
+				"getDomain",
+				"getDomainZoneFile"
+			],
+			[
+				"reloadDnsData",
+				"reloadDnsDataByDomain"
+			],
+			[
+				"DNSList",
+				"DNSList"
+			],
+			[
+				"FLSCert",
+				"FLSCertificateList"
+			],
+			[
+				"FlsC",
+				"FLSCertificate"
+			],
+			[
+				"ora",
+				"organizationalUnitName"
+			],
+			[
+				"orga",
+				"organizationName"
+			],
+			[
+				"FlsCer",
+				"FLSCertificateSubject"
+			],
+			[
 				"user",
 				"username"
 			],
@@ -20,20 +60,8 @@
 				"organizationName"
 			],
 			[
-				"reload",
-				"reloadCertTable"
-			],
-			[
 				"FLSC",
 				"FLSCertificate"
-			],
-			[
-				"FLSCert",
-				"FLSCertificate"
-			],
-			[
-				"orga",
-				"organizationalUnitName"
 			],
 			[
 				"serial",
@@ -147,7 +175,23 @@
 			"file": "flscp/flscp.py",
 			"settings":
 			{
-				"buffer_size": 46604,
+				"buffer_size": 106291,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "flscp/modules/dns.py",
+			"settings":
+			{
+				"buffer_size": 14518,
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "flscp/modules/domain.py",
+			"settings":
+			{
+				"buffer_size": 6687,
 				"line_ending": "Unix"
 			}
 		},
@@ -155,23 +199,23 @@
 			"file": "flscp/flscpserver.py",
 			"settings":
 			{
-				"buffer_size": 35642,
+				"buffer_size": 22016,
 				"line_ending": "Unix"
 			}
 		},
 		{
-			"file": "flscp/flscertification.py",
+			"file": "flscp/server.ini",
 			"settings":
 			{
-				"buffer_size": 5005,
+				"buffer_size": 730,
 				"line_ending": "Unix"
 			}
 		},
 		{
-			"file": "flscp/pwgen.py",
+			"file": "flscp/modules/mail.py",
 			"settings":
 			{
-				"buffer_size": 1272,
+				"buffer_size": 18029,
 				"line_ending": "Unix"
 			}
 		}
@@ -315,7 +359,65 @@
 	},
 	"console":
 	{
-		"height": 297.0
+		"height": 297.0,
+		"history":
+		[
+			"view.file_name().endswith('.php')",
+			"view.file_name().endswith('php')",
+			"view.file_name()",
+			"vars(view)",
+			"view",
+			"cx.close()",
+			"e, k in d.keys()",
+			"d, k in d.keys()",
+			"d",
+			"d = {'&auml;': 'ä'}",
+			"plugin.FlsTextSearcherCommand.UMLAUT_MAP",
+			"FlsTextSearcherCommand.UMLAUT_MAP",
+			"view.substr(view.word(view.selection[0]))",
+			"view.word(view.selection[0])",
+			"view.substr(view.word(r))",
+			"view.word(r)",
+			"view.word()",
+			"r",
+			"r = view.selection[0]",
+			"view.selection[0]",
+			"sel[0]",
+			"sel",
+			"f[0]",
+			"for f in sel:\\n print(f)",
+			"sel = view.selection",
+			"for f in view.selection:",
+			"for f in view.selection: print(f)",
+			"view.selection",
+			"view.selection()",
+			"view.selection",
+			"view",
+			"sublime.message_dialog('teset')",
+			"view.run_command('fls_text_searcher')",
+			"view.run_command('example')",
+			"view.run_command('fls_text_searcher')",
+			"view.run_command(\"flstextsearcher\")",
+			"view.run_command(\"FLSTextSearcher\")",
+			"import mysql",
+			"sys.path",
+			"sys.path.append('/usr/lib/python3.3/')",
+			"sys.path.append('/usr/lib/python3.3/",
+			"sys.path",
+			"import sys",
+			"import mysql",
+			"import mysql.connector",
+			"view.run_command(\"FLSTextSearcher\")",
+			"sublime_plugin.TextCommand.__init__()",
+			"sublime_plugin.TextCommand",
+			"help(sublime_plugin.TextCommand)",
+			"import sublime_plugin",
+			"sys.version",
+			"import sys",
+			"sys.version",
+			"version",
+			"from mysqlconnector import *"
+		]
 	},
 	"distraction_free":
 	{
@@ -328,8 +430,20 @@
 	},
 	"file_history":
 	[
-		"/home/mono/.projects/fls/flscp/flscp/templates/default/changeforward.txt",
+		"/home/mono/.cxoffice/wamp-basis-1/dosdevices/c:/users/crossover/Temp/Andere Anwendung.log",
+		"/tmp/lschreiner.de.txt",
+		"/home/mono/.projects/fls/flscp/build/flscp/VERSION",
+		"/home/mono/.projects/fls/flscp/build/flscp/ui/ui_output.py",
+		"/home/mono/.projects/fls/flscp/flscp/pwgen.py",
+		"/home/mono/.projects/fls/flscp/flscp/modules/flscertification.py",
+		"/tmp/20140121_vertretungen.txt",
 		"/home/mono/.projects/fls/flscp/flscp/templates/default/changemail.txt",
+		"/tmp/vertretungen.txt",
+		"/tmp/klassen.csv",
+		"/tmp/klassen",
+		"/home/mono/.projects/fls/flscp/flscp/modules/mail.py",
+		"/home/mono/.projects/fls/flscp/flscp/flscertification.py",
+		"/home/mono/.projects/fls/flscp/flscp/templates/default/changeforward.txt",
 		"/home/mono/.projects/fls/flscp/flscp/templates/default/newmail.txt",
 		"/home/mono/.projects/fls/mailadmin/flscp/flscp.py",
 		"/home/mono/.projects/fls/flscp/flscp/flscpserver.log",
@@ -338,7 +452,6 @@
 		"/home/mono/.projects/fls/flscp/build/flscp/ui_cp.py",
 		"/home/mono/.projects/fls/flscp/build/flscp/ui_mailform.py",
 		"/home/mono/.projects/fls/flscp/flscp/flscp.py",
-		"/home/mono/.projects/fls/flscp/flscp/pwgen.py",
 		"/home/mono/.projects/fls/flscp/flscp/libs/SaltEncryption/encrypt.php",
 		"/home/mono/.projects/fls/flscp/flscp/libs/SaltEncryption/SaltEncryption.class.php",
 		"/home/mono/.projects/fls/vplanClient/VPlanClient/VPlanClient.py",
@@ -437,7 +550,7 @@
 	],
 	"find":
 	{
-		"height": 36.0
+		"height": 34.0
 	},
 	"find_in_files":
 	{
@@ -453,134 +566,134 @@
 		"case_sensitive": true,
 		"find_history":
 		[
-			"Mailer",
-			"workDir",
-			"workdir",
-			"basePath",
-			"workDir",
-			"REUSE",
-			"REUSEADDR",
-			"def save",
-			"rpdb2",
-			"log.crit",
-			"generatePassword",
-			"Generating",
-			"rpdb2",
-			"Dispatcher",
-			"Verbindung zum Server ",
-			"FlsControl",
-			"world",
-			"Hello",
-			"hello",
-			"FlsServer",
-			"self.rpc",
-			"loadMails",
-			"return",
-			"loginCert",
-			"QMessageBox",
-			"self.init",
-			"init",
-			"self.init",
-			"OpenSSL.FILETY",
-			"certificatesSelected",
-			"nachfolg",
-			"def init",
-			"Label",
-			"label",
-			"showLoginUser",
-			"getCert",
-			"x509",
-			"CERTFILE",
-			"FLSC",
-			"reload",
-			"vars",
+			"prio",
+			"reloadDns",
+			"getFull",
+			"reloadDns",
+			"Domain",
+			"domain",
+			"print",
+			"shared",
+			"save",
+			"getbool",
+			"bindcache",
+			"FlsCpAbout",
+			"setText(text)",
+			"showOutput",
+			"def setText",
+			"setText",
+			"setPlainText(text)",
+			"showOutput",
+			"setText(text",
+			"setText",
+			"self.dns",
+			"MainWindow",
+			"property(",
+			"deleteDomain",
+			"SELECT ",
+			"TYPE_SOA",
+			"getFullDomain",
+			"Dns",
+			"DomainList",
+			"generateDnsEntry",
+			"getDnsForDomain",
+			"getFullDomain",
+			"def getFullDomain",
+			"class Domain",
+			"DomainZoneFileLoader",
+			"showOutput",
+			"DomainZoneFileLoader",
+			"cou",
+			"cpo",
+			"DataLoader",
+			"DomainZoneFileLoader",
+			"generateBindFile",
+			"DnsListLoader",
+			"getDnsForDomain",
+			"saveDns",
+			"deleteDNSEntries",
+			"deleteDns",
+			"dnsDel",
+			"Löschen",
+			"changeState",
+			"stateChanged",
+			"DnsStateChangeObserver",
+			"createDNSWidget",
+			"openDNS",
+			"STATE_CHANGE",
+			"createDNSWidget",
+			"dns",
+			"openDn",
+			"openDnsWidget",
+			"%i",
+			"Domain",
+			"Dns",
+			"MailValidator",
+			"saveDns",
+			"UPDATE mail_users",
+			"DELETE FROM",
+			"GAUB",
+			"FIXME",
+			"validate",
+			"deleteDomain",
+			"commitDomainData",
+			"actions",
+			"change",
+			"The element ",
+			"dnsAdmin",
+			"11/3",
+			"1207.1",
+			"prio",
+			"updateDnsValidation",
+			"validate",
+			"refreshRate",
+			"refresh",
+			"port",
+			"weight",
+			"prio",
+			"MailValidator",
 			"valid",
-			"Printer",
-			"state",
-			"saveCerts",
+			"validate",
+			"update",
+			"passdb",
+			"scanner",
+			"reloadDnsData",
+			"loadDnsData",
+			"dnsWidgetChanged",
+			"dnsDataLoaded",
+			"reloadDnsDataByDomain",
+			"createDNSWidget",
+			"validate",
+			"def validate",
+			"updateDnsValidation",
+			"def setSerialN",
+			"FLSCertificate.fromDict",
+			"fromDict",
 			"serialNumber",
-			"has_expired",
-			"version",
-			"valid",
-			"MailAccountList",
-			"deleteCertifi",
-			"		\n",
-			"deleteMail",
-			"deleteCertifi",
-			"def action",
-			"verify_cb",
-			"rpdb",
-			"rpdb2",
-			"self.ui.adminTable.set",
-			"adminTable.set",
-			"loadCertData",
-			"selected",
-			"addCertificate",
-			"deleteMail",
-			"MailAccountList",
-			"delete",
-			"self.ui.adminTable",
-			"loadCertData",
-			"self.certs",
-			"loadCertData",
-			"mailTable",
-			"rowNr",
-			"insertRow",
-			"loadMails",
-			"loadCerts",
-			"loadCertData",
-			"reload",
-			"loadCertData",
-			".item",
-			"loadCerts",
-			"load",
-			"loadMailData",
-			"FLSCertificateList",
-			"getCerts",
+			"UTC",
+			"validAuth",
 			"saveCerts",
-			"get_notBefore",
-			"passphrase",
-			"loadCertData",
-			"commitMailData",
-			"commitData",
-			"saveMail",
-			"loadData",
-			"deleteCert",
-			"deleteMail",
-			"OpenSSL",
-			"version",
-			"addCert",
-			"tag",
-			"items",
-			"loadByDict",
-			"loadCerts",
-			"MailAccount",
-			"FLSCert",
-			"getMails",
-			"fldDomain",
-			"getDomains",
-			"except",
-			"FlsServer",
-			"saveMails",
-			"False",
-			"do_",
-			"hasattr",
-			":\n",
-			"FLSCertifi",
-			"MailAccountList",
-			"AUTHORIZEKEYS",
-			" '",
-			"saveMails",
-			"HOST",
-			"BaseHTTPRequestHandler",
-			"BaseRequestHandler",
-			"StreamRequestHandler",
-			"BaseHTTPRequestHandler",
-			"SimpleXMLRPCRequestHandler",
-			"HTTPS",
-			"https",
-			"context",
-			"localhost"
+			"FLSCertificate",
+			"hash",
+			"UTC",
+			"print",
+			"fromPy",
+			"saveCerts",
+			"def getCerts",
+			"dump",
+			"strptime",
+			"rmtCert",
+			"def init",
+			"def update",
+			"()\n",
+			"self.fd",
+			"self.fp",
+			"MainWindow",
+			"initLoginCert",
+			"def init",
+			"triggered",
+			"dataLoaded",
+			"pyqtSignal"
 		],
 		"highlight": true,
 		"in_selection": false,
@@ -614,17 +727,18 @@
 				{
 					"buffer": 0,
 					"file": "flscp/flscp.py",
+					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 46604,
+						"buffer_size": 106291,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								895,
-								895
+								99155,
+								99155
 							]
 						],
 						"settings":
@@ -633,17 +747,77 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 71.0,
+						"translation.y": 39239.0,
 						"zoom_level": 1.0
 					},
+					"stack_index": 8,
 					"type": "text"
 				},
 				{
 					"buffer": 1,
-					"file": "flscp/flscpserver.py",
+					"file": "flscp/modules/dns.py",
+					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 35642,
+						"buffer_size": 14518,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								4984,
+								4984
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 1336.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				},
+				{
+					"buffer": 2,
+					"file": "flscp/modules/domain.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 6687,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								4738,
+								4738
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 2601.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 4,
+					"type": "text"
+				},
+				{
+					"buffer": 3,
+					"file": "flscp/flscpserver.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 22016,
 						"regions":
 						{
 						},
@@ -660,25 +834,55 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 10323.0,
+						"translation.y": 8884.0,
 						"zoom_level": 1.0
 					},
+					"stack_index": 2,
 					"type": "text"
 				},
 				{
-					"buffer": 2,
-					"file": "flscp/flscertification.py",
+					"buffer": 4,
+					"file": "flscp/server.ini",
+					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 5005,
+						"buffer_size": 730,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								4188,
-								4188
+								390,
+								390
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Text/Plain text.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 3,
+					"type": "text"
+				},
+				{
+					"buffer": 5,
+					"file": "flscp/modules/mail.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 18029,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								259,
+								259
 							]
 						],
 						"settings":
@@ -687,37 +891,132 @@
 							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 2223.0,
+						"translation.y": 1326.0,
 						"zoom_level": 1.0
 					},
+					"stack_index": 5,
 					"type": "text"
-				},
+				}
+			]
+		},
+		{
+			"selected": 2,
+			"sheets":
+			[
 				{
-					"buffer": 3,
-					"file": "flscp/pwgen.py",
+					"buffer": 0,
+					"file": "flscp/flscp.py",
+					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 1272,
+						"buffer_size": 106291,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								329,
-								329
+								8426,
+								8426
 							]
 						],
 						"settings":
 						{
 							"syntax": "Packages/Python/Python.tmLanguage",
-							"tab_size": 4,
-							"translate_tabs_to_spaces": true
+							"translate_tabs_to_spaces": false
 						},
 						"translation.x": 0.0,
-						"translation.y": 0.0,
+						"translation.y": 4290.0,
 						"zoom_level": 1.0
 					},
+					"stack_index": 7,
+					"type": "text"
+				},
+				{
+					"buffer": 1,
+					"file": "flscp/modules/dns.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 14518,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								12371,
+								12371
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 6166.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 9,
+					"type": "text"
+				},
+				{
+					"buffer": 3,
+					"file": "flscp/flscpserver.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 22016,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 3150.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 0,
+					"type": "text"
+				},
+				{
+					"buffer": 2,
+					"file": "flscp/modules/domain.py",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 6687,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								1518,
+								1518
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Python/Python.tmLanguage",
+							"translate_tabs_to_spaces": false
+						},
+						"translation.x": 0.0,
+						"translation.y": 1122.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 6,
 					"type": "text"
 				}
 			]
@@ -740,6 +1039,12 @@
 				0,
 				1,
 				1
+			],
+			[
+				0,
+				1,
+				1,
+				2
 			]
 		],
 		"cols":
@@ -750,6 +1055,7 @@
 		"rows":
 		[
 			0.0,
+			0.5,
 			1.0
 		]
 	},
@@ -758,6 +1064,11 @@
 	{
 		"height": 100.0
 	},
+	"output.find_results":
+	{
+		"height": 0.0
+	},
+	"project": "flscp.sublime-project",
 	"replace":
 	{
 		"height": 62.0
@@ -783,10 +1094,24 @@
 		],
 		"width": 380.0
 	},
-	"show_minimap": true,
+	"select_symbol":
+	{
+		"height": 0.0,
+		"selected_items":
+		[
+		],
+		"width": 0.0
+	},
+	"settings":
+	{
+	},
+	"show_minimap": false,
 	"show_open_files": false,
 	"show_tabs": true,
 	"side_bar_visible": true,
-	"side_bar_width": 220.0,
-	"status_bar_visible": true
+	"side_bar_width": 181.0,
+	"status_bar_visible": true,
+	"template_settings":
+	{
+	}
 }

@@ -59,6 +59,16 @@ class DomainList:
 
 		return item
 
+	def existDomain(self, name):
+		log = logging.getLogger('flscp')
+		name = name.strip().lower()
+		for f in self._items:
+			log.debug('Compare %s with %s for equal domain' % (name, f.getFullDomain(self).lower()))
+			if f.getFullDomain(self).lower() == name:
+				return True
+
+		return False
+
 	def findByParent(self, parent):
 		item = None
 		try:
@@ -133,6 +143,14 @@ class Domain:
 	def generateId(self):
 		self.id = 'Z%s' % (str(zlib.crc32(uuid.uuid4().hex.encode('utf-8')))[0:3],)
 
+	def save(self):
+		if self.state == Domain.STATE_CREATE:
+			self.create()
+		elif self.state == Domain.STATE_DELETE:
+			self.delete()
+		elif self.state == Domain.STATE_CHANGE:
+			self.update()
+
 	def create(self):
 		# 1. create entry in domain
 		# 2. insert the things in domain file of postfix
@@ -165,10 +183,52 @@ class Domain:
 		)
 		db.commit()
 
-		self.updateDomainFile()
+	def update(self):
+		if not self.exists():
+			raise KeyError('Domain "%s" does not exists!' % (self.name,))
 
-	def updateDomainFile(self):
-		pass
+		# is it a valid domain?
+		if len(self.name) <= 0:
+			raise ValueError('No valid domain given!')
+
+		self.modified = time.time()
+		db = MailDatabase.getInstance()
+		cx = db.getCursor()
+		self.state = Domain.STATE_OK
+		query = (
+			'UPDATE domain SET ipv6 = %s, ipv4 = %s, domain_gid = %s, domain_uid = %s, domain_last_modified = %s, \
+			domain_status = %s WHERE domain_id = %s'
+		)
+		cx.execute(
+			query, 
+			(
+				self.ipv6, self.ipv4, self.gid, self.uid, 
+				self.modified, self.state, self.id
+			)
+		)
+		db.commit()
+
+	def delete(self):
+		# delete first all dns entries!
+		query = (
+			'DELETE FROM dns WHERE domain_id = %s'
+		)
+		cx.execute(
+			query, 
+			(
+				self.id
+			)
+		)
+		query = (
+			'DELETE FROM domain WHERE domain_id = %s'
+		)
+		cx.execute(
+			query, 
+			(
+				self.id
+			)
+		)
+		db.commit()
 
 	def generateBindFile(self):
 		dl = DomainList()

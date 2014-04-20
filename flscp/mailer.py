@@ -167,15 +167,17 @@ class Mailer:
 		content = None
 		# try to find custom
 		if os.path.exists('%s/custom/%s.txt' % (basePath, mail)):
-			with open('%s/custom/%s.txt' % (basePath, mail)) as f:
+			with open('%s/custom/%s.txt' % (basePath, mail), 'rb') as f:
 				content = f.read()
 
 		else:
-			with open('%s/default/%s.txt' % (basePath, mail)) as f:
+			with open('%s/default/%s.txt' % (basePath, mail), 'rb') as f:
 				content = f.read()
 
 		if content is None:
 			return None
+		else:
+			content = content.decode('utf-8')
 
 		# now extract data
 		## first the sender
