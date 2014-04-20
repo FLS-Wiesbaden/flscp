@@ -374,6 +374,8 @@ class ControlPanel:
 							pass
 						else:
 							self.__addZoneFile(domain, path)
+					else:
+						self.__addZoneFile(domain, path)
 				else:
 					self.__removeZoneFile(domain, path)
 

@@ -3191,8 +3191,21 @@ class FLScpMainWindow(QtGui.QMainWindow):
 							QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
 						)
 				else:
-					self.loadDomainData()
-
+					log.debug('Saved with success. Now reload domain data.')
+					try:
+						self.loadDomains()
+					except xmlrpc.client.Fault as e:
+						log.critical('Could not load domains because of %s' % (e,))
+						QtGui.QMessageBox.critical(
+							self, _translate('MainWindow', 'Daten nicht ladbar', None), 
+							_translate('MainWindow', 
+								'Die Domains konnten nicht abgerufen werden.', 
+								None),
+							QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+						)
+					else:
+						self.loadDomainData()
+						
 		self.disableProgressBar()
 
 	@pyqtSlot(bool)
