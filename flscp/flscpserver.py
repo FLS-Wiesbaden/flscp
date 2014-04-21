@@ -367,7 +367,13 @@ class ControlPanel:
 		log.debug('Want to save %i domains' % (len(domainList),))
 
 		for domain in domainList:
-			domain.save()
+			# get the old domain
+			oldDomain = None
+			if domain.state != Domain.STATE_CREATE:
+				oldDomain = Domain(domain.id)
+				oldDomain.load()
+				
+			domain.save(oldDomain)
 			# check if corresponding dns file exists.
 			
 			if conf.getboolean('dns', 'active'):

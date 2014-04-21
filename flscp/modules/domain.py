@@ -145,13 +145,13 @@ class Domain:
 	def generateId(self):
 		self.id = 'Z%s' % (str(zlib.crc32(uuid.uuid4().hex.encode('utf-8')))[0:3],)
 
-	def save(self):
+	def save(self, oldDomain = None):
 		if self.state == Domain.STATE_CREATE:
 			self.create()
 		elif self.state == Domain.STATE_DELETE:
-			self.delete()
+			self.delete(oldDomain)
 		elif self.state == Domain.STATE_CHANGE:
-			self.update()
+			self.update(oldDomain)
 
 	def create(self):
 		# 1. create entry in domain
@@ -185,7 +185,7 @@ class Domain:
 		)
 		db.commit()
 
-	def update(self):
+	def update(self, oldDomain = None):
 		# is it a valid domain?
 		if len(self.name) <= 0:
 			raise ValueError('No valid domain given!')
@@ -207,7 +207,29 @@ class Domain:
 		)
 		db.commit()
 
-	def delete(self):
+		# if we have updated, we now have to move the data folder?
+		if oldDomain.srvpath != self.srvpath and len(oldDomain) > 0 and len(self.srvpath) > 0:
+			parentFolder = self.srvpath
+			if parentFolder == '/':
+				parentFolder = parentFolder[:-1]
+			parentFolderSplit = parentFolder.split('/')
+			parentFolder = '/'.join(parentFolderSplit[:-1])
+			if not os.path.exists(parentFolder):
+				os.makedirs(parentFolder)
+
+			os.rename(oldDomain.srvpath, self.srvpath)
+		elif len(self.srvpath) > 0:
+			if not os.path.exists(self.srvpath):
+				os.makedirs(self.srvpath)
+				os.chmod(self.srvpath, 0o750)
+				os.chown(self.srvpath, self.uid, self.gid)
+
+				# now create the default structure
+				os.makedirs(os.path.join(self.srvpath, 'htdocs'))
+				os.chmod(os.path.join(self.srvpath, 'htdocs'), 0o750)
+				os.chown(os.path.join(self.srvpath, 'htdocs'), self.uid, self.gid)
+
+	def delete(self, oldDomain = None):
 		# delete first all dns entries!
 		query = (
 			'DELETE FROM dns WHERE domain_id = %s'
