@@ -8,11 +8,13 @@ from ui.ui_mailform import *
 from ui.ui_maileditor import *
 from ui.ui_output import *
 from ui.ui_domain import *
+from translator import CPTranslator
 from PyQt4.QtCore import pyqtSlot, pyqtSignal
 from PyQt4 import QtGui
 from PyQt4 import QtCore
 from Printer import Printer
-import logging, os, sys, re, copy, uuid, zlib, xmlrpc.client, http.client, ssl, socket, datetime
+import logging, os, sys, copy, xmlrpc.client, http.client, ssl, socket, datetime
+# import re, zlib, uuid
 import tempfile, zipfile, base64
 from modules import flscertification
 from modules.domain import DomainList, Domain
@@ -48,14 +50,9 @@ KEYFILE 		= 'certs/clientKey.pem'
 CERTFILE 		= 'certs/clientCert.pem'
 CACERT 			= 'certs/cacert.pem'
 ### CONFIGURE END ###
-
-try:
-	_encoding = QtGui.QApplication.UnicodeUTF8
-	def _translate(context, text, disambig):
-		return QtGui.QApplication.translate(context, text, disambig, _encoding)
-except AttributeError:
-	def _translate(context, text, disambig):
-		return QtGui.QApplication.translate(context, text, disambig)
+cpTranslator = CPTranslator(os.path.join(workDir, 'l18n'))
+def _translate(context, text, disambig, param = None):
+	return cpTranslator.pyTranslate(context, text, disambig, param)
 
 ###### START LOADER ######
 class DataLoader(QtCore.QThread):
@@ -3632,6 +3629,7 @@ if __name__ == "__main__":
 	log.setLevel(logging.DEBUG)
 
 	app = QtGui.QApplication(sys.argv)
+	app.installTranslator(cpTranslator.getTranslator())
 	ds = FLScpMainWindow()
 	QtCore.QTimer.singleShot(0, ds.init)
 	sys.exit(app.exec_())
