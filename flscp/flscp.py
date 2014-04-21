@@ -657,6 +657,7 @@ class DomainEditor(QtGui.QDialog):
 			self.ui.txtDomain.setText(self.domain.name)
 			self.ui.txtIPv4.setText(self.domain.ipv4)
 			self.ui.txtIPv6.setText(self.domain.ipv6)
+			self.ui.txtPath.setText(self.domain.srvpath)
 			self.ui.txtDomain.setReadOnly(True)
 
 		self.ui.txtIPv4.textChanged.connect(self.validIPv4)
@@ -667,7 +668,7 @@ class DomainEditor(QtGui.QDialog):
 		# get the list of users and the list of groups.
 		userList = []
 		try:
-			userList = self.rpc.getSystemUsers():
+			userList = self.rpc.getSystemUsers()
 		except ssl.CertificateError as e:
 			log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
 		except socket.error as e:
@@ -680,7 +681,7 @@ class DomainEditor(QtGui.QDialog):
 
 		groupList = []
 		try:
-			groupList = self.rpc.getSystemGroups():
+			groupList = self.rpc.getSystemGroups()
 		except ssl.CertificateError as e:
 			log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
 		except socket.error as e:
@@ -702,11 +703,11 @@ class DomainEditor(QtGui.QDialog):
 		# but how? :)
 		if self.domain is not None:
 			# first set the user
-			if len(self.domain.uid) > 0:
+			if len(str(self.domain.uid)) > 0:
 				uid = self.ui.fldUser.findData(self.domain.uid)
 				if uid > -1:
 					self.ui.fldUser.setCurrentIndex(uid)
-			if len(self.domain.gid) > 0:
+			if len(str(self.domain.gid)) > 0:
 				gid = self.ui.fldGroup.findData(self.domain.gid)
 				if gid > -1:
 					self.ui.fldGroup.setCurrentIndex(gid)
@@ -785,7 +786,11 @@ class DomainEditor(QtGui.QDialog):
 				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
 			)
 		elif self.domain is not None:
-			if (self.domain.ipv4.strip() != self.getIPv4().strip() or self.domain.ipv6.strip() != self.getIPv6().strip()) \
+			if (self.domain.ipv4 != self.getIPv4() \
+				or self.domain.ipv6 != self.getIPv6() \
+				or self.domain.uid != self.getUserId() \
+				or self.domain.gid != self.getGroupId() \
+				or self.domain.srvpath != self.getServicePath()) \
 				and self.domain.state == Domain.STATE_OK:
 				self.domain.state = Domain.STATE_CHANGE
 
@@ -793,6 +798,7 @@ class DomainEditor(QtGui.QDialog):
 			self.domain.ipv6 = self.getIPv6().strip()
 			self.domain.uid = self.getUserId()
 			self.domain.gid = self.getGroupId()
+			self.domain.srvpath = self.getServicePath()
 		else:
 			nD = Domain()
 			nD.generateId()
@@ -801,9 +807,10 @@ class DomainEditor(QtGui.QDialog):
 			nD.name = self.getDomain()
 			nD.ipv4 = self.getIPv4().strip()
 			nD.ipv6 = self.getIPv6().strip()
-			nD.state = Domain.STATE_CREATE
 			nD.uid = self.getUserId()
 			nD.gid = self.getGroupId()
+			nD.srvpath = self.getServicePath()
+			nD.state = Domain.STATE_CREATE
 			self.domain = nD
 			self.accept()
 
@@ -821,6 +828,9 @@ class DomainEditor(QtGui.QDialog):
 	def getIPv6(self):
 		return self.ui.txtIPv6.text()
 
+	def getServicePath(self):
+		return self.ui.txtPath.text()
+
 	def getUserId(self):
 		if self.ui.fldUser.currentIndex() < 0:
 			return None
@@ -829,6 +839,7 @@ class DomainEditor(QtGui.QDialog):
 		if uid == QtCore.QVariant.Invalid:
 			return None
 		else:
+			log.debug('Selected the user id ' + str(uid))
 			return uid
 
 	def getGroupId(self):
@@ -839,6 +850,7 @@ class DomainEditor(QtGui.QDialog):
 		if gid == QtCore.QVariant.Invalid:
 			return None
 		else:
+			log.debug('Selected the group id ' + str(gid))
 			return gid
 
 ###### END WINDOWS ######
