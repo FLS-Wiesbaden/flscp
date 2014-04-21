@@ -635,6 +635,7 @@ class DomainEditor(QtGui.QDialog):
 	def __init__(self, domainList, domain = None, parentDomain = None, parent = None):
 		QtGui.QDialog.__init__(self, parent=parent)
 
+		self.rpc = FlsServer.getInstance()
 		self.domain = domain
 		self.domainList = domainList
 		self.parentDomain = parentDomain
@@ -659,6 +660,56 @@ class DomainEditor(QtGui.QDialog):
 			self.ui.txtDomain.setReadOnly(True)
 
 		self.ui.txtIPv4.textChanged.connect(self.validIPv4)
+
+		self.initFields()
+
+	def initFields(self):
+		# get the list of users and the list of groups.
+		userList = []
+		try:
+			userList = self.rpc.getSystemUsers():
+		except ssl.CertificateError as e:
+			log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
+		except socket.error as e:
+			log.error('Connection to server lost!')
+		except xmlrpc.client.ProtocolError as e:
+			if e.errcode == 403:
+				log.warning('Missing rights for loading mails (%s)' % (e,))
+			else:
+				log.warning('Unexpected error in protocol: %s' % (e,))
+
+		groupList = []
+		try:
+			groupList = self.rpc.getSystemGroups():
+		except ssl.CertificateError as e:
+			log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
+		except socket.error as e:
+			log.error('Connection to server lost!')
+		except xmlrpc.client.ProtocolError as e:
+			if e.errcode == 403:
+				log.warning('Missing rights for loading mails (%s)' % (e,))
+			else:
+				log.warning('Unexpected error in protocol: %s' % (e,))
+
+		# now add them all to the fields
+		for user in userList:
+			self.ui.fldUser.addItem(user['name'], user['uid'])
+
+		for group in groupList:
+			self.ui.fldGroup.addItem(group['name'], group['gid'])
+
+		# if we edit a domain, we have to pre-select the correct selected item.
+		# but how? :)
+		if self.domain is not None:
+			# first set the user
+			if len(self.domain.uid) > 0:
+				uid = self.ui.fldUser.findData(self.domain.uid)
+				if uid > -1:
+					self.ui.fldUser.setCurrentIndex(uid)
+			if len(self.domain.gid) > 0:
+				gid = self.ui.fldGroup.findData(self.domain.gid)
+				if gid > -1:
+					self.ui.fldGroup.setCurrentIndex(gid)
 
 	@pyqtSlot()
 	def validIPv4(self):
@@ -704,6 +755,27 @@ class DomainEditor(QtGui.QDialog):
 			name = '%s.%s' % (name, self.parentDomain.getFullDomain(self.domainList))
 
 
+		# all valid?
+		if self.ui.fldUser.currentIndex() < 0:
+			QtGui.QMessageBox.warning(
+				self, _translate('MainWindow', 'Domain speichern/erstellen', None), 
+				_translate('MainWindow', 
+					'Bitte legen Sie noch einen Benutzer fest.', 
+					None),
+				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+			)
+			return False
+
+		if self.ui.fldGroup.currentIndex() < 0:
+			QtGui.QMessageBox.warning(
+				self, _translate('MainWindow', 'Domain speichern/erstellen', None), 
+				_translate('MainWindow', 
+					'Bitte legen Sie noch eine Gruppe fest.', 
+					None),
+				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+			)
+			return False
+
 		if self.domain is None and self.domainList.existDomain(name):
 			QtGui.QMessageBox.warning(
 				self, _translate('MainWindow', 'Domain anlegen', None), 
@@ -719,6 +791,8 @@ class DomainEditor(QtGui.QDialog):
 
 			self.domain.ipv4 = self.getIPv4().strip()
 			self.domain.ipv6 = self.getIPv6().strip()
+			self.domain.uid = self.getUserId()
+			self.domain.gid = self.getGroupId()
 		else:
 			nD = Domain()
 			nD.generateId()
@@ -728,6 +802,8 @@ class DomainEditor(QtGui.QDialog):
 			nD.ipv4 = self.getIPv4().strip()
 			nD.ipv6 = self.getIPv6().strip()
 			nD.state = Domain.STATE_CREATE
+			nD.uid = self.getUserId()
+			nD.gid = self.getGroupId()
 			self.domain = nD
 			self.accept()
 
@@ -744,6 +820,26 @@ class DomainEditor(QtGui.QDialog):
 
 	def getIPv6(self):
 		return self.ui.txtIPv6.text()
+
+	def getUserId(self):
+		if self.ui.fldUser.currentIndex() < 0:
+			return None
+
+		uid = self.ui.fldUser.itemData(self.ui.fldUser.currentIndex())
+		if uid == QtCore.QVariant.Invalid:
+			return None
+		else:
+			return uid
+
+	def getGroupId(self):
+		if self.ui.fldGroup.currentIndex() < 0:
+			return None
+
+		gid = self.ui.fldGroup.itemData(self.ui.fldGroup.currentIndex())
+		if gid == QtCore.QVariant.Invalid:
+			return None
+		else:
+			return gid
 
 ###### END WINDOWS ######
 class FLSSafeTransport(xmlrpc.client.Transport):

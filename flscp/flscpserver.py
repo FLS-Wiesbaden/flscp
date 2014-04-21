@@ -246,16 +246,24 @@ class ControlPanel:
 
 		return True
 
+	def getSystemUsers(self):
+		import pwd
+		return [ {'name': f.pw_name, 'uid': f.pw_uid} for f in pwd.getpwall() ]
+
+	def getSystemGroups(self):
+		import grp
+		return [ {'name': f.gr_name, 'gid': f.gr_gid} for f in grp.getgrall() ]
+
 	def getDomains(self):
 		data = []
 		db = MailDatabase.getInstance()
 		cursor = db.getCursor()
 		query = (
 			'SELECT domain_id, domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created, \
-			domain_last_modified, domain_status FROM domain'
+			domain_last_modified, domain_srvpath, domain_status FROM domain'
 		)
 		cursor.execute(query)
-		for (domain_id, domain_parent, domain_name, ipv6, ipv4, gid, uid, created, modified, state) in cursor:
+		for (domain_id, domain_parent, domain_name, ipv6, ipv4, gid, uid, created, modified, srvpath, state) in cursor:
 			data.append(
 				{
 					'id': domain_id, 
@@ -264,6 +272,7 @@ class ControlPanel:
 					'ipv4': ipv4,
 					'gid': gid,
 					'uid': uid,
+					'srvpath': srvpath,
 					'parent': domain_parent,
 					'created': created,
 					'modified': modified,

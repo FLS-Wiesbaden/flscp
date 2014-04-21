@@ -96,6 +96,7 @@ class Domain:
 		self.ipv4 = ''
 		self.gid = ''
 		self.uid = ''
+		self.srvpath = ''
 		self.parent = None
 		self.created = None
 		self.modified = None
@@ -114,12 +115,12 @@ class Domain:
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
 		query = (
-			'SELECT domain_id, domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created, \
-			domain_last_modified, domain_status FROM domain WHERE domain_id = %s LIMIT 1'
+			'SELECT domain_id, domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_srvpath, \
+			domain_created, domain_last_modified, domain_status FROM domain WHERE domain_id = %s LIMIT 1'
 		)
 		try:
 			cx.execute(query, (self.id,))
-			for (did, parent, domain_name, ipv6, ipv4, gid, uid, created, modified, state) in cx:
+			for (did, parent, domain_name, ipv6, ipv4, gid, uid, srvpath, created, modified, state) in cx:
 				self.id = did
 				self.parent = parent
 				self.name = domain_name
@@ -127,6 +128,7 @@ class Domain:
 				self.ipv4 = ipv4
 				self.gid = gid
 				self.uid = uid
+				self.srvpath = srvpath
 				self.created = created
 				self.modified = modified
 				self.state = state
@@ -172,13 +174,13 @@ class Domain:
 		self.state = Domain.STATE_CREATE
 		query = (
 			'INSERT INTO domain (domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created, \
-			domain_last_modified, domain_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)'
+			domain_last_modified, domain_srvpath, domain_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)'
 		)
 		cx.execute(
 			query, 
 			(
 				self.parent, self.name, self.ipv6, self.ipv4, self.gid, self.uid, 
-				self.created, self.modified, self.state
+				self.created, self.modified, self.srvpath, self.state
 			)
 		)
 		db.commit()
@@ -194,13 +196,13 @@ class Domain:
 		self.state = Domain.STATE_OK
 		query = (
 			'UPDATE domain SET ipv6 = %s, ipv4 = %s, domain_gid = %s, domain_uid = %s, domain_last_modified = %s, \
-			domain_status = %s WHERE domain_id = %s'
+			domain_srvpath = %s, domain_status = %s WHERE domain_id = %s'
 		)
 		cx.execute(
 			query, 
 			(
 				self.ipv6, self.ipv4, self.gid, self.uid, 
-				self.modified, self.state, self.id
+				self.modified, self.srvpath, self.state, self.id
 			)
 		)
 		db.commit()
@@ -314,6 +316,7 @@ class Domain:
 			self.ipv4 == obj.ipv4 and \
 			self.uid  == obj.uid and \
 			self.gid  == obj.gid and \
+			self.srvpath  == obj.srvpath and \
 			self.state == obj.state:
 			return True
 		else:
@@ -332,6 +335,7 @@ class Domain:
 		self.ipv4 = data['ipv4']
 		self.gid = data['gid']
 		self.uid = data['uid']
+		self.srvpath = data['srvpath']
 		self.parent = data['parent']
 		self.created = data['created']
 		self.modified = data['modified']
