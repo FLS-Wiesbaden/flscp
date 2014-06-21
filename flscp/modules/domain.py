@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# vim: fenc=utf-8:ts=8:sw=8:si:sta:noet
 import logging
 import zlib
 import uuid
@@ -253,7 +256,6 @@ class Domain:
 
 	def exists(self):
 		exists = False
-		# FIXME
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
 		query = ('SELECT domain_id FROM domain WHERE domain_name = %s and domain_parent = %s')
@@ -265,7 +267,7 @@ class Domain:
 	def generateBindFile(self):
 		dl = DomainList()
 		content = []
-		content.append('$ORIGIN %s.' % (self.getFullDomain(dl),))
+		content.append('$ORIGIN .')
 		content.append('$TTL %is' % (self.ttl,))
 		# get soa entry.
 		from modules.dns import Dns
@@ -277,10 +279,16 @@ class Domain:
 		for f in soa.generateDnsEntry(dl):
 			content.append(f)
 
+		# first add all entries, which have no key!
+		for dns in Dns.getDnsForDomain(self.id):
+			if len(dns.key.strip()) <= 0:
+				content.extend(dns.generateDnsEntry(dl))
+
+		content.append('$ORIGIN %s.' % (self.getFullDomain(dl),))
 		# now the rest
 		for dns in Dns.getDnsForDomain(self.id):
-			for f in dns.generateDnsEntry(dl):
-				content.append(f)
+			if len(dns.key.strip()) > 0:
+				content.extend(dns.generateDnsEntry(dl))
 
 		return '\n'.join(content)
 
@@ -327,7 +335,7 @@ class Domain:
 			if item is None:
 				return True
 			else:
-				return False			
+				return False
 
 	def __eq__(self, obj):
 		log = logging.getLogger('flscp')

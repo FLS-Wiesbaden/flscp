@@ -1,5 +1,6 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# vim: fenc=utf-8:ts=4:sw=4:si:sta:noet
+# vim: fenc=utf-8:ts=8:sw=8:si:sta:noet
 # Copyright (C) 2010-2012 Vinay Sajip. All rights reserved. Licensed under the new BSD license.
 #
 import logging

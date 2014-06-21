@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# vim: fenc=utf-8:ts=8:sw=8:si:sta:noet
 from logging.handlers import WatchedFileHandler
 from ansistrm import ColorizingStreamHandler
 from ui.ui_cp import *
@@ -1694,6 +1695,13 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			item = QtGui.QTableWidgetItem()
 			item.setText('%s' % (cert.serialNumber,))
 			self.ui.adminTable.setItem(rowNr, 3, item)
+			# valid until?
+			item = QtGui.QTableWidgetItem()
+			if cert.notAfter is not None:
+				item.setText(cert.notAfter.strftime('%d.%m.%Y %H:%M:%S'))
+			else:
+				item.setText('')
+			self.ui.adminTable.setItem(rowNr, 4, item)
 			# status
 			item = QtGui.QTableWidgetItem()
 			icon = QtGui.QIcon()
@@ -1706,11 +1714,14 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			elif cert.state == flscertification.FLSCertificate.STATE_DELETE:
 				icon.addPixmap(QtGui.QPixmap(":/status/trash.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
 				item.setText(_translate("MainWindow", "wird gelöscht", None))
+			elif cert.state == flscertification.FLSCertificate.STATE_EXPIRED:
+				icon.addPixmap(QtGui.QPixmap(":/status/expired.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+				item.setText(_translate("MainWindow", "ist abgelaufen", None))
 			else:
 				icon.addPixmap(QtGui.QPixmap(":/status/warning.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
 				item.setText(_translate("MainWindow", "Unbekannt", None))
 			item.setIcon(icon)
-			self.ui.adminTable.setItem(rowNr, 4, item)
+			self.ui.adminTable.setItem(rowNr, 5, item)
 		self.ui.adminTable.setSortingEnabled(True)
 
 	def loadMails(self, interactive = False):

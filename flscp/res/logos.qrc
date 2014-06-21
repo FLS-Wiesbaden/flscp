@@ -18,6 +18,7 @@
     <file>keys.png</file>
   </qresource>
   <qresource prefix="status">
+    <file>expired.png</file>
     <file>trash.png</file>
     <file>state_add.png</file>
     <file>ok.png</file>

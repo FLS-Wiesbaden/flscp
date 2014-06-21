@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# vim: set noet fenc=utf-8 ff=unix sts=0 sw=4 ts=4 : 
+# vim: fenc=utf-8:ts=8:sw=8:si:sta:noet
 # require: bsddb3, python-magic
 from logging.handlers import WatchedFileHandler
 from ansistrm import ColorizingStreamHandler
