@@ -37,8 +37,8 @@ workDir = os.path.dirname(os.path.realpath(__file__))
 
 ##### CONFIGURE #####
 # connection
-RPCHOST 		= 'cp.lschreiner.de' 
-#RPCHOST 		= 'cp.fls-wiesbaden.de' 
+#RPCHOST 		= 'cp.lschreiner.de' 
+RPCHOST 		= 'cp.fls-wiesbaden.de' 
 RPCPORT 		= 10027
 RPCPATH			= 'RPC2'
 # ssl connection
@@ -1262,7 +1262,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		with open(f, 'rb') as p12file:
 			cnt = p12file.read()
 
-		passphrase = ''
+		passphrase = ''.encode('utf-8')
 		loaded = False
 		aborted = False
 		pk = None
@@ -1280,6 +1280,8 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				)
 				(passphrase, ok) = passphrase
 				aborted = not ok
+				if ok:
+					passphrase = passphrase.encode('utf-8')
 			except Exception as e:
 				log.warning('Other exception while loading cert! %s' % (str(e),))
 			else:
@@ -1683,7 +1685,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			with open(f, 'rb') as p12file:
 				cnt = p12file.read()
 			if f.endswith('.p12'):
-				passphrase = ''
+				passphrase = ''.encode('utf-8')
 				loaded = False
 				aborted = False
 				pk = None
@@ -1701,6 +1703,8 @@ class FLScpMainWindow(QtGui.QMainWindow):
 						)
 						(passphrase, ok) = passphrase
 						aborted = not ok
+						if ok:
+							passphrase = passphrase.encode('utf-8')
 					else:
 						loaded = True
 
