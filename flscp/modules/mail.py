@@ -86,10 +86,15 @@ class MailAccount:
 	STATE_DELETE = 'delete'
 
 	def __init__(self):
+		conf = FLSConfig.getInstance()
 		self.id = None
 		self.type = MailAccount.TYPE_ACCOUNT
 		self.state = MailAccount.STATE_OK
-		self.quota = conf.getint('userdefault', 'quota')
+		if conf is not None:
+			self.quota = conf.getint('userdefault', 'quota')
+		else:
+			# 100 MB
+			self.quota = 104857600
 		self.mail = ''
 		self.domain = ''
 		self.pw = ''
