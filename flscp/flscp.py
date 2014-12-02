@@ -28,7 +28,7 @@ except ImportError:
 
 __author__  = 'Lukas Schreiner'
 __copyright__ = 'Copyright (C) 2013 - 2014 Website-Team Friedrich-List-Schule-Wiesbaden'
-__version__ = '0.6'
+__version__ = '0.7'
 
 FORMAT = '%(asctime)-15s %(message)s'
 formatter = logging.Formatter(FORMAT, datefmt='%b %d %H:%M:%S')
@@ -42,8 +42,8 @@ workDir = os.path.dirname(os.path.realpath(__file__))
 
 ##### CONFIGURE #####
 # connection
-#RPCHOST 		= 'cp.lschreiner.de' 
-RPCHOST 		= 'cp.fls-wiesbaden.de' 
+RPCHOST 		= 'cp.lschreiner.de' 
+#RPCHOST 		= 'cp.fls-wiesbaden.de' 
 RPCPORT 		= 10027
 RPCPATH			= 'RPC2'
 # ssl connection
@@ -1306,6 +1306,16 @@ class FLScpMainWindow(QtGui.QMainWindow):
 					)
 				self.close()
 				return
+			except Exception as e:
+				QtGui.QMessageBox.critical(
+					self, _translate('MainWindow', 'Unbekannter Fehler beim Verbinden', None), 
+					_translate('MainWindow', 
+						'Der Server konnte den Verbindungsversuch nicht erfolgreich abarbeiten',
+						None),
+					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+				)
+				self.close()
+				return
 			self.rpc.__transport.timeout = timeout
 			self.loginNeeded = False
 
@@ -1438,6 +1448,10 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			)
 			zfile.close()
 			os.unlink(d.name)
+			self.splash.close()
+			self.stateProgressBar = False
+			self.close()
+			return
 
 	def initLoginCert(self):
 		self.splash.showMessage('Wait for logging in...', color=QtGui.QColor(255, 255, 255))
