@@ -89,7 +89,7 @@ class MailAccount:
 		self.id = None
 		self.type = MailAccount.TYPE_ACCOUNT
 		self.state = MailAccount.STATE_OK
-		self.quota = 1073741824
+		self.quota = conf.getint('userdefault', 'quota')
 		self.mail = ''
 		self.domain = ''
 		self.pw = ''
@@ -167,7 +167,6 @@ class MailAccount:
 
 		else:
 			return False
-
 
 	# this is not allowed on client side! Only here....
 	def changePassword(self, pwd):
@@ -310,7 +309,7 @@ class MailAccount:
 		# all best? Than go forward and update set state,...
 		self.setState(MailAccount.STATE_OK)
 
-		# notify 
+		# notify
 		if len(self.altMail) > 0:
 			m = Mailer(self)
 			state = False
