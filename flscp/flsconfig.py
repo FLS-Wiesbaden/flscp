@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 # vim: fenc=utf-8:ts=8:sw=8:si:sta:noet
 import configparser
+import pyinotify
 
 class FLSConfig(configparser.ConfigParser):
 	__instance = None
@@ -13,8 +14,6 @@ class FLSConfig(configparser.ConfigParser):
 		self.notifyWm = None
 		self.notifyHandler = None
 		self.notifyMask = None
-		self.notifyLoaded = False
-		self.notifyLoadable = False
 
 	def read(self, filenames, encoding=None):
 		fname = super().read(filenames, encoding)
@@ -23,18 +22,7 @@ class FLSConfig(configparser.ConfigParser):
 
 	def installNotifier(self, loadedConfig, filenames, encoding):
 		self.encoding = encoding
-		if not self.notifyLoaded:
-			try:
-				import pyinotify
-			except:
-				self.notifyLoaded = True
-				self.notifyLoadable = False
-			else:
-				self.notifyLoaded = True
-				self.notifyLoadable = True
-				self.notifyMask = pyinotify.IN_CREATE | pyinotify.IN_MODIFY
-		if not self.notifyLoaded or not self.notifyLoadable:
-			return None
+		self.notifyMask = pyinotify.IN_CREATE | pyinotify.IN_MODIFY
 
 		if self.notifyWm is None:
 			self.notifyWm = pyinotify.WatchManager()
