@@ -166,13 +166,24 @@ class Mailer:
 		}
 
 		basePath = '%s/templates' % (workDir,)
+		homePath = os.path.expanduser('~/.config/flscp')
+		etcPath = '/etc/flscp/templates'
+		localEtcPath = '/usr/local/etc/flscp/templates'
 
 		content = None
 		# try to find custom
-		if os.path.exists('%s/custom/%s.txt' % (basePath, mail)):
+		if os.path.exists('%s/custom/%s.txt' % (homePath, mail)):
+			with open('%s/custom/%s.txt' % (homePath, mail), 'rb') as f:
+				content = f.read()
+		elif os.path.exists('%s/custom/%s.txt' % (etcPath, mail)):
+			with open('%s/custom/%s.txt' % (etcPath, mail), 'rb') as f:
+				content = f.read()
+		elif os.path.exists('%s/custom/%s.txt' % (localEtcPath, mail)):
+			with open('%s/custom/%s.txt' % (localEtcPath, mail), 'rb') as f:
+				content = f.read()
+		elif os.path.exists('%s/custom/%s.txt' % (basePath, mail)):
 			with open('%s/custom/%s.txt' % (basePath, mail), 'rb') as f:
 				content = f.read()
-
 		else:
 			with open('%s/default/%s.txt' % (basePath, mail), 'rb') as f:
 				content = f.read()
