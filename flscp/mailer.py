@@ -168,8 +168,8 @@ class Mailer:
 		basePath = os.path.join(workDir, 'templates', 'default', '%s.txt' % (mail,))
 		basePathCustom = os.path.join(workDir, 'templates', 'custom', '%s.txt' % (mail,))
 		homePath = os.path.expanduser(os.path.join('~', '.config', 'flscp', 'templates', '%s.txt' % (mail,)))
-		etcPath = os.path.join(os.sep, 'etc', 'templates', '%s.txt' % (mail,))
-		etcPathLocal = os.path.join(os.sep, 'usr', 'local', 'etc', 'templates', '%s.txt' % (mail,))
+		etcPath = os.path.join(os.sep, 'etc', 'flscp', 'templates', '%s.txt' % (mail,))
+		etcPathLocal = os.path.join(os.sep, 'usr', 'local', 'etc', 'flscp', 'templates', '%s.txt' % (mail,))
 		pathList = [homePath, etcPath, etcPathLocal, basePathCustom, basePath]
 
 		content = None
