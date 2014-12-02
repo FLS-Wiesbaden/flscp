@@ -211,9 +211,7 @@ class FLSCertificate:
 		if 'notAfter' in obj:
 			sh.notAfter = datetime.datetime.strptime(obj['notAfter'], '%b %d %H:%M:%S %Y %Z')
 			sh.notAfter = sh.notAfter.replace(tzinfo=datetime.timezone.utc)
-			# check to change state?
-			if self.isExpired():
-				self.state = FLSCertificate.STATE_EXPIRED
+
 		if 'notBefore' in obj:
 			sh.notBefore = datetime.datetime.strptime(obj['notBefore'], '%b %d %H:%M:%S %Y %Z')
 			sh.notBefore = sh.notBefore.replace(tzinfo=datetime.timezone.utc)
@@ -225,10 +223,10 @@ class FLSCertificate:
 		now = datetime.datetime.now().replace(tzinfo=datetime.timezone.utc)
 		if sh.serialNumber is None or sh.notAfter is None or sh.notBefore is None:
 			return None
-		elif not sh.notBefore <= now <= sh.notAfter:
-			return None
 		else:
 			self = sh
+			if self.isExpired():
+				self.state = FLSCertificate.STATE_EXPIRED 
 			return self
 
 	@classmethod
