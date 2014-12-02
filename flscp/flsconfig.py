@@ -16,9 +16,10 @@ class FLSConfig(configparser.ConfigParser):
 		self.notifyLoaded = False
 		self.notifyLoadable = False
 
-	def read(self, filenames, encoding=None)
+	def read(self, filenames, encoding=None):
 		fname = super().read(filenames, encoding)
 		self.installNotifier(fname, filenames, encoding)
+		return fname
 
 	def installNotifier(self, loadedConfig, filenames, encoding):
 		self.encoding = encoding
