@@ -177,6 +177,7 @@ class FLSCertificate:
 		for k,v in data.items():
 			if k in ['notBefore', 'notAfter']:
 				newV = datetime.datetime.strptime(v, '%Y-%m-%dT%H:%M:%S%z')
+				newV = newV.replace(tzinfo=None)
 				setattr(self, k, newV)
 			elif k in ['subject']:
 				newV = FLSCertificateSubject.__deserialize__(v)
