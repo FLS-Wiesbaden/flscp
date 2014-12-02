@@ -27,7 +27,7 @@ except:
 
 __author__  = 'Lukas Schreiner'
 __copyright__ = 'Copyright (C) 2013 - 2014 Website-Team Friedrich-List-Schule-Wiesbaden'
-__version__ = '0.6'
+__version__ = '0.7'
 
 FORMAT = '%(asctime)-15s %(message)s'
 formatter = logging.Formatter(FORMAT, datefmt='%b %d %H:%M:%S')
@@ -734,6 +734,17 @@ class FLSRequestHandler(SimpleXMLRPCRequestHandler):
 			if rmtIP.startswith('127.'):
 				return True
 			else:
+				return False
+
+		# if validation is disabled, then we check for a specific source IP (just to ensure)
+		if conf.getboolean('connection', 'validateAuth') is False:
+			(rmtIP, rmtPort) = self.request.getpeername()
+			if rmtIP == conf.get('connection', 'permitSourceV4') or \
+					rmtIP == conf.get('connection', 'permitSourceV6'):
+				log.info('We allow the source ip %s to login...' % (rmtIP,))
+				return True
+			else:
+				log.warning('Someone tried to login (%s) but does not match!' % (rmtIP,))
 				return False
 
 		# create cert
