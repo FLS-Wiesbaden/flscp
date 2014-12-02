@@ -6,6 +6,7 @@ import pyinotify
 
 class FLSConfig(configparser.ConfigParser):
 	__instance = None
+	mask = pyinotify.IN_CREATE | pyinotify.IN_MODIFY
 
 	def __init__(self):
 		super().__init__()
@@ -13,7 +14,7 @@ class FLSConfig(configparser.ConfigParser):
 		self.encoding = None
 		self.notifyWm = None
 		self.notifyHandler = None
-		self.notifyMask = None
+		self.notifyNotifier = None
 
 	def read(self, filenames, encoding=None):
 		fname = super().read(filenames, encoding)
@@ -22,7 +23,6 @@ class FLSConfig(configparser.ConfigParser):
 
 	def installNotifier(self, loadedConfig, filenames, encoding):
 		self.encoding = encoding
-		self.notifyMask = pyinotify.IN_CREATE | pyinotify.IN_MODIFY
 
 		if self.notifyWm is None:
 			self.notifyWm = pyinotify.WatchManager()
@@ -32,7 +32,7 @@ class FLSConfig(configparser.ConfigParser):
 			self.notifyNotifier = pyinotify.ThreadedNotifier(self.notifyWm, self.notifyHandler)
 			self.notifyNotifier.start()
 		try:
-			wdd = self.notifyWm.add_watch(loadedConfig, self.notifyMask, rec=True)
+			wdd = self.notifyWm.add_watch(loadedConfig, FLSConfig.mask, rec=True)
 		except:
 			pass
 
