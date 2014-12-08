@@ -455,11 +455,11 @@ class ControlPanel:
 		data = []
 		cursor = db.getCursor()
 		query = (
-			'SELECT mail_id, mail_acc, mail_addr, mail_type, mail_forward, `status`, domain_id, alternative_addr \
+			'SELECT mail_id, mail_acc, mail_addr, mail_type, mail_forward, quota, `status`, domain_id, alternative_addr \
 			FROM mail_users'
 		)
 		cursor.execute(query)
-		for (mail_id, mail_acc, mail_addr, mail_type, mail_forward, status, domain_id, alternative_addr) in cursor:
+		for (mail_id, mail_acc, mail_addr, mail_type, mail_forward, quota, status, domain_id, alternative_addr) in cursor:
 			data.append(
 				{
 					'id': mail_id, 
@@ -471,7 +471,8 @@ class ControlPanel:
 					'state': status,
 					'type': mail_type,
 					'pw': '',
-					'genPw': False
+					'genPw': False,
+					'quota': quota
 				}
 			)
 
