@@ -1963,7 +1963,7 @@ class FLScpMainWindow(QMainWindow):
 				pk = None
 				while not loaded and not aborted:
 					try:
-						pk = OpenSSL.crypto.load_pkcs12(cnt, passphrase)
+						pk = OpenSSL.crypto.load_pkcs12(cnt, passphrase.encode('utf-8'))
 					except OpenSSL.crypto.Error as e:
 						log.warning('Got error: %s' % (e,))
 						passphrase = QInputDialog.getText(
@@ -2079,7 +2079,14 @@ class FLScpMainWindow(QMainWindow):
 				# serial number
 				item = QTableWidgetItem()
 				item.setText('%s' % (cert.serialNumber,))
-				self.ui.adminTable.setItem(rowNr, 3, item)		
+				self.ui.adminTable.setItem(rowNr, 3, item)
+				# expires on...
+				item = QTableWidgetItem()
+				if cert.notAfter is not None:
+					item.setText(cert.notAfter.strftime('%d.%m.%Y %H:%M:%S'))
+				else:
+					item.setText('')
+				self.ui.adminTable.setItem(rowNr, 4, item)
 				# status
 				item = QTableWidgetItem()
 				icon = QIcon()
@@ -2096,7 +2103,7 @@ class FLScpMainWindow(QMainWindow):
 					icon.addPixmap(QPixmap(":/status/warning.png"), QIcon.Normal, QIcon.Off)
 					item.setText(_translate("MainWindow", "Unbekannt", None))
 				item.setIcon(icon)
-				self.ui.adminTable.setItem(rowNr, 4, item)		
+				self.ui.adminTable.setItem(rowNr, 5, item)
 
 	@pyqtSlot()
 	def deleteCertificates(self):
