@@ -19,7 +19,6 @@ Ihre E-Mail-Adresse:
 Eingerichtete Weiterleitungen:
 %(forwarders)s
 
-
 Zu Ihrer Erinnerung:
 
 Ihre E-Mail-Adresse ist ausschließlich eine Weiterleitungsadresse. Ein Abrufen

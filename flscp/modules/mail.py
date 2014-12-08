@@ -96,6 +96,7 @@ class MailAccount:
 		else:
 			# 100 MB
 			self.quota = 104857600
+		self.quotaSts = 0.0
 		self.mail = ''
 		self.domain = ''
 		self.pw = ''
@@ -232,6 +233,12 @@ class MailAccount:
 				return str(quotaMb) + ' MB'
 		else:
 			return str(quotaGb) + ' GB'
+	
+	def getQuotaStatus(self):
+		if self.quotaSts is not None:
+			return str(self.quotaSts) + ' %'
+		else:
+			return str(0) + ' %'
 
 	def save(self):
 		log = logging.getLogger('flscp')
@@ -716,5 +723,7 @@ class MailAccount:
 		self.pw = data['pw']
 		self.genPw = data['genPw']
 		self.quota = data['quota']
+		if 'quotaSts' in data:
+			self.quotaSts = data['quotaSts']
 
 		return self

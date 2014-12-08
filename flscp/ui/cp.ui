@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>680</width>
+    <width>630</width>
     <height>563</height>
    </rect>
   </property>
@@ -43,7 +43,7 @@
        <enum>QTabWidget::West</enum>
       </property>
       <property name="currentIndex">
-       <number>0</number>
+       <number>2</number>
       </property>
       <property name="movable">
        <bool>true</bool>
@@ -737,6 +737,20 @@
           </column>
           <column>
            <property name="text">
+            <string>Verbraucht</string>
+           </property>
+           <property name="font">
+            <font>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+           <property name="textAlignment">
+            <set>AlignRight|AlignVCenter</set>
+           </property>
+          </column>
+          <column>
+           <property name="text">
             <string>Status</string>
            </property>
            <property name="font">
@@ -1185,7 +1199,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>680</width>
+     <width>630</width>
      <height>19</height>
     </rect>
    </property>
@@ -1285,8 +1299,8 @@
      <y>-1</y>
     </hint>
     <hint type="destinationlabel">
-     <x>270</x>
-     <y>101</y>
+     <x>307</x>
+     <y>125</y>
     </hint>
    </hints>
   </connection>

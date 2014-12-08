@@ -2218,6 +2218,11 @@ class FLScpMainWindow(QMainWindow):
 			item.setText(row.getQuotaReadable())
 			item.setTextAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
 			self.ui.mailTable.setItem(rowNr, 3, item)
+			# quotaSts (in percent)
+			item = QTableWidgetItem()
+			item.setText(row.getQuotaStatus())
+			item.setTextAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
+			self.ui.mailTable.setItem(rowNr, 4, item)
 			# status
 			item = QTableWidgetItem()
 			icon = QIcon()
@@ -2237,7 +2242,7 @@ class FLScpMainWindow(QMainWindow):
 				icon.addPixmap(QPixmap(":/status/warning.png"), QIcon.Normal, QIcon.Off)
 				item.setText(_translate("MainWindow", "Unbekannt", None))
 			item.setIcon(icon)
-			self.ui.mailTable.setItem(rowNr, 4, item)
+			self.ui.mailTable.setItem(rowNr, 5, item)
 
 		self.ui.mailTable.setSortingEnabled(True)
 

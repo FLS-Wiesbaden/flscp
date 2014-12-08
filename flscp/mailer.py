@@ -27,7 +27,8 @@ class Mailer:
 				'username': '%s@%s' % (self.account.mail,self.account.domain),
 				'password': self.account.pw,
 				'forwarders': ', '.join(self.account.forward) if len(self.account.forward) > 0 else mailContent['params']['noforward'],
-				'notgenerated': mailContent['params']['notgenerated'] if not self.account.genPw else ''
+				'notgenerated': mailContent['params']['notgenerated'] if not self.account.genPw else '',
+				'quota': self.account.getQuotaReadable()
 			},
 			_charset='utf-8'
 		)
@@ -70,7 +71,8 @@ class Mailer:
 			mailContent['body'] % {
 				'username': '%s@%s' % (self.account.mail,self.account.domain),
 				'password': self.account.pw if len(self.account.pw) > 0 else mailContent['params']['notchanged'],
-				'forwarders': ', '.join(self.account.forward) if len(self.account.forward) > 0 else mailContent['params']['noforward']
+				'forwarders': ', '.join(self.account.forward) if len(self.account.forward) > 0 else mailContent['params']['noforward'],
+				'quota': self.account.getQuotaReadable()
 			},
 			_charset='utf-8'
 		)
