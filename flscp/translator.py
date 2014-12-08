@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 # vim: fenc=utf-8:ts=8:sw=8:si:sta:noet
 # author: Lukas Schreiner
-from PyQt4.QtCore import QTranslator
-from PyQt4.QtGui import QApplication
+from PyQt5.QtCore import QTranslator
+from PyQt5.QtWidgets import QApplication
 import os.path
 
 class CPTranslator:
@@ -26,7 +26,7 @@ class CPTranslator:
 		self.loadDictionary()
 
 	def pyTranslate(self, context, sourceText, disambiguation = None, params = None):
-		txt = QApplication.translate(context, sourceText, disambiguation, QApplication.UnicodeUTF8)
+		txt = QApplication.translate(context, sourceText, disambiguation)
 		if params is not None:
 			return txt.format(params)
 		else:

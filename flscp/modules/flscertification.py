@@ -164,7 +164,7 @@ class FLSCertificate:
 				data[k] = v.__serialize__()
 			except:
 				if isinstance(v, datetime.datetime):
-					data[k] = v.strftime('%Y-%m-%dT%H:%M:%S%z')
+					data[k] = v.strftime('%Y-%m-%dT%H:%M:%S')
 				else:
 					data[k] = v
 
@@ -176,7 +176,7 @@ class FLSCertificate:
 
 		for k,v in data.items():
 			if k in ['notBefore', 'notAfter']:
-				newV = datetime.datetime.strptime(v, '%Y-%m-%dT%H:%M:%S%z')
+				newV = datetime.datetime.strptime(v, '%Y-%m-%dT%H:%M:%S')
 				newV = newV.replace(tzinfo=None)
 				setattr(self, k, newV)
 			elif k in ['subject']:

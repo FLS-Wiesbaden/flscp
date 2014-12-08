@@ -180,9 +180,6 @@
              <property name="whatsThis">
               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Löschen&lt;/span&gt; eines Mail-Kontos inklusive aller auf dem Server befindlichen E-Mails&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
              </property>
-             <property name="styleSheet">
-              <string notr="true">background:transparent</string>
-             </property>
              <property name="text">
               <string>Löschen</string>
              </property>
@@ -203,9 +200,6 @@
            </item>
            <item>
             <widget class="QToolButton" name="butDomainEdit">
-             <property name="styleSheet">
-              <string notr="true">background:transparent</string>
-             </property>
              <property name="text">
               <string notr="true"/>
              </property>
@@ -232,9 +226,6 @@
              <property name="whatsThis">
               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Hinzufügen&lt;/span&gt; eines Mail-Kontos.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
              </property>
-             <property name="styleSheet">
-              <string notr="true">background:transparent</string>
-             </property>
              <property name="text">
               <string>Hinzufügen</string>
              </property>
@@ -255,9 +246,6 @@
            </item>
            <item>
             <widget class="QToolButton" name="butDomainFile">
-             <property name="styleSheet">
-              <string notr="true">background:transparent;</string>
-             </property>
              <property name="text">
               <string notr="true"/>
              </property>
@@ -278,9 +266,6 @@
            </item>
            <item>
             <widget class="QToolButton" name="butDomainDNS">
-             <property name="styleSheet">
-              <string notr="true">background:transparent</string>
-             </property>
              <property name="text">
               <string notr="true"/>
              </property>
@@ -307,9 +292,6 @@
              <property name="whatsThis">
               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Aktualisieren&lt;/span&gt; der Liste. Alle Änderungen werden verworfen.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
              </property>
-             <property name="styleSheet">
-              <string notr="true">background:transparent</string>
-             </property>
              <property name="text">
               <string>Aktualisieren</string>
              </property>
@@ -335,9 +317,6 @@
              </property>
              <property name="whatsThis">
               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Speichern&lt;/span&gt; der Änderungen auf dem Server. Anschließend wird die Liste neugeladen.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-             </property>
-             <property name="styleSheet">
-              <string notr="true">background:transparent</string>
              </property>
              <property name="text">
               <string>Speichern</string>
@@ -497,8 +476,8 @@
        <attribute name="title">
         <string>E-Mail</string>
        </attribute>
-       <layout class="QVBoxLayout" name="verticalLayout_2">
-        <item alignment="Qt::AlignLeft">
+       <layout class="QVBoxLayout" name="verticalLayout_6">
+        <item>
          <widget class="QFrame" name="buttonBoxMail">
           <property name="enabled">
            <bool>true</bool>
@@ -523,9 +502,6 @@
              </property>
              <property name="whatsThis">
               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Löschen&lt;/span&gt; eines Mail-Kontos inklusive aller auf dem Server befindlichen E-Mails&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-             </property>
-             <property name="styleSheet">
-              <string notr="true">background:transparent</string>
              </property>
              <property name="text">
               <string>Löschen</string>
@@ -553,9 +529,6 @@
              <property name="whatsThis">
               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Bearbeiten&lt;/span&gt; eines Mail-Kontos. Bei der Umbennenung werden auch der E-Mail-Ordner auf dem Server umbennant (E-Mails werden also mit genommen!).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
              </property>
-             <property name="styleSheet">
-              <string notr="true">background:transparent</string>
-             </property>
              <property name="text">
               <string>Bearbeiten</string>
              </property>
@@ -581,9 +554,6 @@
              </property>
              <property name="whatsThis">
               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Hinzufügen&lt;/span&gt; eines Mail-Kontos.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-             </property>
-             <property name="styleSheet">
-              <string notr="true">background:transparent</string>
              </property>
              <property name="text">
               <string>Hinzufügen</string>
@@ -611,9 +581,6 @@
              <property name="whatsThis">
               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Aktualisieren&lt;/span&gt; der Liste. Alle Änderungen werden verworfen.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
              </property>
-             <property name="styleSheet">
-              <string notr="true">background:transparent</string>
-             </property>
              <property name="text">
               <string>Aktualisieren</string>
              </property>
@@ -639,9 +606,6 @@
              </property>
              <property name="whatsThis">
               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Speichern&lt;/span&gt; der Änderungen auf dem Server. Anschließend wird die Liste neugeladen.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-             </property>
-             <property name="styleSheet">
-              <string notr="true">background:transparent</string>
              </property>
              <property name="text">
               <string>Speichern</string>
@@ -818,9 +782,6 @@
              <property name="toolTip">
               <string>Reload the log file list</string>
              </property>
-             <property name="styleSheet">
-              <string notr="true">background:transparent</string>
-             </property>
              <property name="text">
               <string notr="true"/>
              </property>
@@ -845,9 +806,6 @@
              <property name="toolTip">
               <string>Load selected log file</string>
              </property>
-             <property name="styleSheet">
-              <string notr="true">background:transparent</string>
-             </property>
              <property name="text">
               <string notr="true"/>
              </property>
@@ -868,9 +826,6 @@
              <property name="toolTip">
               <string>Empty the dialog</string>
              </property>
-             <property name="styleSheet">
-              <string notr="true">background:transparent</string>
-             </property>
              <property name="text">
               <string/>
              </property>
@@ -886,7 +841,16 @@
         <item>
          <widget class="QWidget" name="searchFrame" native="true">
           <layout class="QHBoxLayout" name="horizontalLayout_5">
-           <property name="margin">
+           <property name="leftMargin">
+            <number>0</number>
+           </property>
+           <property name="topMargin">
+            <number>0</number>
+           </property>
+           <property name="rightMargin">
+            <number>0</number>
+           </property>
+           <property name="bottomMargin">
             <number>0</number>
            </property>
            <item>
@@ -918,9 +882,6 @@
            </item>
            <item>
             <widget class="QToolButton" name="butLogSearchBack">
-             <property name="styleSheet">
-              <string notr="true">background:transparent</string>
-             </property>
              <property name="text">
               <string notr="true"/>
              </property>
@@ -935,9 +896,6 @@
            </item>
            <item>
             <widget class="QToolButton" name="butLogSearchForw">
-             <property name="styleSheet">
-              <string notr="true">background:transparent</string>
-             </property>
              <property name="text">
               <string notr="true"/>
              </property>
@@ -990,9 +948,6 @@
              <property name="whatsThis">
               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Löschen&lt;/span&gt; eines Mail-Kontos inklusive aller auf dem Server befindlichen E-Mails&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
              </property>
-             <property name="styleSheet">
-              <string notr="true">background:transparent</string>
-             </property>
              <property name="text">
               <string>Löschen</string>
              </property>
@@ -1018,9 +973,6 @@
              </property>
              <property name="whatsThis">
               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Hinzufügen&lt;/span&gt; eines Zertifikats zur Authentikation. &lt;br/&gt;Dies ist nur möglich, wenn &lt;span style=&quot; font-weight:600;&quot;&gt;OpenSSL&lt;/span&gt; installiert ist!&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-             </property>
-             <property name="styleSheet">
-              <string notr="true">background:transparent</string>
              </property>
              <property name="text">
               <string>Hinzufügen</string>
@@ -1048,9 +1000,6 @@
              <property name="whatsThis">
               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Aktualisieren&lt;/span&gt; der Liste. Alle Änderungen werden verworfen.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
              </property>
-             <property name="styleSheet">
-              <string notr="true">background:transparent</string>
-             </property>
              <property name="text">
               <string>Aktualisieren</string>
              </property>
@@ -1076,9 +1025,6 @@
              </property>
              <property name="whatsThis">
               <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-weight:600;&quot;&gt;Speichern&lt;/span&gt; der Änderungen auf dem Server. Anschließend wird die Liste neugeladen.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-             </property>
-             <property name="styleSheet">
-              <string notr="true">background:transparent</string>
              </property>
              <property name="text">
               <string>Speichern</string>
@@ -1308,7 +1254,6 @@
   <tabstop>butAdd</tabstop>
   <tabstop>butReload</tabstop>
   <tabstop>butSave</tabstop>
-  <tabstop>search</tabstop>
   <tabstop>mailTable</tabstop>
  </tabstops>
  <resources>

@@ -24,8 +24,8 @@ COMPILED_PYTHON_MODS = $(PYTHON_MODULS:%.py=$(buildDir)/%.py)
 COMPILED_PYTHON_UIS = $(PYTHON_UIS:%.py=$(buildDir)/%.py)
 COMPILED_TRANSLATION = $(TRANSLATION:%.ts=$(buildDir)/%.qm)
 
-PYUIC = @PYUIC4@
-PYRCC = @PYRCC4@
+PYUIC = @PYUIC5@
+PYRCC = @PYRCC5@
 PYTHON = @PYTHON@
 PYPARM = 
 RSYNC = @RSYNC@
@@ -82,7 +82,7 @@ $(buildDir)/$(PACKAGE)/ui/ui_%.py: $(UI_DIR)/%.ui
 	$(PYUIC) $(debugFlg) $< -o $@
  
 $(buildDir)/$(PACKAGE)/%_rc.py: $(RESOURCE_DIR)/%.qrc
-	$(PYRCC) -py3 $< -o $@
+	$(PYRCC) $< -o $@
 
 $(buildDir)/$(PACKAGE)/l18n/%.qm: $(L18N_DIR)/%.ts
 	$(LRELEASE) $< -qm $@

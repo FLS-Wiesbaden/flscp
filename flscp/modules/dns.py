@@ -5,8 +5,8 @@ import logging
 import zlib
 import uuid
 import time
-from PyQt4 import QtCore
-from PyQt4.QtCore import pyqtSignal
+from PyQt5 import QtCore
+from PyQt5.QtCore import pyqtSignal
 from modules.domain import *
 
 class DNSList:

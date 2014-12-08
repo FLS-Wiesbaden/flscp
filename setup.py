@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf8 -*-
+# vim: fenc=utf-8:ts=8:sw=8:si:sta:noet
 #
 # @author Lukas Schreiner
 #
@@ -48,12 +49,17 @@ flscp_debug = Executable(
 buildOpts = {
 	'include_files': files,
 	'copy_dependent_files': True,
-	'append_script_to_exe': True
-	}
+	'append_script_to_exe': True,
+	'packages': [
+		'cryptography',
+		'PyQt5',
+		'pyinotify'
+	]
+}
 
 setup(
 	name = "FLS Control Panel",
-	version = "0.1",
+	version = "0.7",
 	description = "FLS Control panel Client",
 	author = "Friedrich-List-Schule Wiesbaden",
 	author_email = "website-team@fls-wiesbaden.de",
