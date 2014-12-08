@@ -19,6 +19,7 @@
     <file>keys.png</file>
   </qresource>
   <qresource prefix="status">
+    <file>general_process.png</file>
     <file>expired.png</file>
     <file>trash.png</file>
     <file>state_add.png</file>
@@ -27,6 +28,7 @@
     <file>warning.png</file>
   </qresource>
   <qresource prefix="actions">
+    <file>calculator.png</file>
     <file>page_text.png</file>
     <file>clear_log.png</file>
     <file>arrow-left.png</file>

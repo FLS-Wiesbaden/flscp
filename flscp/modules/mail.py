@@ -85,6 +85,7 @@ class MailAccount:
 	STATE_CHANGE = 'change'
 	STATE_CREATE = 'create'
 	STATE_DELETE = 'delete'
+	STATE_QUOTA = 'quota'
 
 	def __init__(self):
 		conf = FLSConfig.getInstance()
@@ -175,6 +176,10 @@ class MailAccount:
 		else:
 			return False
 
+	def markQuotaCalc(self):
+		if self.state == MailAccount.STATE_OK:
+			self.state = MailAccount.STATE_QUOTA
+
 	# this is not allowed on client side! Only here....
 	def changePassword(self, pwd):
 		self.pw = pwd
@@ -249,6 +254,9 @@ class MailAccount:
 			return
 		elif self.state == MailAccount.STATE_DELETE:
 			self.delete()
+			return
+		elif self.state == MailAccount.STATE_QUOTA:
+			self.recalculateQuota()
 			return
 
 		# now save!
@@ -376,7 +384,7 @@ class MailAccount:
 		log = logging.getLogger('flscp')
 		conf = FLSConfig.getInstance()
 
-		# delete!		
+		# delete!
 		# 1. remove credentials
 		# 2. remove entry from /etc/postfix/fls/aliases
 		# 3. remove entry from /etc/postfix/fls/mailboxes
@@ -406,6 +414,24 @@ class MailAccount:
 			query = ('DELETE FROM mail_users WHERE mail_id = %s')
 			cx.execute(query, (self.id,))
 			cx.close()
+
+	def recalculateQuota(self):
+		log = logging.getLogger('flscp')
+		conf = FLSConfig.getInstance()
+
+		cmd = shlex.split('%s quota recalc -u %s' % (conf.get('mailserver', 'doveadm'), '%s@%s' % (self.mail, self.domain)))
+		state = True
+		with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as p:
+			out = p.stdout.read()
+			err = p.stderr.read()
+			if len(out) > 0:
+				log.info(out)
+			if len(err) > 0:
+				log.warning(err)
+				state = False
+
+		self.setState(MailAccount.STATE_OK)
+		return state
 
 	def exists(self):
 		# check if entry exists already in mail_users!

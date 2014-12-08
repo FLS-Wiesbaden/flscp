@@ -987,6 +987,7 @@ class FLScpMainWindow(QMainWindow):
 		self.ui.butAdd.clicked.connect(self.addMail)
 		self.ui.butEdt.clicked.connect(self.editMail)
 		self.ui.butDel.clicked.connect(self.deleteMail)
+		self.ui.butQuotaCalc.clicked.connect(self.calculateMailQuota)
 		self.ui.butReload.clicked.connect(self.reloadMailTable)
 		self.ui.butSave.clicked.connect(self.commitMailData)
 		self.ui.mailTable.cellDoubleClicked.connect(self.selectedMail)
@@ -2238,6 +2239,9 @@ class FLScpMainWindow(QMainWindow):
 			elif row.state == MailAccount.STATE_DELETE:
 				icon.addPixmap(QPixmap(":/status/trash.png"), QIcon.Normal, QIcon.Off)
 				item.setText(_translate("MainWindow", "wird gelöscht", None))
+			elif row.state == MailAccount.STATE_QUOTA:
+				icon.addPixmap(QPixmap(":/status/general_process.png"), QIcon.Normal, QIcon.Off)
+				item.setText(_translate("MainWindow", "Quota wird neuberechnet", None))
 			else:
 				icon.addPixmap(QPixmap(":/status/warning.png"), QIcon.Normal, QIcon.Off)
 				item.setText(_translate("MainWindow", "Unbekannt", None))
@@ -2269,6 +2273,17 @@ class FLScpMainWindow(QMainWindow):
 				mf = MailForm(self, account)
 				mf.show()
 				mf.exec_()
+
+		self.loadMailData()
+
+	@pyqtSlot()
+	def calculateMailQuota(self):
+		log.info('Clicked "calculate mail quota"')
+		for selectedRow in self.ui.mailTable.selectionModel().selectedRows():
+			nr = self.ui.mailTable.item(selectedRow.row(), 0).text()
+			account = self.mails.findById(nr)
+			account.markQuotaCalc()
+			log.debug('Marked mail to recalculation.')
 
 		self.loadMailData()
 
