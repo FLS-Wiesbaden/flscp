@@ -238,7 +238,7 @@ class MailAccount:
 		if self.quotaSts is not None:
 			return str(self.quotaSts) + ' %'
 		else:
-			return str(0) + ' %'
+			return str(0.00) + ' %'
 
 	def save(self):
 		log = logging.getLogger('flscp')

@@ -460,7 +460,7 @@ class ControlPanel:
 		)
 		cursor.execute(query)
 		for (mail_id, mail_acc, mail_addr, mail_type, mail_forward, quota, status, domain_id, alternative_addr, usedBytes) in cursor:
-			quotaSts = 0
+			quotaSts = 0.00
 			if usedBytes is not None:
 				if usedBytes > 0 and quota > 0:
 					quotaSts = round(usedBytes*100/quota, 2)
