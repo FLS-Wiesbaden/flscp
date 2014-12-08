@@ -661,7 +661,7 @@ class MailAccount:
 			ma.domain = mail_addr.split('@')[1]
 			ma.altMail = alternative_addr
 			ma.forward = mail_forward.split(',')
-			ma.type = MailAccount.TYPE_ACCONT
+			ma.type = MailAccount.TYPE_ACCOUNT
 			if mail_type == 'fwdsmtp':
 				ma.type = MailAccount.TYPE_FWDSMTP
 			elif mail_type == 'forward':
