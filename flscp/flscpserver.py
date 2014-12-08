@@ -659,7 +659,8 @@ class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
 
 			cmd = msg[:1]
 			if cmd == 'H':
-				log.debug('Got: %s' % (msg,))
+				#log.debug('Got: %s' % (msg,))
+				log.debug('Got an H-message. Will not print for security reason.')
 				log.info('Got Hello...')
 				tryCompressed = msg.split('\n')
 				if len(tryCompressed) > 1 and tryCompressed[1][:1] == 'L':
@@ -667,7 +668,7 @@ class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
 					cmd = msg[:1]
 					log.info('It is a compressed query. Go ahead...')
 				else:
-					continue		
+					continue
 			# be careful! Don't make a elif out of this, because we can get an
 			# compressed lookup so the first cmd will be "H"!!!
 			if cmd == 'L':
@@ -730,8 +731,14 @@ class FLSRequestHandler(SimpleXMLRPCRequestHandler):
 
 		if not os.path.exists(os.path.expanduser(conf.get('connection', 'authorizekeys'))):
 			(rmtIP, rmtPort) = self.request.getpeername()
-			log.warning('We don\'t have keys at the moment. So we only allow local users!')
-			if rmtIP.startswith('127.'):
+			log.warning(
+					'We don\'t have keys at the moment. So we only allow users from %s / %s' % (
+						conf.get('connection', 'permitSourceV4'), 
+						conf.get('connection', 'permitSourceV6')
+					)
+			)
+			if rmtIP.startswith('127.') or rmtIP == conf.get('connection', 'permitSourceV4') \
+					or rmtIP.upper() == conf.get('connection', 'permitSourceV6').upper():
 				return True
 			else:
 				return False
@@ -740,7 +747,7 @@ class FLSRequestHandler(SimpleXMLRPCRequestHandler):
 		if conf.getboolean('connection', 'validateAuth') is False:
 			(rmtIP, rmtPort) = self.request.getpeername()
 			if rmtIP == conf.get('connection', 'permitSourceV4') or \
-					rmtIP == conf.get('connection', 'permitSourceV6'):
+					rmtIP.upper() == conf.get('connection', 'permitSourceV6').upper():
 				log.info('We allow the source ip %s to login...' % (rmtIP,))
 				return True
 			else:

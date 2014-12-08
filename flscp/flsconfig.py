@@ -2,7 +2,12 @@
 # -*- coding: utf-8 -*-
 # vim: fenc=utf-8:ts=8:sw=8:si:sta:noet
 import configparser
-import pyinotify
+try:
+	import pyinotify
+	notifyInstalled = True
+except:
+	import dummyinotify as pyinotify
+	notifyInstalled = False
 
 class FLSConfig(configparser.ConfigParser):
 	__instance = None
@@ -18,7 +23,8 @@ class FLSConfig(configparser.ConfigParser):
 
 	def read(self, filenames, encoding=None):
 		fname = super().read(filenames, encoding)
-		self.installNotifier(fname, filenames, encoding)
+		if notifyInstalled:
+			self.installNotifier(fname, filenames, encoding)
 		return fname
 
 	def installNotifier(self, loadedConfig, filenames, encoding):

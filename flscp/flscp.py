@@ -1468,6 +1468,7 @@ class FLScpMainWindow(QMainWindow):
 			QMessageBox.Ok|QMessageBox.Cancel, QMessageBox.Ok
 		)
 		if answer == QMessageBox.Cancel:
+			log.info('Certificate selection cancelled.')
 			self.close()
 			return False
 
@@ -1481,14 +1482,14 @@ class FLScpMainWindow(QMainWindow):
 					None),
 				QMessageBox.Ok, QMessageBox.Ok
 			)
-
+			log.error('OpenSSL could not be imported.')
 			self.close()
 			return False
 
 		self.fd = QFileDialog(self, None)
 		self.fd.setWindowModality(QtCore.Qt.ApplicationModal)
 		self.fd.setOption(QFileDialog.ReadOnly, True)
-		filters = [_translate('MainWindow', 'Zertifikate (*.p12)', None)]
+		filters = [_translate('MainWindow', 'Zertifikate', None) + ' (*.p12)']
 		self.fd.setNameFilters(filters)
 		self.fd.setFileMode(QFileDialog.ExistingFile | QFileDialog.AcceptOpen)
 		self.fd.filesSelected.connect(self.loginCertSelected)
@@ -1496,6 +1497,7 @@ class FLScpMainWindow(QMainWindow):
 		self.execInit.connect(self.init)
 		# now show the select!
 		self.fd.show()
+		QtCore.QCoreApplication.processEvents()
 
 		return True
 
@@ -1530,11 +1532,11 @@ class FLScpMainWindow(QMainWindow):
 		pk = None
 		while not loaded and not aborted:
 			try:
-				pk = OpenSSL.crypto.load_pkcs12(cnt, passphrase)
+				pk = OpenSSL.crypto.load_pkcs12(cnt, passphrase.encode('utf-8'))
 			except OpenSSL.crypto.Error as e:
 				log.warning('Got error: %s' % (e,))
 				passphrase = QInputDialog.getText(
-					self, 
+					self,
 					_translate('MainWindow', 'Kennwort erforderlich', None),
 					_translate('MainWindow', 'Kennwort für %s' % (f,), None),
 					QLineEdit.Password,
@@ -3651,7 +3653,8 @@ class FLScpMainWindow(QMainWindow):
 		self.splash.showMessage(_translate('SplashScreen', 'Starte Benutzeroberfläche...'), 10, color=QColor(255, 255, 255))
 		self.splash.update()
 
-		self.splash.finish(self)
+		#self.splash.finish(self)
+		self.splash.close()
 		self.showNormal()
 
 if __name__ == "__main__":
