@@ -455,7 +455,7 @@ class ControlPanel:
 		data = []
 		cursor = db.getCursor()
 		query = (
-			'SELECT m.mail_id, m.mail_acc, m.mail_addr, m.mail_type, m.mail_forward, m.quota, m.status, m.domain_id, m.alternative_addr \
+			'SELECT m.mail_id, m.mail_acc, m.mail_addr, m.mail_type, m.mail_forward, m.quota, m.status, m.domain_id, m.alternative_addr, \
 			q.bytes, FROM mail_users m LEFT JOIN quota_dovecot q ON m.mail_addr = q.username'
 		)
 		cursor.execute(query)
