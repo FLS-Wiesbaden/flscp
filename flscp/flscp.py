@@ -375,11 +375,8 @@ class MailForm(QDialog):
 		self.ui.setupUi(self)
 		self.account = account
 		self.orgAccount = copy.copy(account)
-
 		self.aborted = False
-
 		self.actions()
-
 		self.initFields()
 
 	def initFields(self):
@@ -422,10 +419,19 @@ class MailForm(QDialog):
 
 		if self.account.type == MailAccount.TYPE_ACCOUNT:
 			self.ui.fldTypeAccount.setChecked(True)
+			self.ui.fldTypeFwdSmtp.setChecked(False)
+			self.ui.fldTypeForward.setChecked(False)
+		elif self.account.type == MailAccount.TYPE_FWDSMTP:
+			self.ui.fldTypeAccount.setChecked(False)
+			self.ui.fldTypeFwdSmtp.setChecked(True)
 			self.ui.fldTypeForward.setChecked(False)
 		else:
 			self.ui.fldTypeAccount.setChecked(False)
+			self.ui.fldTypeFwdSmtp.setChecked(False)
 			self.ui.fldTypeForward.setChecked(True)
+
+		# quota
+		self.ui.fldQuota.setValue(self.account.getQuotaMb())
 
 	def actions(self):
 		self.ui.butForwardDel.clicked.connect(self.deleteMail)
@@ -498,7 +504,8 @@ class MailForm(QDialog):
 				self.ui.fldPwRepeat.setPalette(palette)
 				state = state and False
 
-		if self.ui.fldTypeForward.isChecked():
+		if self.ui.fldTypeForward.isChecked() \
+				or self.ui.fldTypeFwdSmtp.isChecked():
 			if self.ui.fldForward.count() <= 0:
 				palette = QPalette()
 				palette.setColor(self.ui.fldForward.backgroundRole(), QColor(255, 110, 110))
@@ -538,7 +545,7 @@ class MailForm(QDialog):
 			state = state and False		
 
 		# if mail account: pw or pw gen (but only on creation!)
-		if self.ui.fldTypeAccount.isChecked() \
+		if (self.ui.fldTypeAccount.isChecked() or self.ui.fldTypeFwdSmtp.isChecked()) \
 			and (self.account is None or self.account.state == MailAccount.STATE_CREATE) \
 			and len(self.ui.fldPw.text()) <= 0 \
 			and not self.ui.fldGenPw.isChecked():
@@ -575,6 +582,7 @@ class MailForm(QDialog):
 		self.account.altMail = self.ui.fldAltMail.text()
 		self.account.pw = self.ui.fldPw.text()
 		self.account.genPw = self.ui.fldGenPw.isChecked()
+		self.account.quota = self.ui.fldQuota.value()*1024*1024
 		self.account.forward = []
 		i = 0
 		while i < self.ui.fldForward.count():
@@ -582,6 +590,8 @@ class MailForm(QDialog):
 			i += 1
 		if self.ui.fldTypeAccount.isChecked():
 			self.account.type = MailAccount.TYPE_ACCOUNT
+		elif self.ui.fldTypeFwdSmtp.isChecked():
+			self.account.type = MailAccount.TYPE_FWDSMTP
 		elif self.ui.fldTypeForward.isChecked():
 			self.account.type = MailAccount.TYPE_FORWARD
 		self.account.state = MailAccount.STATE_CREATE
@@ -592,6 +602,7 @@ class MailForm(QDialog):
 		self.account.altMail = self.ui.fldAltMail.text()
 		self.account.pw = self.ui.fldPw.text()
 		self.account.genPw = self.ui.fldGenPw.isChecked()
+		self.account.quota = self.ui.fldQuota.value()*1024*1024
 		self.account.forward = []
 		i = 0
 		while i < self.ui.fldForward.count():
@@ -599,6 +610,8 @@ class MailForm(QDialog):
 			i += 1
 		if self.ui.fldTypeAccount.isChecked():
 			self.account.type = MailAccount.TYPE_ACCOUNT
+		elif self.ui.fldTypeFwdSmtp.isChecked():
+			self.account.type = MailAccount.TYPE_FWDSMTP
 		elif self.ui.fldTypeForward.isChecked():
 			self.account.type = MailAccount.TYPE_FORWARD
 
@@ -2192,11 +2205,19 @@ class FLScpMainWindow(QMainWindow):
 			if row.type == MailAccount.TYPE_ACCOUNT:
 				icon.addPixmap(QPixmap(":/typ/account.png"), QIcon.Normal, QIcon.Off)
 				item.setText(_translate("MainWindow", "Konto", None))
+			elif row.type == MailAccount.TYPE_FWDSMTP:
+				icon.addPixmap(QPixmap(":/typ/fwdsmtp.png"), QIcon.Normal, QIcon.Off)
+				item.setText(_translate("MainWindow", "Weiterleitung mit SMTP", None))
 			else:
 				icon.addPixmap(QPixmap(":/typ/forward.png"), QIcon.Normal, QIcon.Off)
 				item.setText(_translate("MainWindow", "Weiterleitung", None))
 			item.setIcon(icon)
 			self.ui.mailTable.setItem(rowNr, 2, item)
+			# quota (human readable)
+			item = QTableWidgetItem()
+			item.setText(row.getQuotaReadable())
+			item.setTextAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
+			self.ui.mailTable.setItem(rowNr, 3, item)
 			# status
 			item = QTableWidgetItem()
 			icon = QIcon()
@@ -2216,7 +2237,7 @@ class FLScpMainWindow(QMainWindow):
 				icon.addPixmap(QPixmap(":/status/warning.png"), QIcon.Normal, QIcon.Off)
 				item.setText(_translate("MainWindow", "Unbekannt", None))
 			item.setIcon(icon)
-			self.ui.mailTable.setItem(rowNr, 3, item)
+			self.ui.mailTable.setItem(rowNr, 4, item)
 
 		self.ui.mailTable.setSortingEnabled(True)
 

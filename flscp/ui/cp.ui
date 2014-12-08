@@ -723,6 +723,20 @@
           </column>
           <column>
            <property name="text">
+            <string>Quota</string>
+           </property>
+           <property name="font">
+            <font>
+             <weight>75</weight>
+             <bold>true</bold>
+            </font>
+           </property>
+           <property name="textAlignment">
+            <set>AlignRight|AlignVCenter</set>
+           </property>
+          </column>
+          <column>
+           <property name="text">
             <string>Status</string>
            </property>
            <property name="font">

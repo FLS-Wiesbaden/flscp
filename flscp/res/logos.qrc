@@ -6,6 +6,7 @@
     <file>fls_logo_60.png</file>
   </qresource>
   <qresource prefix="typ">
+    <file>fwdsmtp.png</file>
     <file>forward.png</file>
     <file>account.png</file>
   </qresource>

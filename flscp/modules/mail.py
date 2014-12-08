@@ -79,6 +79,7 @@ class MailAccountList:
 class MailAccount:
 	TYPE_ACCOUNT = 'account'
 	TYPE_FORWARD = 'forward'
+	TYPE_FWDSMTP = 'fwdsmtp'
 
 	STATE_OK = 'ok'
 	STATE_CHANGE = 'change'
@@ -205,6 +206,33 @@ class MailAccount:
 		log.info('Generating password for user %s' % (self.mail,))
 		self.pw = generate_pass(12)
 
+	def getQuota(self):
+		return self.quota
+
+	def getQuotaMb(self):
+		try:
+			return round(self.quota/1024/1024, 0)
+		except:
+			return 1
+
+	def getQuotaReadable(self):
+		try:
+			quotaKb = round(self.quota/1024, 0)
+		except TypeError:
+			return ''
+		quotaMb = round(self.quota/1024/1024, 0)
+		quotaGb = round(self.quota/1024/1024/1024, 0)
+		if quotaGb < 1:
+			if quotaMb < 1:
+				if quotaKb < 1:
+					return str(self.quota) + ' B'
+				else:
+					return str(quotaKb) + ' KB'
+			else:
+				return str(quotaMb) + ' MB'
+		else:
+			return str(quotaGb) + ' GB'
+
 	def save(self):
 		log = logging.getLogger('flscp')
 		conf = FLSConfig.getInstance()
@@ -244,6 +272,7 @@ class MailAccount:
 
 		cx = db.getCursor()
 		if (self.type == MailAccount.TYPE_ACCOUNT and self.hashPw != '') \
+			or (self.type == MailAccount.TYPE_FWDSMTP and self.hashPw != '') \
 			or self.type == MailAccount.TYPE_FORWARD:
 			query = (
 				'UPDATE mail_users SET mail_acc = %s, mail_pass = %s, mail_forward = %s, ' \
@@ -318,7 +347,8 @@ class MailAccount:
 		if len(self.altMail) > 0:
 			m = Mailer(self)
 			state = False
-			if self.type == MailAccount.TYPE_ACCOUNT:
+			if self.type == MailAccount.TYPE_ACCOUNT \
+					or self.type == MailAccount.TYPE_FWDSMTP:
 				state = m.changeAccount()
 			else:
 				state = m.changeForward()
@@ -454,7 +484,8 @@ class MailAccount:
 		if len(self.altMail) > 0:
 			m = Mailer(self)
 			state = False
-			if self.type == MailAccount.TYPE_ACCOUNT:
+			if self.type == MailAccount.TYPE_ACCOUNT \
+					or self.type == MailAccount.TYPE_FWDSMTP:
 				state = m.newAccount()
 			else:
 				state = m.newForward()
@@ -630,7 +661,11 @@ class MailAccount:
 			ma.domain = mail_addr.split('@')[1]
 			ma.altMail = alternative_addr
 			ma.forward = mail_forward.split(',')
-			ma.type = MailAccount.TYPE_ACCOUNT if mail_type == 'account' else MailAccount.TYPE_FORWARD
+			ma.type = MailAccount.TYPE_ACCONT
+			if mail_type == 'fwdsmtp':
+				ma.type = MailAccount.TYPE_FWDSMTP
+			elif mail_type == 'forward':
+				ma.type = MailAccount.TYPE_FORWARD
 			ma.status = status
 			ma.authCode = authcode
 			ma.authValid = authvalid
@@ -680,5 +715,6 @@ class MailAccount:
 		self.state = data['state']
 		self.pw = data['pw']
 		self.genPw = data['genPw']
+		self.quota = data['quota']
 
 		return self
