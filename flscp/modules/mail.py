@@ -679,14 +679,16 @@ class MailAccount:
 		query = ('SELECT * FROM mail_users WHERE mail_addr = %s')
 		cx.execute(query, ('%s' % (mail,),))
 		if cx is None:
-			try:
-				cx.close()
-			except:
-				pass
 			return None
 
 		try:
-			(mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, quota, mail_addr, alternative_addr, authcode, authvalid,) = cx.fetchone()
+			resultRow = cx.fetchone()
+		except:
+			log.info('No user found by mail %s' % (mail,))
+		return None
+
+		try:
+			(mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, quota, mail_addr, alternative_addr, authcode, authvalid,) = resultRow
 			ma.id = mail_id
 			ma.quota = quota
 			ma.mail = mail_acc
@@ -704,7 +706,7 @@ class MailAccount:
 			ma.authValid = authvalid
 		except Exception as e:
 			log = logging.getLogger('flscp')
-			log.critical('Got error: %s' % (e,))
+			log.critical('Got error in MailAccount::getByEMail: %s' % (e,))
 			cx.close()
 			return None
 		else:
