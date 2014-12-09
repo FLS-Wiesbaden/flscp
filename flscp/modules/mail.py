@@ -673,12 +673,14 @@ class MailAccount:
 
 	@classmethod
 	def getByEMail(self, mail):
+		log = logging.getLogger('flscp')
 		ma = MailAccount()
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
 		query = ('SELECT * FROM mail_users WHERE mail_addr = %s')
-		cx.execute(query, ('%s' % (mail,),))
+		cx.execute(query, (mail,))
 		if cx is None:
+			log.warning('Execution failed in MailAccount::getByEMail(%s).' % (mail,))
 			return None
 
 		try:
@@ -705,7 +707,6 @@ class MailAccount:
 			ma.authCode = authcode
 			ma.authValid = authvalid
 		except Exception as e:
-			log = logging.getLogger('flscp')
 			log.critical('Got error in MailAccount::getByEMail: %s' % (e,))
 			cx.close()
 			return None
