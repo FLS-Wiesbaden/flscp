@@ -687,7 +687,7 @@ class MailAccount:
 			resultRow = cx.fetchone()
 		except:
 			log.info('No user found by mail %s' % (mail,))
-		return None
+			return None
 
 		try:
 			(mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, quota, mail_addr, alternative_addr, authcode, authvalid,) = resultRow
