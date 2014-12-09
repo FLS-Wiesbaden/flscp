@@ -686,8 +686,16 @@ class MailAccount:
 		try:
 			resultRow = cx.fetchone()
 		except:
-			log.info('No user found by mail %s' % (mail,))
+			log.critical('Got error in MailAccount::getByEMail: %s' % (e,))
+			try:
+				cx.close()
+			except:
+				pass
 			return None
+		else:
+			if resultRow is None:
+				log.info('No user found by mail %s' % (mail,))
+				return None
 
 		try:
 			(mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, quota, mail_addr, alternative_addr, authcode, authvalid,) = resultRow
