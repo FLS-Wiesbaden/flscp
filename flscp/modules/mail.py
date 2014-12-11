@@ -301,21 +301,21 @@ class MailAccount:
 			query = (
 				'UPDATE mail_users SET mail_acc = %s, mail_pass = %s, mail_forward = %s, ' \
 				'domain_id = %s, mail_type = %s, status = %s, quota = %s, mail_addr = %s, ' \
-				'alternative_addr = %s, enabled = %i WHERE mail_id = %s'
+				'alternative_addr = %s, enabled = %s WHERE mail_id = %s'
 			)
 			params = (
 				self.mail, self.hashPw, ','.join(self.forward), d.id, self.type, self.state, self.quota, 
-				'%s@%s' % (self.mail, self.domain), self.altMail, int(self.enabled), self.id
+				'%s@%s' % (self.mail, self.domain), self.altMail, str(int(self.enabled)), self.id
 			)
 		else:
 			query = (
 				'UPDATE mail_users SET mail_acc = %s, mail_forward = %s, ' \
 				'domain_id = %s, mail_type = %s, status = %s, quota = %s, mail_addr = %s, ' \
-				'alternative_addr = %s, enabled = %i WHERE mail_id = %s'
+				'alternative_addr = %s, enabled = %s WHERE mail_id = %s'
 			)
 			params = (
 				self.mail, ','.join(self.forward), d.id, self.type, self.state, self.quota, 
-				'%s@%s' % (self.mail, self.domain), self.altMail, int(self.enabled), self.id
+				'%s@%s' % (self.mail, self.domain), self.altMail, str(int(self.enabled)), self.id
 			)
 
 		cx.execute(
@@ -479,13 +479,13 @@ class MailAccount:
 		cx = db.getCursor()
 		query = (
 			'INSERT INTO mail_users (mail_acc, mail_pass, mail_forward, domain_id, mail_type, status, quota, mail_addr, alternative_addr, enabled) ' \
-			'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %i)'
+			'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
 		)
 		cx.execute(
 			query, 
 			(
 				self.mail, self.hashPw, ','.join(self.forward), d.id, self.type, self.state, self.quota, 
-				'%s@%s' % (self.mail, self.domain), self.altMail, int(self.enabled)
+				'%s@%s' % (self.mail, self.domain), self.altMail, str(int(self.enabled))
 			)
 		)
 		db.commit()
