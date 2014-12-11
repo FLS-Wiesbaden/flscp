@@ -26,7 +26,7 @@ except:
 	fcntl = None
 
 __author__  = 'Lukas Schreiner'
-__copyright__ = 'Copyright (C) 2013 - 2014 Website-Team Friedrich-List-Schule-Wiesbaden'
+__copyright__ = 'Copyright (C) 2013 - 2015 Website-Team Friedrich-List-Schule-Wiesbaden'
 __version__ = '0.7'
 
 FORMAT = '%(asctime)-15s %(message)s'
@@ -456,10 +456,10 @@ class ControlPanel:
 		cursor = db.getCursor()
 		query = (
 			'SELECT m.mail_id, m.mail_acc, m.mail_addr, m.mail_type, m.mail_forward, m.quota, m.status, m.domain_id, m.alternative_addr, \
-			q.bytes FROM mail_users m LEFT JOIN quota_dovecot q ON m.mail_addr = q.username'
+			m.enabled, q.bytes FROM mail_users m LEFT JOIN quota_dovecot q ON m.mail_addr = q.username'
 		)
 		cursor.execute(query)
-		for (mail_id, mail_acc, mail_addr, mail_type, mail_forward, quota, status, domain_id, alternative_addr, usedBytes) in cursor:
+		for (mail_id, mail_acc, mail_addr, mail_type, mail_forward, quota, status, domain_id, alternative_addr, enabled, usedBytes) in cursor:
 			quotaSts = 0.00
 			if usedBytes is not None:
 				if usedBytes > 0 and quota > 0:
@@ -477,6 +477,7 @@ class ControlPanel:
 					'type': mail_type,
 					'pw': '',
 					'genPw': False,
+					'enabled': bool(enabled)
 					'quota': quota,
 					'quotaSts': quotaSts
 				}

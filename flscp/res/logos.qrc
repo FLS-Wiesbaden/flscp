@@ -28,6 +28,7 @@
     <file>warning.png</file>
   </qresource>
   <qresource prefix="actions">
+    <file>toggle.png</file>
     <file>calculator.png</file>
     <file>page_text.png</file>
     <file>clear_log.png</file>

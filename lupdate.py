@@ -161,7 +161,12 @@ class PythonFile:
 
 	def parseMessage(self, line, translateLine):
 		print('I have to create something for [%s] from line %s' % (translateLine, str(line),))
-		context, msg, disambig = translateLine
+		try:
+			context, msg, disambig = translateLine
+		except:
+			context, msg = translateLine
+			disambig = None
+			
 		if disambig == 'None':
 			disambig = None
 		m = Message(line, context, msg)

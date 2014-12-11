@@ -11,7 +11,7 @@ from ui.ui_output import *
 from ui.ui_domain import *
 from translator import CPTranslator
 from PyQt5 import QtCore
-from PyQt5.QtCore import pyqtSlot, pyqtSignal
+from PyQt5.QtCore import pyqtSlot, pyqtSignal, QRunnable, QThreadPool, QObject
 from PyQt5.QtGui import QIcon, QPixmap, QColor, QPalette, QBrush, QFont, QTextDocument
 from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QWidget, QDialog, QListWidgetItem, QMainWindow, QApplication
 from PyQt5.QtWidgets import QHeaderView, QProgressBar, QLabel, QAction, QMessageBox, QDialogButtonBox
@@ -32,7 +32,7 @@ except ImportError:
 	pass
 
 __author__  = 'Lukas Schreiner'
-__copyright__ = 'Copyright (C) 2013 - 2014 Website-Team Friedrich-List-Schule-Wiesbaden'
+__copyright__ = 'Copyright (C) 2013 - 2015 Website-Team Friedrich-List-Schule-Wiesbaden'
 __version__ = '0.7'
 
 FORMAT = '%(asctime)-15s %(message)s'
@@ -61,24 +61,80 @@ def _translate(context, text, disambig = None, param = None):
 	return cpTranslator.pyTranslate(context, text, disambig, param)
 
 ###### START LOADER ######
-class DataLoader(QtCore.QThread):
+class DataLoaderObject(QObject):
 	dataLoaded = pyqtSignal(list)
+	dataLoadedDict = pyqtSignal(dict)
 	certError = pyqtSignal(ssl.CertificateError)
 	socketError = pyqtSignal(socket.error)
 	protocolError = pyqtSignal(xmlrpc.client.ProtocolError)
 	unknownError = pyqtSignal(Exception)
 
-	def __init__(self, rpc, parent = None):
-		super().__init__(parent)
+	def __init__(self, **kwds):
+		super().__init__(**kwds)
+
+class DataLoader(QRunnable):
+
+	def __init__(self, rpc, **kwds):
+		super().__init__(**kwds)
+		self.__signals = DataLoaderObject()
 
 		self.rpc = rpc
 
 	def run(self):
+		# here we do some crazy stuff
+		log = logging.getLogger()
+		if log.level == logging.DEBUG:
+			startTime = datetime.datetime.now()
+
+		self.runChild()
+
+		if log.level == logging.DEBUG:
+			endTime = datetime.datetime.now()
+			log.debug('Needed %s seconds for %s' % ((endTime - startTime).total_seconds(), type(self).__name__))
+
+	def runChild(self):
 		pass
+
+	def dataLoaded():
+		def fget(self):
+			return self.__signals.dataLoaded
+		return locals()
+
+	def dataLoadedDict():
+		def fget(self):
+			return self.__signals.dataLoadedDict
+		return locals()
+
+	def certError():
+		def fget(self):
+			return self.__signals.certError
+		return locals()
+
+	def socketError():
+		def fget(self):
+			return self.__signals.socketError
+		return locals()
+
+	def protocolError():
+		def fget(self):
+			return self.__signals.protocolError
+		return locals()
+
+	def unknownError():
+		def fget(self):
+			return self.__signals.unknownError
+		return locals()
+
+	dataLoaded = property(**dataLoaded())
+	dataLoadedDict = property(**dataLoadedDict())
+	certError = property(**certError())
+	socketError = property(**socketError())
+	protocolError = property(**protocolError())
+	unknownError = property(**unknownError())
 
 class LogFileListLoader(DataLoader):
 
-	def run(self):
+	def runChild(self):
 		try:
 			data = self.rpc.getListOfLogs()
 		except ssl.CertificateError as e:
@@ -92,9 +148,33 @@ class LogFileListLoader(DataLoader):
 		else:
 			self.dataLoaded.emit(data)
 
+class LogFileLoader(DataLoader):
+
+	def setFile(self, fname):
+		self.fname = fname
+
+	def runChild(self):
+		if not hasattr(self, 'fname') or self.fname is None:
+			return
+
+		try:
+			data = self.rpc.getLogFile(self.fname)
+		except ssl.CertificateError as e:
+			self.certError.emit(e)
+		except socket.error as e:
+			self.socketError.emit(e)
+		except xmlrpc.client.ProtocolError as e:
+			self.protocolError.emit(e)
+		except Exception as e:
+			self.unknownError.emit(e)
+		else:
+			for i in range(0, len(data), 4000):
+				self.dataLoaded.emit([data[i:i + 4000]])
+				QtCore.QThread.msleep(50)
+
 class MailListLoader(DataLoader):
 
-	def run(self):
+	def runChild(self):
 		try:
 			data = self.rpc.getMails()
 		except ssl.CertificateError as e:
@@ -109,9 +189,8 @@ class MailListLoader(DataLoader):
 			self.dataLoaded.emit(data)
 
 class CertListLoader(DataLoader):
-	dataLoaded = pyqtSignal(dict)
 
-	def run(self):
+	def runChild(self):
 		try:
 			data = self.rpc.getCerts()
 		except ssl.CertificateError as e:
@@ -123,11 +202,11 @@ class CertListLoader(DataLoader):
 		except Exception as e:
 			self.unknownError.emit(e)
 		else:
-			self.dataLoaded.emit(data)
+			self.dataLoadedDict.emit(data)
 
 class DomainListLoader(DataLoader):
 
-	def run(self):
+	def runChild(self):
 		try:
 			data = self.rpc.getDomains()
 		except ssl.CertificateError as e:
@@ -142,13 +221,12 @@ class DomainListLoader(DataLoader):
 			self.dataLoaded.emit(data)
 
 class DnsListLoader(DataLoader):
-	dataLoaded = pyqtSignal(int, list)
 
-	def __init__(self, rpc, domainId = None, parent = None):
-		super().__init__(rpc, parent)
+	def __init__(self, rpc, domainId = None, **kwds):
+		super().__init__(rpc, **kwds)
 		self.domainId = domainId
 
-	def run(self):
+	def runChild(self):
 		try:
 			data = self.rpc.getDns(self.domainId)
 		except ssl.CertificateError as e:
@@ -160,7 +238,7 @@ class DnsListLoader(DataLoader):
 		except Exception as e:
 			self.unknownError.emit(e)
 		else:
-			self.dataLoaded.emit(self.domainId, data)
+			self.dataLoadedDict.emit({self.domainId: data})
 
 ###### END LOADER ######
 
@@ -917,9 +995,10 @@ class FlsServer(xmlrpc.client.ServerProxy):
 class FLScpMainWindow(QMainWindow):
 	execInit = pyqtSignal()
 
-	def __init__(self):
+	def __init__(self, app):
 		QMainWindow.__init__(self)
-		
+
+		self.app = app
 		self.ui = Ui_MainWindow()
 		self.ui.setupUi(self)
 		self.ui.mailTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -944,8 +1023,7 @@ class FLScpMainWindow(QMainWindow):
 		self.splash = CpSplashScreen(self, QPixmap(":/logo/splash.png"), 10)
 		self.splash.show()
 		self.splash.showMessage(_translate('SplashScreen', 'Lade Anwendung...'), 1, color=QColor(255, 255, 255))
-		self.splash.repaint()
-		QtCore.QCoreApplication.processEvents()
+		self.app.processEvents()
 
 		# check if certs exists!
 		if not os.path.exists(KEYFILE) or not os.path.exists(CERTFILE):
@@ -987,6 +1065,7 @@ class FLScpMainWindow(QMainWindow):
 		self.ui.butAdd.clicked.connect(self.addMail)
 		self.ui.butEdt.clicked.connect(self.editMail)
 		self.ui.butDel.clicked.connect(self.deleteMail)
+		self.ui.butState.clicked.connect(self.toggleStatusMail)
 		self.ui.butQuotaCalc.clicked.connect(self.calculateMailQuota)
 		self.ui.butReload.clicked.connect(self.reloadMailTable)
 		self.ui.butSave.clicked.connect(self.commitMailData)
@@ -1015,9 +1094,6 @@ class FLScpMainWindow(QMainWindow):
 		self.setupCertTable()
 
 	def showLoginUser(self):
-		#self.splash.showMessage('Loading user authentication...', color=QColor(255, 255, 255))
-		#self.splash.repaint()
-
 		pubkey = None
 		aborted = False
 		pk = None
@@ -1093,17 +1169,16 @@ class FLScpMainWindow(QMainWindow):
 	@pyqtSlot()
 	def reloadLogFileList(self):
 		self.enableProgressBar(self.ui.tabLog, _translate('MainWindow', 'Loading log file list...', None))
-		self.dataLoader = LogFileListLoader(self.rpc, self)
-		self.dataLoader.dataLoaded.connect(self.logFileListLoaded)
-		self.dataLoader.certError.connect(self.dataLoadCertError)
-		self.dataLoader.socketError.connect(self.dataLoadSocketError)
-		self.dataLoader.protocolError.connect(self.dataLoadProtocolError)
-		self.dataLoader.unknownError.connect(self.dataLoadError)
-		self.dataLoader.start()
+		dataLoader = LogFileListLoader(self.rpc)
+		dataLoader.dataLoaded.connect(self.logFileListLoaded)
+		dataLoader.certError.connect(self.dataLoadCertError)
+		dataLoader.socketError.connect(self.dataLoadSocketError)
+		dataLoader.protocolError.connect(self.dataLoadProtocolError)
+		dataLoader.unknownError.connect(self.dataLoadError)
+		QThreadPool.globalInstance().start(dataLoader)
 
 	@pyqtSlot(list)
 	def logFileListLoaded(self, data):
-		self.dataLoader = None
 		for f in data:
 			self.ui.fldLogFile.addItem(f)
 
@@ -1173,48 +1248,25 @@ class FLScpMainWindow(QMainWindow):
 		if logFile == '':
 			return
 
-		try:
-			logTxt = self.rpc.getLogFile(logFile)
-			self.ui.logText.setPlainText(logTxt)
-			self.ui.logText.setReadOnly(True)
-			self.ui.logText.setAcceptRichText(False)
-		except ssl.CertificateError as e:
-			log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
-			QMessageBox.critical(
-				self, _translate('MainWindow', 'Warnung', None), 
-				_translate('MainWindow', 
-					'Potentieller Angriff! Server-Zertifikat ist fehlerhaft! Bitte informieren Sie Ihren Administrator!', 
-					None),
-				QMessageBox.Ok, QMessageBox.Ok
-			)
-		except socket.error as e:
-			log.error('Connection to server lost!')
-			QMessageBox.critical(
-				self, _translate('MainWindow', 'Warnung', None), 
-				_translate('MainWindow', 
-					'Verbindung zum Server nicht möglich. Bitte versuchen Sie es später noch einmal.', 
-					None),
-				QMessageBox.Ok, QMessageBox.Ok
-			)
-		except xmlrpc.client.ProtocolError as e:
-			if e.errcode == 403:
-				log.warning('Missing rights for loading mails (%s)' % (e,))
-				QMessageBox.warning(
-					self, _translate('MainWindow', 'Fehlende Rechte', None), 
-					_translate('MainWindow', 
-						'Sie haben nicht ausreichend Rechte!', 
-						None),
-					QMessageBox.Ok, QMessageBox.Ok
-				)
-			else:
-				log.warning('Unexpected error in protocol: %s' % (e,))
-				QMessageBox.warning(
-					self, _translate('MainWindow', 'Unbekannter Fehler', None), 
-					_translate('MainWindow', 
-						'Unbekannter Fehler in der Kommunikation mit dem Server aufgetreten.', 
-						None),
-					QMessageBox.Ok, QMessageBox.Ok
-				)
+		self.ui.logText.setPlainText('')
+
+		self.enableProgressBar(self.ui.tabLog, _translate('MainWindow', 'Loading log file...', None))
+		dataLoader = LogFileLoader(self.rpc)
+		dataLoader.setFile(logFile)
+		dataLoader.dataLoaded.connect(self.logFileLoaded)
+		dataLoader.certError.connect(self.dataLoadCertError)
+		dataLoader.socketError.connect(self.dataLoadSocketError)
+		dataLoader.protocolError.connect(self.dataLoadProtocolError)
+		dataLoader.unknownError.connect(self.dataLoadError)
+		QThreadPool.globalInstance().start(dataLoader)
+
+	@pyqtSlot(list)
+	def logFileLoaded(self, data):
+		self.disableProgressBar()
+		self.ui.logText.insertPlainText(data[0])
+		#self.ui.logText.setPlainText(self.ui.logText.getPlainText() + data[0])
+		self.ui.logText.setReadOnly(True)
+		self.ui.logText.setAcceptRichText(False)
 
 	@pyqtSlot()
 	def clearLogFile(self):
@@ -1258,18 +1310,11 @@ class FLScpMainWindow(QMainWindow):
 	@pyqtSlot()
 	def init(self):
 		self.update()
-		# enable splash screen
-		#if self.splash.isVisible() and not self.loginNeeded:
-		#	self.splash.destroy()
-		#	self.update()
-		#	self.splash = QSplashScreen(self, QPixmap(":/logo/splash.png"))
-		#	self.splash.show()
 		self.splash.showMessage(_translate('SplashScreen', 'Lade Anwendung...'), 1, color=QColor(255, 255, 255))
-		self.splash.update()
-		self.update()
+		self.app.processEvents()
 
 		self.splash.showMessage(_translate('SplashScreen', 'Versuche mit dem Server zu verbinden...'), 2, color=QColor(255, 255, 255))
-		self.splash.update()
+		self.app.processEvents()
 		self.loginNeeded = True
 		
 		if self.rpc is not None:
@@ -1338,14 +1383,14 @@ class FLScpMainWindow(QMainWindow):
 
 			# connection possible - now check the version
 			self.splash.showMessage(_translate('SplashScreen', 'Prüfe Version...'), 4, color=QColor(255, 255, 255))
-			self.splash.update()
+			self.app.processEvents()
 			upToDate = self.rpc.upToDate(__version__)
 			if not upToDate:
 				self.updateVersion()
 
 			# load the data!
 			self.splash.showMessage(_translate('SplashScreen', 'Lade Domains...'), 7, color=QColor(255, 255, 255))
-			self.splash.update()
+			self.app.processEvents()
 
 			# domains
 			try:
@@ -1364,7 +1409,7 @@ class FLScpMainWindow(QMainWindow):
 
 			# load the data!
 			self.splash.showMessage(_translate('SplashScreen', 'Lade E-Mail-Adresse...'), 8, color=QColor(255, 255, 255))
-			self.splash.update()
+			self.app.processEvents()
 
 			# mails
 			try:
@@ -1381,7 +1426,7 @@ class FLScpMainWindow(QMainWindow):
 
 			# load the data!
 			self.splash.showMessage(_translate('SplashScreen', 'Lade Zertifikate...'), 9, color=QColor(255, 255, 255))
-			self.splash.update()
+			self.app.processEvents()
 
 			# certs
 			try:
@@ -1410,7 +1455,7 @@ class FLScpMainWindow(QMainWindow):
 
 	def updateVersion(self):
 		self.splash.showMessage(_translate('SplashScreen', 'Neue Version verfügbar. Lade herunter...'), 5, color=QColor(255, 255, 255))
-		self.splash.update()
+		self.app.processEvents()
 
 		try:
 			data = self.rpc.getCurrentVersion()
@@ -1425,7 +1470,7 @@ class FLScpMainWindow(QMainWindow):
 			)
 		else:
 			self.splash.showMessage(_translate('SplashScreen', 'Neue Version verfügbar. Installiere...'), 6, color=QColor(255, 255, 255))
-			self.splash.update()
+			self.app.processEvents()
 			# now save it!
 			data = base64.b64decode(data.encode('utf-8'))
 			d = tempfile.NamedTemporaryFile(suffix='.zip', delete=False)
@@ -1471,7 +1516,7 @@ class FLScpMainWindow(QMainWindow):
 
 	def initLoginCert(self):
 		self.splash.showMessage(_translate('SplashScreen', 'Warte auf Anmeldung...'), 3, color=QColor(255, 255, 255))
-		self.splash.update()
+		self.app.processEvents()
 
 		answer = QMessageBox.warning(
 			self, _translate('MainWindow', 'Login erforderlich', None), 
@@ -1680,13 +1725,13 @@ class FLScpMainWindow(QMainWindow):
 				self.disableProgressBar()
 		else:
 			self.enableProgressBar(self.ui.tabAdmins, _translate('MainWindow', 'Loading admin list...', None))
-			self.dataLoader = CertListLoader(self.rpc, self)
-			self.dataLoader.dataLoaded.connect(self.certListLoaded)
-			self.dataLoader.certError.connect(self.dataLoadCertError)
-			self.dataLoader.socketError.connect(self.dataLoadSocketError)
-			self.dataLoader.protocolError.connect(self.dataLoadProtocolError)
-			self.dataLoader.unknownError.connect(self.dataLoadError)
-			self.dataLoader.start()
+			dataLoader = CertListLoader(self.rpc)
+			dataLoader.dataLoadedDict.connect(self.certListLoaded)
+			dataLoader.certError.connect(self.dataLoadCertError)
+			dataLoader.socketError.connect(self.dataLoadSocketError)
+			dataLoader.protocolError.connect(self.dataLoadProtocolError)
+			dataLoader.unknownError.connect(self.dataLoadError)
+			QThreadPool.globalInstance().start(dataLoader)
 
 	@pyqtSlot(dict)
 	def certListLoaded(self, data):
@@ -1802,17 +1847,16 @@ class FLScpMainWindow(QMainWindow):
 				self.disableProgressBar()
 		else:
 			self.enableProgressBar(self.ui.tabMail, _translate('MainWindow', 'Loading mail list...', None))
-			self.dataLoader = MailListLoader(self.rpc, self)
-			self.dataLoader.dataLoaded.connect(self.mailListLoaded)
-			self.dataLoader.certError.connect(self.dataLoadCertError)
-			self.dataLoader.socketError.connect(self.dataLoadSocketError)
-			self.dataLoader.protocolError.connect(self.dataLoadProtocolError)
-			self.dataLoader.unknownError.connect(self.dataLoadError)
-			self.dataLoader.start()
+			dataLoader = MailListLoader(self.rpc)
+			dataLoader.dataLoaded.connect(self.mailListLoaded)
+			dataLoader.certError.connect(self.dataLoadCertError)
+			dataLoader.socketError.connect(self.dataLoadSocketError)
+			dataLoader.protocolError.connect(self.dataLoadProtocolError)
+			dataLoader.unknownError.connect(self.dataLoadError)
+			QThreadPool.globalInstance().start(dataLoader)
 
 	@pyqtSlot(list)
 	def mailListLoaded(self, data):
-		self.dataLoader = None
 		self.mails = MailAccountList()
 		for item in data:
 			self.mails.add(MailAccount.fromDict(item))
@@ -2224,6 +2268,14 @@ class FLScpMainWindow(QMainWindow):
 			item.setText(row.getQuotaStatus())
 			item.setTextAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
 			self.ui.mailTable.setItem(rowNr, 4, item)
+			# Enabled / Disabled
+			item = QTableWidgetItem()
+			if row.enabled:
+				item.setText(_translate('MainWindow', 'Ja'))
+			else:
+				item.setText(_translate('MainWindow', 'Nein'))
+			item.setTextAlignment(QtCore.Qt.AlignCenter|QtCore.Qt.AlignVCenter)
+			self.ui.mailTable.setItem(rowNr, 5, item)
 			# status
 			item = QTableWidgetItem()
 			icon = QIcon()
@@ -2246,7 +2298,7 @@ class FLScpMainWindow(QMainWindow):
 				icon.addPixmap(QPixmap(":/status/warning.png"), QIcon.Normal, QIcon.Off)
 				item.setText(_translate("MainWindow", "Unbekannt", None))
 			item.setIcon(icon)
-			self.ui.mailTable.setItem(rowNr, 5, item)
+			self.ui.mailTable.setItem(rowNr, 6, item)
 
 		self.ui.mailTable.setSortingEnabled(True)
 
@@ -2304,6 +2356,19 @@ class FLScpMainWindow(QMainWindow):
 					# do not remove (because we want to see the pending action!)
 					account.state = MailAccount.STATE_DELETE
 					log.info('state set to delete')
+
+		self.loadMailData()
+
+	@pyqtSlot()
+	def toggleStatusMail(self):
+		nrSelected = len(self.ui.mailTable.selectionModel().selectedRows())
+		log.info('Have to toggle %i items!' % (nrSelected,))
+
+		for selectedRow in self.ui.mailTable.selectionModel().selectedRows():
+			nr = self.ui.mailTable.item(selectedRow.row(), 0).text()
+			account = self.mails.findById(nr)
+			if account is not None:
+				account.toggleStatus()
 
 		self.loadMailData()
 
@@ -2872,32 +2937,33 @@ class FLScpMainWindow(QMainWindow):
 			# remove all entries for domain id
 			self.dns.removeByDomain(domainId)
 
-			self.dataLoader = DnsListLoader(self.rpc, domainId, self)
-			self.dataLoader.dataLoaded.connect(self.dnsDataLoaded)
-			self.dataLoader.certError.connect(self.dataLoadCertError)
-			self.dataLoader.socketError.connect(self.dataLoadSocketError)
-			self.dataLoader.protocolError.connect(self.dataLoadProtocolError)
-			self.dataLoader.unknownError.connect(self.dataLoadError)
-			self.dataLoader.start()
+			dataLoader = DnsListLoader(self.rpc, domainId)
+			dataLoader.dataLoadedDict.connect(self.dnsDataLoaded)
+			dataLoader.certError.connect(self.dataLoadCertError)
+			dataLoader.socketError.connect(self.dataLoadSocketError)
+			dataLoader.protocolError.connect(self.dataLoadProtocolError)
+			dataLoader.unknownError.connect(self.dataLoadError)
+			QThreadPool.globalInstance().start(dataLoader)
 
 	@pyqtSlot(int, list)
-	def dnsDataLoaded(self, domain, data):
+	def dnsDataLoaded(self, data):
 
-		for f in data:
-			d = Dns.fromDict(f)
-			# check if d already in dns
-			if d not in self.dns:
-				self.dns.add(d)
+		for domainId, entries in data.items():
+			for f in entries:
+				d = Dns.fromDict(f)
+				# check if d already in dns
+				if d not in self.dns:
+					self.dns.add(d)
 
-		if domain is not None:
-			self.loadDnsData(domain)
+			if domainId is not None:
+				self.loadDnsData(domainId)
 
 		self.disableProgressBar()
 
 	def loadDnsData(self, domainId):
 		if domainId not in self.ui.dnsTabs or \
 			domainId not in self.ui.dnsTable:
-			log.info('Got new data for domain #%s, but no table is open for that.' % (domainId,))
+			log.debug('Got new data for domain #%s, but no table is open for that.' % (domainId,))
 
 		dnsTab = self.ui.dnsTabs[domainId]
 		dnsTable = self.ui.dnsTable[domainId]
@@ -2906,14 +2972,14 @@ class FLScpMainWindow(QMainWindow):
 			log.warning('Should update table for domain #%s, but objects are not present.' % (domainId,))
 			return
 
-		log.info('Reload DNS-table for domain #%s' % (domainId,))
+		log.debug('Reload DNS-table for domain #%s' % (domainId,))
 
 		dnsTable.setSortingEnabled(False)
 		dnsTable.setRowCount(0)
 
 		# remove all notifier
 		if domainId in self.ui.dnsNotifier:
-			log.info(
+			log.debug(
 				'Found %i notifier. Have to remove them (but only if i\'ve found more than zero!\').' % (
 					len(self.ui.dnsNotifier[domainId]),
 				)
@@ -2926,8 +2992,8 @@ class FLScpMainWindow(QMainWindow):
 				self.ui.dnsNotifier[domainId].remove(f)
 			del(notifier)
 		else:
-			log.info('Found no notifier for domain.')
-		log.info('Found %i notifier. Expected: 0' % (len(self.ui.dnsNotifier[domainId]),))
+			log.debug('Found no notifier for domain.')
+		log.debug('Found %i notifier. Expected: 0' % (len(self.ui.dnsNotifier[domainId]),))
 
 		typeList = [
 			Dns.TYPE_SOA,
@@ -3699,10 +3765,10 @@ class FLScpMainWindow(QMainWindow):
 	def start(self):
 		# load the data!
 		self.splash.showMessage(_translate('SplashScreen', 'Starte Benutzeroberfläche...'), 10, color=QColor(255, 255, 255))
-		self.splash.update()
+		self.app.processEvents()
 
-		#self.splash.finish(self)
-		self.splash.close()
+		self.splash.finish(self)
+		#self.splash.close()
 		self.showNormal()
 
 if __name__ == "__main__":
@@ -3721,6 +3787,6 @@ if __name__ == "__main__":
 
 	app = QApplication(sys.argv)
 	app.installTranslator(cpTranslator.getTranslator())
-	ds = FLScpMainWindow()
+	ds = FLScpMainWindow(app)
 	QtCore.QTimer.singleShot(0, ds.init)
-	sys.exit(app.exec_())
+	app.exec()

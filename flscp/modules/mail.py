@@ -107,6 +107,7 @@ class MailAccount:
 		self.forward = []
 		self.authCode = None
 		self.authValid = None
+		self.enabled = True
 
 	def getMailAddress(self):
 		return '%s@%s' % (self.mail, self.domain)
@@ -179,6 +180,14 @@ class MailAccount:
 	def markQuotaCalc(self):
 		if self.state == MailAccount.STATE_OK:
 			self.state = MailAccount.STATE_QUOTA
+
+	def toggleStatus(self):
+		if self.enabled:
+			self.enabled = False
+		else:
+			self.enabled = True
+
+		self.state = MailAccount.STATE_CHANGE
 
 	# this is not allowed on client side! Only here....
 	def changePassword(self, pwd):
@@ -292,21 +301,21 @@ class MailAccount:
 			query = (
 				'UPDATE mail_users SET mail_acc = %s, mail_pass = %s, mail_forward = %s, ' \
 				'domain_id = %s, mail_type = %s, status = %s, quota = %s, mail_addr = %s, ' \
-				'alternative_addr = %s WHERE mail_id = %s'
+				'alternative_addr = %s, enabled = %i WHERE mail_id = %s'
 			)
 			params = (
 				self.mail, self.hashPw, ','.join(self.forward), d.id, self.type, self.state, self.quota, 
-				'%s@%s' % (self.mail, self.domain), self.altMail, self.id
+				'%s@%s' % (self.mail, self.domain), self.altMail, int(self.enabled), self.id
 			)
 		else:
 			query = (
 				'UPDATE mail_users SET mail_acc = %s, mail_forward = %s, ' \
 				'domain_id = %s, mail_type = %s, status = %s, quota = %s, mail_addr = %s, ' \
-				'alternative_addr = %s WHERE mail_id = %s'
+				'alternative_addr = %s, enabled = %i WHERE mail_id = %s'
 			)
 			params = (
 				self.mail, ','.join(self.forward), d.id, self.type, self.state, self.quota, 
-				'%s@%s' % (self.mail, self.domain), self.altMail, self.id
+				'%s@%s' % (self.mail, self.domain), self.altMail, int(self.enabled), self.id
 			)
 
 		cx.execute(
@@ -469,14 +478,14 @@ class MailAccount:
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
 		query = (
-			'INSERT INTO mail_users (mail_acc, mail_pass, mail_forward, domain_id, mail_type, status, quota, mail_addr, alternative_addr) ' \
-			'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)'
+			'INSERT INTO mail_users (mail_acc, mail_pass, mail_forward, domain_id, mail_type, status, quota, mail_addr, alternative_addr, enabled) ' \
+			'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %i)'
 		)
 		cx.execute(
 			query, 
 			(
 				self.mail, self.hashPw, ','.join(self.forward), d.id, self.type, self.state, self.quota, 
-				'%s@%s' % (self.mail, self.domain), self.altMail
+				'%s@%s' % (self.mail, self.domain), self.altMail, int(self.enabled)
 			)
 		)
 		db.commit()
@@ -642,7 +651,10 @@ class MailAccount:
 
 		# now add data:
 		if self.state in (MailAccount.STATE_CHANGE, MailAccount.STATE_CREATE):
-			cnt.append('%s\t%s' % (mailAddr, 'OK'))
+			if self.enabled:
+				cnt.append('%s\t%s' % (mailAddr, 'OK'))
+			else:
+				cnt.append('%s\t%s' % (mailAddr, '421 User is disabled at the moment'))
 
 		# now sort file
 		cnt.sort()
@@ -698,7 +710,7 @@ class MailAccount:
 				return None
 
 		try:
-			(mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, quota, mail_addr, alternative_addr, authcode, authvalid,) = resultRow
+			(mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, quota, mail_addr, alternative_addr, authcode, authvalid, enabled) = resultRow
 			ma.id = mail_id
 			ma.quota = quota
 			ma.mail = mail_acc
@@ -714,6 +726,7 @@ class MailAccount:
 			ma.status = status
 			ma.authCode = authcode
 			ma.authValid = authvalid
+			ma.enabled = bool(enabled)
 		except Exception as e:
 			log.critical('Got error in MailAccount::getByEMail: %s' % (e,))
 			cx.close()
@@ -738,6 +751,7 @@ class MailAccount:
 			self.altMail == obj.altMail and \
 			self.forward == obj.forward and \
 			self.state == obj.state and \
+			self.enabled == obj.enabled and \
 			self.quota == obj.quota:
 			return True
 		else:
@@ -759,6 +773,7 @@ class MailAccount:
 		self.state = data['state']
 		self.pw = data['pw']
 		self.genPw = data['genPw']
+		self.enabled = data['enabled']
 		self.quota = data['quota']
 		if 'quotaSts' in data:
 			self.quotaSts = data['quotaSts']
