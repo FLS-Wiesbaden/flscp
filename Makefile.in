@@ -39,7 +39,7 @@ run: all
 	$(PYTHON) $(PYPARM) $(buildDir)/$(PACKAGE)/flscp.py
 
 server: all
-	rm /var/run/flscp.sock
+	@if [ -e "/var/run/flscp.sock" ]; then rm /var/run/flscp.sock; fi
 	$(PYTHON) $(PYPARM) $(buildDir)/$(PACKAGE)/flscpserver.py
 
 translate:

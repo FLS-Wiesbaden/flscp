@@ -477,7 +477,7 @@ class ControlPanel:
 					'type': mail_type,
 					'pw': '',
 					'genPw': False,
-					'enabled': bool(enabled)
+					'enabled': bool(enabled),
 					'quota': quota,
 					'quotaSts': quotaSts
 				}
