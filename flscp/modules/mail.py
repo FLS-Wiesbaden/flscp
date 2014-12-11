@@ -654,7 +654,7 @@ class MailAccount:
 			if self.enabled:
 				cnt.append('%s\t%s' % (mailAddr, 'OK'))
 			else:
-				cnt.append('%s\t%s' % (mailAddr, '421 User is disabled at the moment'))
+				cnt.append('%s\t%s' % (mailAddr, '450 4.2.1 User is disabled at the moment'))
 
 		# now sort file
 		cnt.sort()
