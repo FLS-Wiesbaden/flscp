@@ -137,6 +137,12 @@ class MailAccount:
 		conf = FLSConfig.getInstance()
 		return os.path.join(conf.get('mailserver', 'basemailpath'), 'virtual', self.domain, self.mail)
 
+	def getMailDir(self):
+		return os.path.join(self.getHomeDir(), 'mails')
+
+	def getMailDirFormat(self):
+		return 'maildir:' + os.path.join('~', 'mails')
+
 	def authenticate(self, mech, pwd, cert = None):
 		conf = FLSConfig.getInstance()
 		log = logging.getLogger('flscp')
@@ -145,7 +151,7 @@ class MailAccount:
 			'userdb_home': '',
 			'userdb_uid': '',
 			'userdb_gid': '',
-			#'userdb_mail': '',
+			'userdb_mail': '',
 			'nopassword': 1
 		}
 		localPartDir = os.path.join(conf.get('mailserver', 'basemailpath'), 'virtual')
@@ -170,7 +176,7 @@ class MailAccount:
 			data['userdb_home'] = self.getHomeDir()
 			data['userdb_uid'] = conf.get('mailserver', 'uid')
 			data['userdb_gid'] = conf.get('mailserver', 'gid')
-			#data['userdb_mail'] = 'maildir:%s' % (username,)
+			data['userdb_mail'] = self.getMailDirFormat()
 
 			return data
 
@@ -654,7 +660,7 @@ class MailAccount:
 			if self.enabled:
 				cnt.append('%s\t%s' % (mailAddr, 'OK'))
 			else:
-				cnt.append('%s\t%s' % (mailAddr, '450 4.2.1 User is disabled at the moment'))
+				cnt.append('%s\t%s' % (mailAddr, '4508q 4.2.1 User is disabled at the moment'))
 
 		# now sort file
 		cnt.sort()
