@@ -22,6 +22,7 @@ Ihr Kennwort:
 Eingerichtete Weiterleitungen:
 %(forwarders)s
 
+Ihr Limit beträgt %(quota)s.
 
 Zu Ihrer Erinnerung:
 

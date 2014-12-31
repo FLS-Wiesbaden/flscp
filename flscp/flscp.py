@@ -1,17 +1,27 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# vim: fenc=utf-8:ts=8:sw=8:si:sta:noet
 from logging.handlers import WatchedFileHandler
 from ansistrm import ColorizingStreamHandler
 from ui.ui_cp import *
 from ui.ui_about import *
 from ui.ui_mailform import *
 from ui.ui_maileditor import *
-from PyQt4.QtCore import pyqtSlot, pyqtSignal
-from PyQt4 import QtGui
-from PyQt4 import QtCore
+from ui.ui_output import *
+from ui.ui_domain import *
+from translator import CPTranslator
+from PyQt5 import QtCore
+from PyQt5.QtCore import pyqtSlot, pyqtSignal, QRunnable, QThreadPool, QObject
+from PyQt5.QtGui import QIcon, QPixmap, QColor, QPalette, QBrush, QFont, QTextDocument
+from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QWidget, QDialog, QListWidgetItem, QMainWindow, QApplication
+from PyQt5.QtWidgets import QHeaderView, QProgressBar, QLabel, QAction, QMessageBox, QDialogButtonBox
+from PyQt5.QtWidgets import QLineEdit, QInputDialog, QTreeWidget, QFileDialog, QComboBox, QWhatsThis
+from PyQt5.QtWidgets import QVBoxLayout, QAbstractItemView, QTreeWidgetItem
 from Printer import Printer
-import logging, os, sys, re, copy, uuid, zlib, xmlrpc.client, http.client, ssl, socket, datetime
+import logging, os, sys, copy, xmlrpc.client, http.client, ssl, socket, datetime
+# import re, zlib, uuid
 import tempfile, zipfile, base64
+from flssplash import CpSplashScreen
 from modules import flscertification
 from modules.domain import DomainList, Domain
 from modules.dns import DNSList, Dns
@@ -22,8 +32,8 @@ except ImportError:
 	pass
 
 __author__  = 'Lukas Schreiner'
-__copyright__ = 'Copyright (C) 2013 - 2014 Website-Team Friedrich-List-Schule-Wiesbaden'
-__version__ = '0.5'
+__copyright__ = 'Copyright (C) 2013 - 2015 Website-Team Friedrich-List-Schule-Wiesbaden'
+__version__ = '0.7'
 
 FORMAT = '%(asctime)-15s %(message)s'
 formatter = logging.Formatter(FORMAT, datefmt='%b %d %H:%M:%S')
@@ -46,34 +56,85 @@ KEYFILE 		= 'certs/clientKey.pem'
 CERTFILE 		= 'certs/clientCert.pem'
 CACERT 			= 'certs/cacert.pem'
 ### CONFIGURE END ###
-
-try:
-	_encoding = QtGui.QApplication.UnicodeUTF8
-	def _translate(context, text, disambig):
-		return QtGui.QApplication.translate(context, text, disambig, _encoding)
-except AttributeError:
-	def _translate(context, text, disambig):
-		return QtGui.QApplication.translate(context, text, disambig)
+cpTranslator = CPTranslator(os.path.join(workDir, 'l18n'))
+def _translate(context, text, disambig = None, param = None):
+	return cpTranslator.pyTranslate(context, text, disambig, param)
 
 ###### START LOADER ######
-class DataLoader(QtCore.QThread):
+class DataLoaderObject(QObject):
 	dataLoaded = pyqtSignal(list)
+	dataLoadedDict = pyqtSignal(dict)
 	certError = pyqtSignal(ssl.CertificateError)
 	socketError = pyqtSignal(socket.error)
 	protocolError = pyqtSignal(xmlrpc.client.ProtocolError)
 	unknownError = pyqtSignal(Exception)
 
-	def __init__(self, rpc, parent = None):
-		super().__init__(parent)
+	def __init__(self, **kwds):
+		super().__init__(**kwds)
+
+class DataLoader(QRunnable):
+
+	def __init__(self, rpc, **kwds):
+		super().__init__(**kwds)
+		self.__signals = DataLoaderObject()
 
 		self.rpc = rpc
 
 	def run(self):
+		# here we do some crazy stuff
+		log = logging.getLogger()
+		if log.level == logging.DEBUG:
+			startTime = datetime.datetime.now()
+
+		self.runChild()
+
+		if log.level == logging.DEBUG:
+			endTime = datetime.datetime.now()
+			log.debug('Needed %s seconds for %s' % ((endTime - startTime).total_seconds(), type(self).__name__))
+
+	def runChild(self):
 		pass
+
+	def dataLoaded():
+		def fget(self):
+			return self.__signals.dataLoaded
+		return locals()
+
+	def dataLoadedDict():
+		def fget(self):
+			return self.__signals.dataLoadedDict
+		return locals()
+
+	def certError():
+		def fget(self):
+			return self.__signals.certError
+		return locals()
+
+	def socketError():
+		def fget(self):
+			return self.__signals.socketError
+		return locals()
+
+	def protocolError():
+		def fget(self):
+			return self.__signals.protocolError
+		return locals()
+
+	def unknownError():
+		def fget(self):
+			return self.__signals.unknownError
+		return locals()
+
+	dataLoaded = property(**dataLoaded())
+	dataLoadedDict = property(**dataLoadedDict())
+	certError = property(**certError())
+	socketError = property(**socketError())
+	protocolError = property(**protocolError())
+	unknownError = property(**unknownError())
 
 class LogFileListLoader(DataLoader):
 
-	def run(self):
+	def runChild(self):
 		try:
 			data = self.rpc.getListOfLogs()
 		except ssl.CertificateError as e:
@@ -87,9 +148,33 @@ class LogFileListLoader(DataLoader):
 		else:
 			self.dataLoaded.emit(data)
 
+class LogFileLoader(DataLoader):
+
+	def setFile(self, fname):
+		self.fname = fname
+
+	def runChild(self):
+		if not hasattr(self, 'fname') or self.fname is None:
+			return
+
+		try:
+			data = self.rpc.getLogFile(self.fname)
+		except ssl.CertificateError as e:
+			self.certError.emit(e)
+		except socket.error as e:
+			self.socketError.emit(e)
+		except xmlrpc.client.ProtocolError as e:
+			self.protocolError.emit(e)
+		except Exception as e:
+			self.unknownError.emit(e)
+		else:
+			for i in range(0, len(data), 4000):
+				self.dataLoaded.emit([data[i:i + 4000]])
+				QtCore.QThread.msleep(50)
+
 class MailListLoader(DataLoader):
 
-	def run(self):
+	def runChild(self):
 		try:
 			data = self.rpc.getMails()
 		except ssl.CertificateError as e:
@@ -104,9 +189,8 @@ class MailListLoader(DataLoader):
 			self.dataLoaded.emit(data)
 
 class CertListLoader(DataLoader):
-	dataLoaded = pyqtSignal(dict)
 
-	def run(self):
+	def runChild(self):
 		try:
 			data = self.rpc.getCerts()
 		except ssl.CertificateError as e:
@@ -118,11 +202,11 @@ class CertListLoader(DataLoader):
 		except Exception as e:
 			self.unknownError.emit(e)
 		else:
-			self.dataLoaded.emit(data)
+			self.dataLoadedDict.emit(data)
 
 class DomainListLoader(DataLoader):
 
-	def run(self):
+	def runChild(self):
 		try:
 			data = self.rpc.getDomains()
 		except ssl.CertificateError as e:
@@ -137,13 +221,12 @@ class DomainListLoader(DataLoader):
 			self.dataLoaded.emit(data)
 
 class DnsListLoader(DataLoader):
-	dataLoaded = pyqtSignal(int, list)
 
-	def __init__(self, rpc, domainId = None, parent = None):
-		super().__init__(rpc, parent)
+	def __init__(self, rpc, domainId = None, **kwds):
+		super().__init__(rpc, **kwds)
 		self.domainId = domainId
 
-	def run(self):
+	def runChild(self):
 		try:
 			data = self.rpc.getDns(self.domainId)
 		except ssl.CertificateError as e:
@@ -155,17 +238,16 @@ class DnsListLoader(DataLoader):
 		except Exception as e:
 			self.unknownError.emit(e)
 		else:
-			self.dataLoaded.emit(self.domainId, data)
-
+			self.dataLoadedDict.emit({self.domainId: data})
 
 ###### END LOADER ######
 
 ###### START NOTIFIER ######
 class CellChangeNotifier(QtCore.QObject):
 	# Emitted when a widget changed: <table>, <id (dns, domain,..)>, <widget>
-	tableWidgetChanged = pyqtSignal(QtGui.QTableWidget, str, QtGui.QWidget)
+	tableWidgetChanged = pyqtSignal(QTableWidget, str, QWidget)
 	# Emitted when a widget item changed: <table>, <id (dns, domain,..)>, <widgetitem>
-	tableItemChanged = pyqtSignal(QtGui.QTableWidget, str, QtGui.QTableWidgetItem)
+	tableItemChanged = pyqtSignal(QTableWidget, str, QTableWidgetItem)
 
 	def __init__(self, table):
 		super().__init__()
@@ -207,7 +289,7 @@ class CellChangeNotifier(QtCore.QObject):
 
 class WidgetTableChangeNotifier(QtCore.QObject):
 	# Triggered, when index changed: <table>, <row>, <col>, <id>, <widget>, <value>
-	widgetIndexChanged = pyqtSignal(QtGui.QTableWidget, int, int, str, QtGui.QWidget, str)
+	widgetIndexChanged = pyqtSignal(QTableWidget, int, int, str, QWidget, str)
 
 	def __init__(self, table, row, col, widget):
 		super().__init__()
@@ -246,21 +328,21 @@ class DnsStateChangeObserver(QtCore.QObject):
 
 	@pyqtSlot(str)
 	def stateChanged(self, state):
-		icon = QtGui.QIcon()
+		icon = QIcon()
 		if state == Dns.STATE_OK:
-			icon.addPixmap(QtGui.QPixmap(":/status/ok.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+			icon.addPixmap(QPixmap(":/status/ok.png"), QIcon.Normal, QIcon.Off)
 			self.__item.setText(_translate("MainWindow", "OK", None))
 		elif state == Dns.STATE_CREATE:
-			icon.addPixmap(QtGui.QPixmap(":/status/state_add.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+			icon.addPixmap(QPixmap(":/status/state_add.png"), QIcon.Normal, QIcon.Off)
 			self.__item.setText(_translate("MainWindow", "wird hinzugefügt", None))
 		elif state == Dns.STATE_CHANGE:
-			icon.addPixmap(QtGui.QPixmap(":/status/waiting.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+			icon.addPixmap(QPixmap(":/status/waiting.png"), QIcon.Normal, QIcon.Off)
 			self.__item.setText(_translate("MainWindow", "wird geändert", None))
 		elif state == Dns.STATE_DELETE:
-			icon.addPixmap(QtGui.QPixmap(":/status/trash.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+			icon.addPixmap(QPixmap(":/status/trash.png"), QIcon.Normal, QIcon.Off)
 			self.__item.setText(_translate("MainWindow", "wird gelöscht", None))
 		else:
-			icon.addPixmap(QtGui.QPixmap(":/status/warning.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+			icon.addPixmap(QPixmap(":/status/warning.png"), QIcon.Normal, QIcon.Off)
 			self.__item.setText(_translate("MainWindow", "Unbekannt", None))
 
 		self.__item.setIcon(icon)
@@ -269,9 +351,9 @@ class DnsStateChangeObserver(QtCore.QObject):
 ###### END NOTIFIER ######
 
 ###### START WINDOWS ######
-class FlsCpAbout(QtGui.QDialog):
+class FlsCpAbout(QDialog):
 	def __init__(self, parentMain):
-		QtGui.QDialog.__init__(self, parent=parentMain)
+		super().__init__(parent=parentMain)
 
 		self.ui = Ui_About()
 		self.ui.setupUi(self)
@@ -295,10 +377,26 @@ class FlsCpAbout(QtGui.QDialog):
 
 		self.show()
 
-class MailEditor(QtGui.QDialog):
+class FlsCpOutput(QDialog):
+	def __init__(self, parentMain = None):
+		super().__init__(parent=parentMain)
+
+		self.ui = Ui_OutputDialog()
+		self.ui.setupUi(self)
+
+	def setText(self, text):
+		self.ui.plainTextEdit.setPlainText(text)
+
+	@pyqtSlot(str)
+	def showOutput(self, text):
+		print(text)
+		self.setText(text)
+		self.show()
+
+class MailEditor(QDialog):
 	
 	def __init__(self, parent):
-		QtGui.QDialog.__init__(self, parent=parent)
+		super().__init__(parent=parent)
 
 		self.accepted = False
 		self.ui = Ui_MailEditor()
@@ -307,8 +405,8 @@ class MailEditor(QtGui.QDialog):
 		self.ui.buttonBox.accepted.connect(self.setAcceptState)
 		self.ui.buttonBox.rejected.connect(self.setRejectState)
 
-		buttonRole = dict((x, n) for x, n in vars(QtGui.QDialogButtonBox).items() if \
-				isinstance(n, QtGui.QDialogButtonBox.StandardButton))
+		buttonRole = dict((x, n) for x, n in vars(QDialogButtonBox).items() if \
+				isinstance(n, QDialogButtonBox.StandardButton))
 		self.okButton = self.ui.buttonBox.button(buttonRole['Ok'])
 		if self.okButton is not None:
 			# we found button!!!
@@ -322,14 +420,14 @@ class MailEditor(QtGui.QDialog):
 	@pyqtSlot()
 	def checkValidMail(self):
 		log.debug('Check valid mail!!!!')
-		palette = QtGui.QPalette()
+		palette = QPalette()
 
 		if len(self.ui.fldMail.text().strip()) == 0 \
 				or not MailValidator(self.ui.fldMail.text()):
-			palette.setColor(self.ui.fldMail.backgroundRole(), QtGui.QColor(255, 110, 110))
+			palette.setColor(self.ui.fldMail.backgroundRole(), QColor(255, 110, 110))
 			self.okButton.setDisabled(True)
 		else:
-			palette.setColor(self.ui.fldMail.backgroundRole(), QtGui.QColor(151, 255, 139))
+			palette.setColor(self.ui.fldMail.backgroundRole(), QColor(151, 255, 139))
 			self.okButton.setDisabled(False)
 
 		self.ui.fldMail.setPalette(palette)
@@ -345,28 +443,28 @@ class MailEditor(QtGui.QDialog):
 	def getValue(self):
 		return self.ui.fldMail.text()
 
-class MailForm(QtGui.QDialog):
+class MailForm(QDialog):
 	
 	def __init__(self, parent, account = None):
-		QtGui.QDialog.__init__(self, parent=parent)
+		super().__init__(parent=parent)
 		self.rpc = FlsServer.getInstance()
 
 		self.ui = Ui_MailForm()
 		self.ui.setupUi(self)
 		self.account = account
 		self.orgAccount = copy.copy(account)
-
 		self.aborted = False
-
 		self.actions()
-
 		self.initFields()
 
 	def initFields(self):
+		dl = DomainList()
 		# load domains
 		try:
 			for f in self.rpc.getDomains():
-				self.ui.fldDomain.addItem(f['domain'], f['id'])
+				d = Domain.fromDict(f)
+				dl.add(d)
+				#self.ui.fldDomain.addItem(f['fullDomain'], f['id'])
 		except ssl.CertificateError as e:
 			log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
 		except socket.error as e:
@@ -376,6 +474,9 @@ class MailForm(QtGui.QDialog):
 				log.warning('Missing rights for loading mails (%s)' % (e,))
 			else:
 				log.warning('Unexpected error in protocol: %s' % (e,))
+
+		for domain in dl:
+			self.ui.fldDomain.addItem(domain.getFullDomain(dl), domain.id)
 		
 		if self.account is None:
 			return
@@ -390,16 +491,25 @@ class MailForm(QtGui.QDialog):
 
 		self.ui.fldAltMail.setText(self.account.altMail)
 		for f in self.account.forward:
-			item = QtGui.QListWidgetItem()
+			item = QListWidgetItem()
 			item.setText(f)
 			self.ui.fldForward.addItem(item)
 
 		if self.account.type == MailAccount.TYPE_ACCOUNT:
 			self.ui.fldTypeAccount.setChecked(True)
+			self.ui.fldTypeFwdSmtp.setChecked(False)
+			self.ui.fldTypeForward.setChecked(False)
+		elif self.account.type == MailAccount.TYPE_FWDSMTP:
+			self.ui.fldTypeAccount.setChecked(False)
+			self.ui.fldTypeFwdSmtp.setChecked(True)
 			self.ui.fldTypeForward.setChecked(False)
 		else:
 			self.ui.fldTypeAccount.setChecked(False)
+			self.ui.fldTypeFwdSmtp.setChecked(False)
 			self.ui.fldTypeForward.setChecked(True)
+
+		# quota
+		self.ui.fldQuota.setValue(self.account.getQuotaMb())
 
 	def actions(self):
 		self.ui.butForwardDel.clicked.connect(self.deleteMail)
@@ -433,94 +543,95 @@ class MailForm(QtGui.QDialog):
 		]
 
 		for item in items:
-			palette = QtGui.QPalette()
+			palette = QPalette()
 			item.setPalette(palette)
 
 		state = True
 
 		if len(self.ui.fldMail.text()) <= 0:
-			palette = QtGui.QPalette()
-			palette.setColor(self.ui.fldMail.backgroundRole(), QtGui.QColor(255, 110, 110))
+			palette = QPalette()
+			palette.setColor(self.ui.fldMail.backgroundRole(), QColor(255, 110, 110))
 			self.ui.fldMail.setPalette(palette)
 			state = state and False
 
 		if len(self.ui.fldDomain.currentText().strip()) <= 0:
-			palette = QtGui.QPalette()
-			palette.setColor(self.ui.fldDomain.backgroundRole(), QtGui.QColor(255, 110, 110))
+			palette = QPalette()
+			palette.setColor(self.ui.fldDomain.backgroundRole(), QColor(255, 110, 110))
 			self.ui.fldDomain.setPalette(palette)
 			state = state and False
 
 		# check domain:
 		if len(self.ui.fldMail.text()) > 0 and len(self.ui.fldDomain.currentText().strip()) > 0 \
 			and not MailValidator('%s@%s' % (self.ui.fldMail.text(), self.ui.fldDomain.currentText())):
-			palette = QtGui.QPalette()
-			palette.setColor(self.ui.fldMail.backgroundRole(), QtGui.QColor(255, 110, 110))
+			palette = QPalette()
+			palette.setColor(self.ui.fldMail.backgroundRole(), QColor(255, 110, 110))
 			self.ui.fldMail.setPalette(palette)
-			palette = QtGui.QPalette()
-			palette.setColor(self.ui.fldDomain.backgroundRole(), QtGui.QColor(255, 110, 110))
+			palette = QPalette()
+			palette.setColor(self.ui.fldDomain.backgroundRole(), QColor(255, 110, 110))
 			self.ui.fldDomain.setPalette(palette)
 			state = state and False
 
 		if len(self.ui.fldPw.text()) > 0 \
 			or len(self.ui.fldPwRepeat.text()) > 0:
 			if self.ui.fldPw.text() != self.ui.fldPwRepeat.text():
-				palette = QtGui.QPalette()
-				palette.setColor(self.ui.fldPw.backgroundRole(), QtGui.QColor(255, 110, 110))
+				palette = QPalette()
+				palette.setColor(self.ui.fldPw.backgroundRole(), QColor(255, 110, 110))
 				self.ui.fldPw.setPalette(palette)
-				palette = QtGui.QPalette()
-				palette.setColor(self.ui.fldPwRepeat.backgroundRole(), QtGui.QColor(255, 110, 110))
+				palette = QPalette()
+				palette.setColor(self.ui.fldPwRepeat.backgroundRole(), QColor(255, 110, 110))
 				self.ui.fldPwRepeat.setPalette(palette)
 				state = state and False
 
-		if self.ui.fldTypeForward.isChecked():
+		if self.ui.fldTypeForward.isChecked() \
+				or self.ui.fldTypeFwdSmtp.isChecked():
 			if self.ui.fldForward.count() <= 0:
-				palette = QtGui.QPalette()
-				palette.setColor(self.ui.fldForward.backgroundRole(), QtGui.QColor(255, 110, 110))
+				palette = QPalette()
+				palette.setColor(self.ui.fldForward.backgroundRole(), QColor(255, 110, 110))
 				self.ui.fldForward.setPalette(palette)
 				state = state and False
 			elif not self.forwardMailsValid():
-				palette = QtGui.QPalette()
-				palette.setColor(self.ui.fldForward.backgroundRole(), QtGui.QColor(255, 110, 110))
+				palette = QPalette()
+				palette.setColor(self.ui.fldForward.backgroundRole(), QColor(255, 110, 110))
 				self.ui.fldForward.setPalette(palette)
 				state = state and False
 
 		# fields have to be filled (like mail, domain,...)
 		self.ui.fldMail.setText(self.ui.fldMail.text().strip())
 		if len(self.ui.fldMail.text()) <= 0:
-			palette = QtGui.QPalette()
-			palette.setColor(self.ui.fldMail.backgroundRole(), QtGui.QColor(255, 110, 110))
+			palette = QPalette()
+			palette.setColor(self.ui.fldMail.backgroundRole(), QColor(255, 110, 110))
 			self.ui.fldMail.setPalette(palette)
 			state = state and False
 
 		self.ui.fldAltMail.setText(self.ui.fldAltMail.text().strip())
 		if len(self.ui.fldAltMail.text()) <= 0 \
 			or not MailValidator(self.ui.fldAltMail.text()):
-			palette = QtGui.QPalette()
-			palette.setColor(self.ui.fldAltMail.backgroundRole(), QtGui.QColor(255, 110, 110))
+			palette = QPalette()
+			palette.setColor(self.ui.fldAltMail.backgroundRole(), QColor(255, 110, 110))
 			self.ui.fldAltMail.setPalette(palette)
 			state = state and False
 
 		# if mail forward: no pw and no pw gen!
 		if self.ui.fldTypeForward.isChecked() \
 			and (len(self.ui.fldPw.text()) > 0 or self.ui.fldGenPw.isChecked()):
-			palette = QtGui.QPalette()
-			palette.setColor(self.ui.fldGenPw.backgroundRole(), QtGui.QColor(255, 110, 110))
+			palette = QPalette()
+			palette.setColor(self.ui.fldGenPw.backgroundRole(), QColor(255, 110, 110))
 			self.ui.fldGenPw.setPalette(palette)
-			palette = QtGui.QPalette()
-			palette.setColor(self.ui.fldPw.backgroundRole(), QtGui.QColor(255, 110, 110))
+			palette = QPalette()
+			palette.setColor(self.ui.fldPw.backgroundRole(), QColor(255, 110, 110))
 			self.ui.fldPw.setPalette(palette)
 			state = state and False		
 
 		# if mail account: pw or pw gen (but only on creation!)
-		if self.ui.fldTypeAccount.isChecked() \
+		if (self.ui.fldTypeAccount.isChecked() or self.ui.fldTypeFwdSmtp.isChecked()) \
 			and (self.account is None or self.account.state == MailAccount.STATE_CREATE) \
 			and len(self.ui.fldPw.text()) <= 0 \
 			and not self.ui.fldGenPw.isChecked():
-			palette = QtGui.QPalette()
-			palette.setColor(self.ui.fldGenPw.backgroundRole(), QtGui.QColor(255, 110, 110))
+			palette = QPalette()
+			palette.setColor(self.ui.fldGenPw.backgroundRole(), QColor(255, 110, 110))
 			self.ui.fldGenPw.setPalette(palette)
-			palette = QtGui.QPalette()
-			palette.setColor(self.ui.fldPw.backgroundRole(), QtGui.QColor(255, 110, 110))
+			palette = QPalette()
+			palette.setColor(self.ui.fldPw.backgroundRole(), QColor(255, 110, 110))
 			self.ui.fldPw.setPalette(palette)
 			state = state and False
 
@@ -533,10 +644,10 @@ class MailForm(QtGui.QDialog):
 		while i < self.ui.fldForward.count():
 			item = self.ui.fldForward.item(i)
 			if len(item.text().strip()) == 0 or not MailValidator(item.text()):
-				item.setBackground(QtGui.QBrush(QtGui.QColor(255, 110, 110)))
+				item.setBackground(QBrush(QColor(255, 110, 110)))
 				state = state and False
 			else:
-				item.setBackground(QtGui.QBrush(QtGui.QColor(151, 255, 139)))
+				item.setBackground(QBrush(QColor(151, 255, 139)))
 			i += 1
 
 		return state
@@ -549,6 +660,7 @@ class MailForm(QtGui.QDialog):
 		self.account.altMail = self.ui.fldAltMail.text()
 		self.account.pw = self.ui.fldPw.text()
 		self.account.genPw = self.ui.fldGenPw.isChecked()
+		self.account.quota = self.ui.fldQuota.value()*1024*1024
 		self.account.forward = []
 		i = 0
 		while i < self.ui.fldForward.count():
@@ -556,6 +668,8 @@ class MailForm(QtGui.QDialog):
 			i += 1
 		if self.ui.fldTypeAccount.isChecked():
 			self.account.type = MailAccount.TYPE_ACCOUNT
+		elif self.ui.fldTypeFwdSmtp.isChecked():
+			self.account.type = MailAccount.TYPE_FWDSMTP
 		elif self.ui.fldTypeForward.isChecked():
 			self.account.type = MailAccount.TYPE_FORWARD
 		self.account.state = MailAccount.STATE_CREATE
@@ -566,6 +680,7 @@ class MailForm(QtGui.QDialog):
 		self.account.altMail = self.ui.fldAltMail.text()
 		self.account.pw = self.ui.fldPw.text()
 		self.account.genPw = self.ui.fldGenPw.isChecked()
+		self.account.quota = self.ui.fldQuota.value()*1024*1024
 		self.account.forward = []
 		i = 0
 		while i < self.ui.fldForward.count():
@@ -573,6 +688,8 @@ class MailForm(QtGui.QDialog):
 			i += 1
 		if self.ui.fldTypeAccount.isChecked():
 			self.account.type = MailAccount.TYPE_ACCOUNT
+		elif self.ui.fldTypeFwdSmtp.isChecked():
+			self.account.type = MailAccount.TYPE_FWDSMTP
 		elif self.ui.fldTypeForward.isChecked():
 			self.account.type = MailAccount.TYPE_FORWARD
 
@@ -584,18 +701,18 @@ class MailForm(QtGui.QDialog):
 		else:
 			log.info('Account is unchanged!')
 
-	@pyqtSlot(QtGui.QListWidgetItem)
+	@pyqtSlot(QListWidgetItem)
 	def mailChanged(self, item):
 		log.info('Cell changed:')
 		# check state
 		if len(item.text().strip()) == 0 or not MailValidator(item.text()):
-			item.setBackground(QtGui.QBrush(QtGui.QColor(255, 110, 110)))
+			item.setBackground(QBrush(QColor(255, 110, 110)))
 		else:
-			item.setBackground(QtGui.QBrush(QtGui.QColor(151, 255, 139)))
+			item.setBackground(QBrush(QColor(151, 255, 139)))
 
 	@pyqtSlot()
 	def addMail(self):
-		item = QtGui.QListWidgetItem()
+		item = QListWidgetItem()
 		item.setFlags(
 			QtCore.Qt.ItemIsSelectable|QtCore.Qt.ItemIsEditable|QtCore.Qt.ItemIsDragEnabled|
 			QtCore.Qt.ItemIsUserCheckable|QtCore.Qt.ItemIsEnabled
@@ -607,6 +724,230 @@ class MailForm(QtGui.QDialog):
 		for selectedItem in self.ui.fldForward.selectedItems():
 			self.ui.fldForward.takeItem(self.ui.fldForward.row(selectedItem))
 
+class DomainEditor(QDialog):
+	
+	def __init__(self, domainList, domain = None, parentDomain = None, parent = None):
+		super().__init__(parent=parent)
+
+		self.rpc = FlsServer.getInstance()
+		self.domain = domain
+		self.domainList = domainList
+		self.parentDomain = parentDomain
+		self.accepted = False
+		self.ui = Ui_Domain()
+		self.ui.setupUi(self)
+
+		self.ui.buttonBox.accepted.connect(self.setAcceptState)
+		self.ui.buttonBox.rejected.connect(self.setRejectState)
+
+		if self.parentDomain is not None:
+			self.ui.txtParent.setText(self.parentDomain.getFullDomain(domainList))
+		elif self.domain is not None:
+			if self.domain.parent is not None:
+				self.parentDomain = self.domainList.findById(self.domain.parent)
+				self.ui.txtParent.setText(self.parentDomain.getFullDomain(domainList))
+
+		if self.domain is not None:
+			self.ui.txtDomain.setText(self.domain.name)
+			self.ui.txtIPv4.setText(self.domain.ipv4)
+			self.ui.txtIPv6.setText(self.domain.ipv6)
+			self.ui.txtPath.setText(self.domain.srvpath)
+			self.ui.txtDomain.setReadOnly(True)
+
+		self.ui.txtIPv4.textChanged.connect(self.validIPv4)
+
+		self.initFields()
+
+	def initFields(self):
+		# get the list of users and the list of groups.
+		userList = []
+		try:
+			userList = self.rpc.getSystemUsers()
+		except ssl.CertificateError as e:
+			log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
+		except socket.error as e:
+			log.error('Connection to server lost!')
+		except xmlrpc.client.ProtocolError as e:
+			if e.errcode == 403:
+				log.warning('Missing rights for loading mails (%s)' % (e,))
+			else:
+				log.warning('Unexpected error in protocol: %s' % (e,))
+
+		groupList = []
+		try:
+			groupList = self.rpc.getSystemGroups()
+		except ssl.CertificateError as e:
+			log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
+		except socket.error as e:
+			log.error('Connection to server lost!')
+		except xmlrpc.client.ProtocolError as e:
+			if e.errcode == 403:
+				log.warning('Missing rights for loading mails (%s)' % (e,))
+			else:
+				log.warning('Unexpected error in protocol: %s' % (e,))
+
+		# now add them all to the fields
+		for user in userList:
+			self.ui.fldUser.addItem(user['name'], user['uid'])
+
+		for group in groupList:
+			self.ui.fldGroup.addItem(group['name'], group['gid'])
+
+		# if we edit a domain, we have to pre-select the correct selected item.
+		# but how? :)
+		if self.domain is not None:
+			# first set the user
+			if len(str(self.domain.uid)) > 0:
+				uid = self.ui.fldUser.findData(self.domain.uid)
+				if uid > -1:
+					self.ui.fldUser.setCurrentIndex(uid)
+			if len(str(self.domain.gid)) > 0:
+				gid = self.ui.fldGroup.findData(self.domain.gid)
+				if gid > -1:
+					self.ui.fldGroup.setCurrentIndex(gid)
+
+	@pyqtSlot()
+	def validIPv4(self):
+		log.debug('Check if given IPv4-address is valid')
+		palette = QPalette()
+		error = False
+
+		if len(self.ui.txtIPv4.text().strip()) <= 0:
+			self.ui.txtIPv4.setPalette(None)
+		else:
+			try:
+				part1, part2, part3, part4 = self.ui.txtIPv4.text().strip().split('.')
+			except:
+				error = True
+			else:
+				try:
+					part1 = int(part1)
+					part2 = int(part2)
+					part3 = int(part3)
+					part4 = int(part4)
+				except:
+					error = True
+				else:
+					# all are valid integers. 
+					if part1 <= 0 or part4 <= 0:
+						error = True
+					elif part1 > 255 or part2 > 255 or part3 > 255 or part4 >= 255:
+						error = True
+
+		if error:
+			palette.setColor(self.ui.txtIPv4.backgroundRole(), QColor(255, 110, 110))
+		else:
+			palette.setColor(self.ui.txtIPv4.backgroundRole(), QColor(151, 255, 139))
+
+		self.ui.txtIPv4.setPalette(palette)
+
+	@pyqtSlot()
+	def setAcceptState(self):
+		self.accepted = True
+		# full name:
+		name = self.ui.txtDomain.text().strip()
+		if self.parentDomain is not None:
+			name = '%s.%s' % (name, self.parentDomain.getFullDomain(self.domainList))
+
+
+		# all valid?
+		if self.ui.fldUser.currentIndex() < 0:
+			QMessageBox.warning(
+				self, _translate('MainWindow', 'Domain speichern/erstellen', None), 
+				_translate('MainWindow', 
+					'Bitte legen Sie noch einen Benutzer fest.', 
+					None),
+				QMessageBox.Ok, QMessageBox.Ok
+			)
+			return False
+
+		if self.ui.fldGroup.currentIndex() < 0:
+			QMessageBox.warning(
+				self, _translate('MainWindow', 'Domain speichern/erstellen', None), 
+				_translate('MainWindow', 
+					'Bitte legen Sie noch eine Gruppe fest.', 
+					None),
+				QMessageBox.Ok, QMessageBox.Ok
+			)
+			return False
+
+		if self.domain is None and self.domainList.existDomain(name):
+			QMessageBox.warning(
+				self, _translate('MainWindow', 'Domain anlegen', None), 
+				_translate('MainWindow', 
+					'Die anzulegende Domain existiert bereits!', 
+					None),
+				QMessageBox.Ok, QMessageBox.Ok
+			)
+		elif self.domain is not None:
+			if (self.domain.ipv4 != self.getIPv4() \
+				or self.domain.ipv6 != self.getIPv6() \
+				or self.domain.uid != self.getUserId() \
+				or self.domain.gid != self.getGroupId() \
+				or self.domain.srvpath != self.getServicePath()) \
+				and self.domain.state == Domain.STATE_OK:
+				self.domain.state = Domain.STATE_CHANGE
+
+			self.domain.ipv4 = self.getIPv4().strip()
+			self.domain.ipv6 = self.getIPv6().strip()
+			self.domain.uid = self.getUserId()
+			self.domain.gid = self.getGroupId()
+			self.domain.srvpath = self.getServicePath()
+		else:
+			nD = Domain()
+			nD.generateId()
+			if self.parentDomain is not None:
+				nD.parent = self.parentDomain.id
+			nD.name = self.getDomain()
+			nD.ipv4 = self.getIPv4().strip()
+			nD.ipv6 = self.getIPv6().strip()
+			nD.uid = self.getUserId()
+			nD.gid = self.getGroupId()
+			nD.srvpath = self.getServicePath()
+			nD.state = Domain.STATE_CREATE
+			self.domain = nD
+			self.accept()
+
+	@pyqtSlot()
+	def setRejectState(self):
+		self.accepted = False
+		self.reject()
+
+	def getDomain(self):
+		return self.ui.txtDomain.text()
+
+	def getIPv4(self):
+		return self.ui.txtIPv4.text()
+
+	def getIPv6(self):
+		return self.ui.txtIPv6.text()
+
+	def getServicePath(self):
+		return self.ui.txtPath.text()
+
+	def getUserId(self):
+		if self.ui.fldUser.currentIndex() < 0:
+			return None
+
+		uid = self.ui.fldUser.itemData(self.ui.fldUser.currentIndex())
+		if uid == QtCore.QVariant.Invalid:
+			return None
+		else:
+			log.debug('Selected the user id ' + str(uid))
+			return uid
+
+	def getGroupId(self):
+		if self.ui.fldGroup.currentIndex() < 0:
+			return None
+
+		gid = self.ui.fldGroup.itemData(self.ui.fldGroup.currentIndex())
+		if gid == QtCore.QVariant.Invalid:
+			return None
+		else:
+			log.debug('Selected the group id ' + str(gid))
+			return gid
+
+###### END WINDOWS ######
 class FLSSafeTransport(xmlrpc.client.Transport):
 	"""Handles an HTTPS transaction to an XML-RPC server."""
 
@@ -651,20 +992,19 @@ class FlsServer(xmlrpc.client.ServerProxy):
 	def getInstance():
 		return FlsServer.__instance if FlsServer.__instance is not None else FlsServer()
 
-class FLScpMainWindow(QtGui.QMainWindow):
+class FLScpMainWindow(QMainWindow):
 	execInit = pyqtSignal()
 
-	def __init__(self):
-		QtGui.QMainWindow.__init__(self)
-		
+	def __init__(self, app):
+		QMainWindow.__init__(self)
+
+		self.app = app
 		self.ui = Ui_MainWindow()
 		self.ui.setupUi(self)
-		self.resizeModes = dict((x, n) for x, n in vars(QtGui.QHeaderView).items() if \
-				isinstance(n, QtGui.QHeaderView.ResizeMode))
-		self.ui.mailTable.horizontalHeader().setResizeMode(self.resizeModes['Stretch'])
-		self.ui.adminTable.horizontalHeader().setResizeMode(self.resizeModes['Stretch'])
+		self.ui.mailTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+		self.ui.adminTable.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
 		self.ui.adminTable.hideColumn(0)
-		self.ui.progress = QtGui.QProgressBar(self)
+		self.ui.progress = QProgressBar(self)
 		self.ui.progress.setTextVisible(False)
 		self.ui.progress.setMinimum(0)
 		self.ui.progress.setMaximum(0)
@@ -680,11 +1020,10 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.domains = DomainList()
 		self.dns = DNSList()
 		self.certs = flscertification.FLSCertificateList()
-		self.splash = QtGui.QSplashScreen(self, QtGui.QPixmap(":/logo/splash.png"))
+		self.splash = CpSplashScreen(self, QPixmap(":/logo/splash.png"), 10)
 		self.splash.show()
-		self.splash.showMessage('Loading application...', color=QtGui.QColor(255, 255, 255))
-		self.splash.repaint()
-		#QtCore.QCoreApplication.processEvents()
+		self.splash.showMessage(_translate('SplashScreen', 'Lade Anwendung...'), 1, color=QColor(255, 255, 255))
+		self.app.processEvents()
 
 		# check if certs exists!
 		if not os.path.exists(KEYFILE) or not os.path.exists(CERTFILE):
@@ -711,12 +1050,13 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.ui.butHomeCert.clicked.connect(self.switchToAdmin)
 
 		# domain tab
-		#self.ui.butDomainAdd.clicked.connect(self.addDomain)
-		#self.ui.butDomainEdit.clicked.connect(self.editDomain)
+		self.ui.butDomainAdd.clicked.connect(self.addDomain)
+		self.ui.butDomainEdit.clicked.connect(self.editDomain)
 		self.ui.butDomainDel.clicked.connect(self.deleteDomain)
+		self.ui.butDomainFile.clicked.connect(self.generateBindFile)
 		self.ui.butDomainDNS.clicked.connect(self.openDNSDomain)
 		self.ui.butDomainReload.clicked.connect(self.reloadDomainTree)
-		#self.ui.butDomainSave.clicked.connect(self.commitDomainData)
+		self.ui.butDomainSave.clicked.connect(self.commitDomainData)
 		#self.ui.domainTree.cellDoubleClicked.connect(self.selectedMail)
 
 		self.ui.tabDNS.tabCloseRequested.connect(self.dnsCloseTab)
@@ -725,6 +1065,8 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.ui.butAdd.clicked.connect(self.addMail)
 		self.ui.butEdt.clicked.connect(self.editMail)
 		self.ui.butDel.clicked.connect(self.deleteMail)
+		self.ui.butState.clicked.connect(self.toggleStatusMail)
+		self.ui.butQuotaCalc.clicked.connect(self.calculateMailQuota)
 		self.ui.butReload.clicked.connect(self.reloadMailTable)
 		self.ui.butSave.clicked.connect(self.commitMailData)
 		self.ui.mailTable.cellDoubleClicked.connect(self.selectedMail)
@@ -752,9 +1094,6 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.setupCertTable()
 
 	def showLoginUser(self):
-		self.splash.showMessage('Loading user authentication...', color=QtGui.QColor(255, 255, 255))
-		self.splash.repaint()
-
 		pubkey = None
 		aborted = False
 		pk = None
@@ -775,11 +1114,11 @@ class FLScpMainWindow(QtGui.QMainWindow):
 					pk = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, content, passphrase.encode('utf-8'))
 				except OpenSSL.crypto.Error as e:
 					log.warning('Got error: %s' % (e,))
-					passphrase = QtGui.QInputDialog.getText(
+					passphrase = QInputDialog.getText(
 						self, 
 						_translate('MainWindow', 'Kennwort erforderlich', None),
 						_translate('MainWindow', 'Kennwort für %s' % (CERTFILE,), None),
-						QtGui.QLineEdit.Password,
+						QLineEdit.Password,
 						''
 					)
 					(passphrase, ok) = passphrase
@@ -796,7 +1135,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			pubkey = pk
 		else:
 			if pubkey.has_expired():
-				QtGui.QMessageBox.information(
+				QMessageBox.information(
 					self, _translate('MainWindow', 'Information', None), 
 					_translate(
 						'MainWindow', 
@@ -807,7 +1146,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 
 		if pubkey is not None:
 			pubsub = pubkey.get_subject()
-			self.ui.labUser = QtGui.QLabel(self)
+			self.ui.labUser = QLabel(self)
 			self.ui.labUser.setObjectName("labUser")
 			self.ui.labUser.setText(
 				_translate("MainWindow", "Logged in as %s <%s>" % (pubsub.commonName, pubsub.emailAddress), None)
@@ -830,17 +1169,16 @@ class FLScpMainWindow(QtGui.QMainWindow):
 	@pyqtSlot()
 	def reloadLogFileList(self):
 		self.enableProgressBar(self.ui.tabLog, _translate('MainWindow', 'Loading log file list...', None))
-		self.dataLoader = LogFileListLoader(self.rpc, self)
-		self.dataLoader.dataLoaded.connect(self.logFileListLoaded)
-		self.dataLoader.certError.connect(self.dataLoadCertError)
-		self.dataLoader.socketError.connect(self.dataLoadSocketError)
-		self.dataLoader.protocolError.connect(self.dataLoadProtocolError)
-		self.dataLoader.unknownError.connect(self.dataLoadError)
-		self.dataLoader.start()
+		dataLoader = LogFileListLoader(self.rpc)
+		dataLoader.dataLoaded.connect(self.logFileListLoaded)
+		dataLoader.certError.connect(self.dataLoadCertError)
+		dataLoader.socketError.connect(self.dataLoadSocketError)
+		dataLoader.protocolError.connect(self.dataLoadProtocolError)
+		dataLoader.unknownError.connect(self.dataLoadError)
+		QThreadPool.globalInstance().start(dataLoader)
 
 	@pyqtSlot(list)
 	def logFileListLoaded(self, data):
-		self.dataLoader = None
 		for f in data:
 			self.ui.fldLogFile.addItem(f)
 
@@ -850,36 +1188,36 @@ class FLScpMainWindow(QtGui.QMainWindow):
 	def dataLoadError(self, e):
 		self.disableProgressBar()
 		log.warning('Error while loading data: %s!' % (str(e),))
-		QtGui.QMessageBox.warning(
+		QMessageBox.warning(
 			self, _translate('MainWindow', 'Unbekannter Fehler', None), 
 			_translate('MainWindow', 
 				'Unbekannter Fehler in der Kommunikation mit dem Server aufgetreten.', 
 				None),
-			QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+			QMessageBox.Ok, QMessageBox.Ok
 		)
 
 	@pyqtSlot(ssl.CertificateError)
 	def dataLoadCertError(self, e):
 		self.disableProgressBar()
 		log.error('Possible attack! Server Certificate is wrong! (%s)' % (str(e),))
-		QtGui.QMessageBox.critical(
+		QMessageBox.critical(
 			self, _translate('MainWindow', 'Warnung', None), 
 			_translate('MainWindow', 
 				'Potentieller Angriff! Server-Zertifikat ist fehlerhaft! Bitte informieren Sie Ihren Administrator!', 
 				None),
-			QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+			QMessageBox.Ok, QMessageBox.Ok
 		)
 		
 	@pyqtSlot(socket.error)
 	def dataLoadSocketError(self, e):
 		self.disableProgressBar()
 		log.error('Connection to server lost!')
-		QtGui.QMessageBox.critical(
+		QMessageBox.critical(
 			self, _translate('MainWindow', 'Warnung', None), 
 			_translate('MainWindow', 
 				'Verbindung zum Server nicht möglich. Bitte versuchen Sie es später noch einmal.', 
 				None),
-			QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+			QMessageBox.Ok, QMessageBox.Ok
 		)
 		
 	@pyqtSlot(xmlrpc.client.ProtocolError)
@@ -887,21 +1225,21 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.disableProgressBar()
 		if e.errcode == 403:
 			log.warning('Missing rights for loading mails (%s)' % (str(e),))
-			QtGui.QMessageBox.warning(
+			QMessageBox.warning(
 				self, _translate('MainWindow', 'Fehlende Rechte', None), 
 				_translate('MainWindow', 
 					'Sie haben nicht ausreichend Rechte!', 
 					None),
-				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+				QMessageBox.Ok, QMessageBox.Ok
 			)
 		else:
 			log.warning('Unexpected error in protocol: %s' % (str(e),))
-			QtGui.QMessageBox.warning(
+			QMessageBox.warning(
 				self, _translate('MainWindow', 'Unbekannter Fehler', None), 
 				_translate('MainWindow', 
 					'Unbekannter Fehler in der Kommunikation mit dem Server aufgetreten.', 
 					None),
-				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+				QMessageBox.Ok, QMessageBox.Ok
 			)
 		
 	@pyqtSlot()
@@ -910,48 +1248,25 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		if logFile == '':
 			return
 
-		try:
-			logTxt = self.rpc.getLogFile(logFile)
-			self.ui.logText.setPlainText(logTxt)
-			self.ui.logText.setReadOnly(True)
-			self.ui.logText.setAcceptRichText(False)
-		except ssl.CertificateError as e:
-			log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
-			QtGui.QMessageBox.critical(
-				self, _translate('MainWindow', 'Warnung', None), 
-				_translate('MainWindow', 
-					'Potentieller Angriff! Server-Zertifikat ist fehlerhaft! Bitte informieren Sie Ihren Administrator!', 
-					None),
-				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
-			)
-		except socket.error as e:
-			log.error('Connection to server lost!')
-			QtGui.QMessageBox.critical(
-				self, _translate('MainWindow', 'Warnung', None), 
-				_translate('MainWindow', 
-					'Verbindung zum Server nicht möglich. Bitte versuchen Sie es später noch einmal.', 
-					None),
-				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
-			)
-		except xmlrpc.client.ProtocolError as e:
-			if e.errcode == 403:
-				log.warning('Missing rights for loading mails (%s)' % (e,))
-				QtGui.QMessageBox.warning(
-					self, _translate('MainWindow', 'Fehlende Rechte', None), 
-					_translate('MainWindow', 
-						'Sie haben nicht ausreichend Rechte!', 
-						None),
-					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
-				)
-			else:
-				log.warning('Unexpected error in protocol: %s' % (e,))
-				QtGui.QMessageBox.warning(
-					self, _translate('MainWindow', 'Unbekannter Fehler', None), 
-					_translate('MainWindow', 
-						'Unbekannter Fehler in der Kommunikation mit dem Server aufgetreten.', 
-						None),
-					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
-				)
+		self.ui.logText.setPlainText('')
+
+		self.enableProgressBar(self.ui.tabLog, _translate('MainWindow', 'Loading log file...', None))
+		dataLoader = LogFileLoader(self.rpc)
+		dataLoader.setFile(logFile)
+		dataLoader.dataLoaded.connect(self.logFileLoaded)
+		dataLoader.certError.connect(self.dataLoadCertError)
+		dataLoader.socketError.connect(self.dataLoadSocketError)
+		dataLoader.protocolError.connect(self.dataLoadProtocolError)
+		dataLoader.unknownError.connect(self.dataLoadError)
+		QThreadPool.globalInstance().start(dataLoader)
+
+	@pyqtSlot(list)
+	def logFileLoaded(self, data):
+		self.disableProgressBar()
+		self.ui.logText.insertPlainText(data[0])
+		#self.ui.logText.setPlainText(self.ui.logText.getPlainText() + data[0])
+		self.ui.logText.setReadOnly(True)
+		self.ui.logText.setAcceptRichText(False)
 
 	@pyqtSlot()
 	def clearLogFile(self):
@@ -962,7 +1277,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		options = None
 		log.debug('Search for %s' % (filterText,))
 		if self.ui.butLogChkSensitive.isChecked():
-			options = QtGui.QTextDocument.FindCaseSensitively
+			options = QTextDocument.FindCaseSensitively
 
 		if options is None:
 			self.ui.logText.find(filterText)
@@ -971,9 +1286,9 @@ class FLScpMainWindow(QtGui.QMainWindow):
 
 	@pyqtSlot()
 	def searchLogBack(self):
-		options = QtGui.QTextDocument.FindBackward
+		options = QTextDocument.FindBackward
 		if self.ui.butLogChkSensitive.isChecked():
-			options = options | QtGui.QTextDocument.FindCaseSensitively
+			options = options | QTextDocument.FindCaseSensitively
 		
 		self.ui.logText.find(self.ui.logSearch.text(), options)
 
@@ -981,7 +1296,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 	def searchLogForward(self):
 		options = None
 		if self.ui.butLogChkSensitive.isChecked():
-			options = QtGui.QTextDocument.FindCaseSensitively
+			options = QTextDocument.FindCaseSensitively
 
 		if options is None:
 			self.ui.logText.find(self.ui.logSearch.text())
@@ -995,18 +1310,11 @@ class FLScpMainWindow(QtGui.QMainWindow):
 	@pyqtSlot()
 	def init(self):
 		self.update()
-		# enable splash screen
-		if self.splash.isVisible() and not self.loginNeeded:
-			self.splash.destroy()
-			self.update()
-			self.splash = QtGui.QSplashScreen(self, QtGui.QPixmap(":/logo/splash.png"))
-			self.splash.show()
-			self.splash.showMessage('Loading application...', color=QtGui.QColor(255, 255, 255))
-			self.splash.update()
-		self.update()
+		self.splash.showMessage(_translate('SplashScreen', 'Lade Anwendung...'), 1, color=QColor(255, 255, 255))
+		self.app.processEvents()
 
-		self.splash.showMessage('Try to connect to server...', color=QtGui.QColor(255, 255, 255))
-		self.splash.update()
+		self.splash.showMessage(_translate('SplashScreen', 'Versuche mit dem Server zu verbinden...'), 2, color=QColor(255, 255, 255))
+		self.app.processEvents()
 		self.loginNeeded = True
 		
 		if self.rpc is not None:
@@ -1017,24 +1325,24 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				p = self.rpc.ping()
 			except ssl.SSLError as e:
 				log.warning('Connection not possible: %s' % (e,))
-				QtGui.QMessageBox.critical(
+				QMessageBox.critical(
 					self, _translate('MainWindow', 'Verbindung nicht möglich', None), 
 					_translate('MainWindow', 
 						'Möglicher Angriffsversuch: die SSL-gesicherte Verbindung ist aus Sicherheitsgründen abgebrochen worden.', 
 						None),
-					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					QMessageBox.Ok, QMessageBox.Ok
 				)
 
 				self.close()
 				return
 			except socket.error as e:
 				log.warning('Connection not possible: %s' % (e,))
-				QtGui.QMessageBox.critical(
+				QMessageBox.critical(
 					self, _translate('MainWindow', 'Verbindung nicht möglich', None), 
 					_translate('MainWindow', 
 						'Keine Verbindung zum Server möglich. Prüfen Sie die VPN-Verbindung!', 
 						None),
-					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					QMessageBox.Ok, QMessageBox.Ok
 				)
 
 				self.close()
@@ -1043,84 +1351,94 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				# uhhh error?
 				log.warning('Connection not possible: %s - %s' % (e.errcode, e.errmsg))
 				if e.errcode == 403:
-					QtGui.QMessageBox.critical(
+					QMessageBox.critical(
 						self, _translate('MainWindow', 'Login nicht möglich', None), 
 						_translate('MainWindow', 
 							'Sie haben keine Berechtigung zum Nutzen der Anwendung.', 
 							None),
-						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+						QMessageBox.Ok, QMessageBox.Ok
 					)
 				else:
-					QtGui.QMessageBox.critical(
+					QMessageBox.critical(
 						self, _translate('MainWindow', 'Unbekannter Fehler beim Verbinden', None), 
 						_translate('MainWindow', 
 							'Der Server hat die weitere Verbindung abgelehnt.', 
 							None),
-						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+						QMessageBox.Ok, QMessageBox.Ok
 					)
+				self.close()
+				return
+			except Exception as e:
+				QtGui.QMessageBox.critical(
+					self, _translate('MainWindow', 'Unbekannter Fehler beim Verbinden', None), 
+					_translate('MainWindow', 
+						'Der Server konnte den Verbindungsversuch nicht erfolgreich abarbeiten',
+						None),
+					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+				)
 				self.close()
 				return
 			self.rpc.__transport.timeout = timeout
 			self.loginNeeded = False
 
 			# connection possible - now check the version
-			self.splash.showMessage('Check version...', color=QtGui.QColor(255, 255, 255))
-			self.splash.update()
+			self.splash.showMessage(_translate('SplashScreen', 'Prüfe Version...'), 4, color=QColor(255, 255, 255))
+			self.app.processEvents()
 			upToDate = self.rpc.upToDate(__version__)
 			if not upToDate:
 				self.updateVersion()
 
 			# load the data!
-			self.splash.showMessage('Loading domains...', color=QtGui.QColor(255, 255, 255))
-			self.splash.update()
+			self.splash.showMessage(_translate('SplashScreen', 'Lade Domains...'), 7, color=QColor(255, 255, 255))
+			self.app.processEvents()
 
 			# domains
 			try:
 				self.loadDomains()
 			except xmlrpc.client.Fault as e:
 				log.critical('Could not load domains because of %s' % (e,))
-				QtGui.QMessageBox.critical(
+				QMessageBox.critical(
 					self, _translate('MainWindow', 'Daten nicht ladbar', None), 
 					_translate('MainWindow', 
 						'Die Domains konnten nicht abgerufen werden.', 
 						None),
-					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					QMessageBox.Ok, QMessageBox.Ok
 				)
 			else:
 				self.loadDomainData()
 
 			# load the data!
-			self.splash.showMessage('Loading mails...', color=QtGui.QColor(255, 255, 255))
-			self.splash.update()
+			self.splash.showMessage(_translate('SplashScreen', 'Lade E-Mail-Adresse...'), 8, color=QColor(255, 255, 255))
+			self.app.processEvents()
 
 			# mails
 			try:
 				self.loadMails(True)
 			except xmlrpc.client.Fault as e:
 				log.critical('Could not load mails because of %s' % (e,))
-				QtGui.QMessageBox.critical(
+				QMessageBox.critical(
 					self, _translate('MainWindow', 'Daten nicht ladbar', None), 
 					_translate('MainWindow', 
 						'Die E-Mail-Konten konnten nicht abgerufen werden.', 
 						None),
-					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					QMessageBox.Ok, QMessageBox.Ok
 				)
 
 			# load the data!
-			self.splash.showMessage('Loading certs...', color=QtGui.QColor(255, 255, 255))
-			self.splash.update()
+			self.splash.showMessage(_translate('SplashScreen', 'Lade Zertifikate...'), 9, color=QColor(255, 255, 255))
+			self.app.processEvents()
 
 			# certs
 			try:
 				self.loadCerts(True)
 			except xmlrpc.client.Fault as e:
 				log.critical('Could not load certificates because of %s' % (e,))
-				QtGui.QMessageBox.critical(
+				QMessageBox.critical(
 					self, _translate('MainWindow', 'Daten nicht ladbar', None), 
 					_translate('MainWindow', 
 						'Die Zertifikate konnten nicht abgerufen werden.', 
 						None),
-					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					QMessageBox.Ok, QMessageBox.Ok
 				)
 		else:
 			if not self.initLoginCert():
@@ -1132,28 +1450,27 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		# disable splash screen!
 		# (it is always a login needed. But sometimes we cannot simply start the application ;))
 		if not self.loginNeeded:
-			self.splash.close()
 			self.stateProgressBar = True
 			self.start()
 
 	def updateVersion(self):
-		self.splash.showMessage('New Version available. Downloading...', color=QtGui.QColor(255, 255, 255))
-		self.splash.update()
+		self.splash.showMessage(_translate('SplashScreen', 'Neue Version verfügbar. Lade herunter...'), 5, color=QColor(255, 255, 255))
+		self.app.processEvents()
 
 		try:
 			data = self.rpc.getCurrentVersion()
 		except xmlrpc.client.Fault as e:
 			log.critical('Could not update the flscp because of %s' % (e,))
-			QtGui.QMessageBox.critical(
+			QMessageBox.critical(
 				self, _translate('MainWindow', 'Aktualisierung', None), 
 				_translate('MainWindow', 
 					'Eine neue Version konnte nicht heruntergeladen werden.', 
 					None),
-				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+				QMessageBox.Ok, QMessageBox.Ok
 			)
 		else:
-			self.splash.showMessage('New Version available. Installing...', color=QtGui.QColor(255, 255, 255))
-			self.splash.update()
+			self.splash.showMessage(_translate('SplashScreen', 'Neue Version verfügbar. Installiere...'), 6, color=QColor(255, 255, 255))
+			self.app.processEvents()
 			# now save it!
 			data = base64.b64decode(data.encode('utf-8'))
 			d = tempfile.NamedTemporaryFile(suffix='.zip', delete=False)
@@ -1164,12 +1481,12 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			# crc ok?
 			if zfile.testzip() is not None:
 				log.warning('Corrupted update downloaded!')
-				QtGui.QMessageBox.warning(
+				QMessageBox.warning(
 					self, _translate('MainWindow', 'Aktualisierung', None), 
 					_translate('MainWindow', 
 						'Das Update konnte nicht verifiziert werden (CRC Fehler)', 
 						None),
-					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					QMessageBox.Ok, QMessageBox.Ok
 				)
 				zfile.close()
 				os.unlink(d.name)
@@ -1183,57 +1500,63 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				extp = '.'
 			zfile.extractall(extp)
 			log.info('Update successful!')
-			QtGui.QMessageBox.information(
+			QMessageBox.information(
 				self, _translate('MainWindow', 'Aktualisierung', None), 
 				_translate('MainWindow', 
 					'Das Control Panel wurde erfolgreich aktualisiert. Bitte starten Sie die Anwendung neu!', 
 					None),
-				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+				QMessageBox.Ok, QMessageBox.Ok
 			)
 			zfile.close()
 			os.unlink(d.name)
+			self.splash.close()
+			self.stateProgressBar = False
+			self.close()
+			return
 
 	def initLoginCert(self):
-		self.splash.showMessage('Wait for logging in...', color=QtGui.QColor(255, 255, 255))
-		self.splash.update()
+		self.splash.showMessage(_translate('SplashScreen', 'Warte auf Anmeldung...'), 3, color=QColor(255, 255, 255))
+		self.app.processEvents()
 
-		answer = QtGui.QMessageBox.warning(
+		answer = QMessageBox.warning(
 			self, _translate('MainWindow', 'Login erforderlich', None), 
 			_translate('MainWindow', 
 				'Es konnte kein Zertifikat zum Login gefunden werden.\n' \
 				'Bitte wählen Sie im nachfolgenden Fenster ein PKCS12-Zertifikat aus.', 
 				None),
-			QtGui.QMessageBox.Ok|QtGui.QMessageBox.Cancel, QtGui.QMessageBox.Ok
+			QMessageBox.Ok|QMessageBox.Cancel, QMessageBox.Ok
 		)
-		if answer == QtGui.QMessageBox.Cancel:
+		if answer == QMessageBox.Cancel:
+			log.info('Certificate selection cancelled.')
 			self.close()
 			return False
 
 		try:
 			import OpenSSL
 		except:
-			QtGui.QMessageBox.critical(
+			QMessageBox.critical(
 				self, _translate('MainWindow', 'Login nicht möglich', None), 
 				_translate('MainWindow', 
 					'Es ist das Python Modul "pyOpenSSL" notwendig! Programm wird beendet.', 
 					None),
-				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+				QMessageBox.Ok, QMessageBox.Ok
 			)
-
+			log.error('OpenSSL could not be imported.')
 			self.close()
 			return False
 
-		self.fd = QtGui.QFileDialog(self, None)
+		self.fd = QFileDialog(self, None)
 		self.fd.setWindowModality(QtCore.Qt.ApplicationModal)
-		self.fd.setOption(QtGui.QFileDialog.ReadOnly, True)
-		filters = [_translate('MainWindow', 'Zertifikate (*.p12)', None)]
+		self.fd.setOption(QFileDialog.ReadOnly, True)
+		filters = [_translate('MainWindow', 'Zertifikate', None) + ' (*.p12)']
 		self.fd.setNameFilters(filters)
-		self.fd.setFileMode(QtGui.QFileDialog.ExistingFile | QtGui.QFileDialog.AcceptOpen)
+		self.fd.setFileMode(QFileDialog.ExistingFile | QFileDialog.AcceptOpen)
 		self.fd.filesSelected.connect(self.loginCertSelected)
 		# connect slots
 		self.execInit.connect(self.init)
 		# now show the select!
 		self.fd.show()
+		QtCore.QCoreApplication.processEvents()
 
 		return True
 
@@ -1246,7 +1569,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		if len(f) > 0:
 			f = f[0]
 		else:
-			QtGui.QMessageBox.warning(
+			QMessageBox.warning(
 				self, _translate('MainWindow', 'Warnung', None), 
 				_translate(
 					'MainWindow', 
@@ -1268,14 +1591,14 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		pk = None
 		while not loaded and not aborted:
 			try:
-				pk = OpenSSL.crypto.load_pkcs12(cnt, passphrase)
+				pk = OpenSSL.crypto.load_pkcs12(cnt, passphrase.encode('utf-8'))
 			except OpenSSL.crypto.Error as e:
 				log.warning('Got error: %s' % (e,))
-				passphrase = QtGui.QInputDialog.getText(
-					self, 
+				passphrase = QInputDialog.getText(
+					self,
 					_translate('MainWindow', 'Kennwort erforderlich', None),
 					_translate('MainWindow', 'Kennwort für %s' % (f,), None),
-					QtGui.QLineEdit.Password,
+					QLineEdit.Password,
 					'',
 				)
 				(passphrase, ok) = passphrase
@@ -1288,7 +1611,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				loaded = True
 
 		if aborted or pk is None:
-			QtGui.QMessageBox.warning(
+			QMessageBox.warning(
 				self, _translate('MainWindow', 'Warnung', None), 
 				_translate(
 					'MainWindow', 
@@ -1302,7 +1625,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		pubkey = pk.get_certificate()
 		privkey = pk.get_privatekey()
 		if pubkey.has_expired():
-			QtGui.QMessageBox.warning(
+			QMessageBox.warning(
 				self, _translate('MainWindow', 'Warnung', None), 
 				_translate(
 					'MainWindow', 
@@ -1314,7 +1637,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			return
 
 		if pubkey is None or privkey is None:
-			QtGui.QMessageBox.warning(
+			QMessageBox.warning(
 				self, _translate('MainWindow', 'Warnung', None), 
 				_translate(
 					'MainWindow', 
@@ -1337,7 +1660,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				f.write(privkey)
 		except Exception as e:
 			log.error('Could not write certificate (%s)!' % (e,))
-			QtGui.QMessageBox.warning(
+			QMessageBox.warning(
 				self, _translate('MainWindow', 'Warnung', None), 
 				_translate(
 					'MainWindow', 
@@ -1365,52 +1688,52 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				self.certListLoaded(data)
 			except ssl.CertificateError as e:
 				log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
-				QtGui.QMessageBox.critical(
+				QMessageBox.critical(
 					self, _translate('MainWindow', 'Warnung', None), 
 					_translate('MainWindow', 
 						'Potentieller Angriff! Server-Zertifikat ist fehlerhaft! Bitte informieren Sie Ihren Administrator!', 
 						None),
-					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					QMessageBox.Ok, QMessageBox.Ok
 				)
 			except socket.error as e:
 				log.error('Connection to server lost!')
-				QtGui.QMessageBox.critical(
+				QMessageBox.critical(
 					self, _translate('MainWindow', 'Warnung', None), 
 					_translate('MainWindow', 
 						'Verbindung zum Server nicht möglich. Bitte versuchen Sie es später noch einmal.', 
 						None),
-					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					QMessageBox.Ok, QMessageBox.Ok
 				)
 			except xmlrpc.client.ProtocolError as e:
 				if e.errcode == 403:
 					log.warning('Missing rights for loading mails (%s)' % (e,))
-					QtGui.QMessageBox.warning(
+					QMessageBox.warning(
 						self, _translate('MainWindow', 'Fehlende Rechte', None), 
 						_translate('MainWindow', 
 							'Sie haben nicht ausreichend Rechte!', 
 							None),
-						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+						QMessageBox.Ok, QMessageBox.Ok
 					)
 				else:
 					log.warning('Unexpected error in protocol: %s' % (e,))
-					QtGui.QMessageBox.warning(
+					QMessageBox.warning(
 						self, _translate('MainWindow', 'Unbekannter Fehler', None), 
 						_translate('MainWindow', 
 							'Unbekannter Fehler in der Kommunikation mit dem Server aufgetreten.', 
 							None),
-						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+						QMessageBox.Ok, QMessageBox.Ok
 					)
 			finally:
 				self.disableProgressBar()
 		else:
 			self.enableProgressBar(self.ui.tabAdmins, _translate('MainWindow', 'Loading admin list...', None))
-			self.dataLoader = CertListLoader(self.rpc, self)
-			self.dataLoader.dataLoaded.connect(self.certListLoaded)
-			self.dataLoader.certError.connect(self.dataLoadCertError)
-			self.dataLoader.socketError.connect(self.dataLoadSocketError)
-			self.dataLoader.protocolError.connect(self.dataLoadProtocolError)
-			self.dataLoader.unknownError.connect(self.dataLoadError)
-			self.dataLoader.start()
+			dataLoader = CertListLoader(self.rpc)
+			dataLoader.dataLoadedDict.connect(self.certListLoaded)
+			dataLoader.certError.connect(self.dataLoadCertError)
+			dataLoader.socketError.connect(self.dataLoadSocketError)
+			dataLoader.protocolError.connect(self.dataLoadProtocolError)
+			dataLoader.unknownError.connect(self.dataLoadError)
+			QThreadPool.globalInstance().start(dataLoader)
 
 	@pyqtSlot(dict)
 	def certListLoaded(self, data):
@@ -1432,42 +1755,52 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			rowNr = self.ui.adminTable.rowCount()
 			self.ui.adminTable.insertRow(rowNr)
 			# number
-			item = QtGui.QTableWidgetItem()
+			item = QTableWidgetItem()
 			item.setText('%s' % (rowNr + 1,))
 			self.ui.adminTable.setVerticalHeaderItem(rowNr, item)
 			# hash (to identify later)
-			item = QtGui.QTableWidgetItem()
+			item = QTableWidgetItem()
 			item.setText('%s' % (cert.__hash__(),))
 			self.ui.adminTable.setItem(rowNr, 0, item)
 			# name
-			item = QtGui.QTableWidgetItem()
+			item = QTableWidgetItem()
 			item.setText('%s' % (cert.subject.commonName,))
 			self.ui.adminTable.setItem(rowNr, 1, item)
 			# email
-			item = QtGui.QTableWidgetItem()
+			item = QTableWidgetItem()
 			item.setText(cert.subject.emailAddress)
 			self.ui.adminTable.setItem(rowNr, 2, item)
 			# serial number
-			item = QtGui.QTableWidgetItem()
+			item = QTableWidgetItem()
 			item.setText('%s' % (cert.serialNumber,))
 			self.ui.adminTable.setItem(rowNr, 3, item)
+			# valid until?
+			item = QTableWidgetItem()
+			if cert.notAfter is not None:
+				item.setText(cert.notAfter.strftime('%d.%m.%Y %H:%M:%S'))
+			else:
+				item.setText('')
+			self.ui.adminTable.setItem(rowNr, 4, item)
 			# status
-			item = QtGui.QTableWidgetItem()
-			icon = QtGui.QIcon()
+			item = QTableWidgetItem()
+			icon = QIcon()
 			if cert.state == flscertification.FLSCertificate.STATE_OK:
-				icon.addPixmap(QtGui.QPixmap(":/status/ok.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+				icon.addPixmap(QPixmap(":/status/ok.png"), QIcon.Normal, QIcon.Off)
 				item.setText(_translate("MainWindow", "OK", None))
 			elif cert.state == flscertification.FLSCertificate.STATE_ADDED:
-				icon.addPixmap(QtGui.QPixmap(":/status/state_add.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+				icon.addPixmap(QPixmap(":/status/state_add.png"), QIcon.Normal, QIcon.Off)
 				item.setText(_translate("MainWindow", "wird hinzugefügt", None))
 			elif cert.state == flscertification.FLSCertificate.STATE_DELETE:
-				icon.addPixmap(QtGui.QPixmap(":/status/trash.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+				icon.addPixmap(QPixmap(":/status/trash.png"), QIcon.Normal, QIcon.Off)
 				item.setText(_translate("MainWindow", "wird gelöscht", None))
+			elif cert.state == flscertification.FLSCertificate.STATE_EXPIRED:
+				icon.addPixmap(QPixmap(":/status/expired.png"), QIcon.Normal, QIcon.Off)
+				item.setText(_translate("MainWindow", "ist abgelaufen", None))
 			else:
-				icon.addPixmap(QtGui.QPixmap(":/status/warning.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+				icon.addPixmap(QPixmap(":/status/warning.png"), QIcon.Normal, QIcon.Off)
 				item.setText(_translate("MainWindow", "Unbekannt", None))
 			item.setIcon(icon)
-			self.ui.adminTable.setItem(rowNr, 4, item)
+			self.ui.adminTable.setItem(rowNr, 5, item)
 		self.ui.adminTable.setSortingEnabled(True)
 
 	def loadMails(self, interactive = False):
@@ -1477,56 +1810,55 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				self.mailListLoaded(data)
 			except ssl.CertificateError as e:
 				log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
-				QtGui.QMessageBox.critical(
+				QMessageBox.critical(
 					self, _translate('MainWindow', 'Warnung', None), 
 					_translate('MainWindow', 
 						'Potentieller Angriff! Server-Zertifikat ist fehlerhaft! Bitte informieren Sie Ihren Administrator!', 
 						None),
-					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					QMessageBox.Ok, QMessageBox.Ok
 				)
 			except socket.error as e:
 				log.error('Connection to server lost!')
-				QtGui.QMessageBox.critical(
+				QMessageBox.critical(
 					self, _translate('MainWindow', 'Warnung', None), 
 					_translate('MainWindow', 
 						'Verbindung zum Server nicht möglich. Bitte versuchen Sie es später noch einmal.', 
 						None),
-					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					QMessageBox.Ok, QMessageBox.Ok
 				)
 			except xmlrpc.client.ProtocolError as e:
 				if e.errcode == 403:
 					log.warning('Missing rights for loading mails (%s)' % (e,))
-					QtGui.QMessageBox.warning(
+					QMessageBox.warning(
 						self, _translate('MainWindow', 'Fehlende Rechte', None), 
 						_translate('MainWindow', 
 							'Sie haben nicht ausreichend Rechte!', 
 							None),
-						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+						QMessageBox.Ok, QMessageBox.Ok
 					)
 				else:
 					log.warning('Unexpected error in protocol: %s' % (e,))
-					QtGui.QMessageBox.warning(
+					QMessageBox.warning(
 						self, _translate('MainWindow', 'Unbekannter Fehler', None), 
 						_translate('MainWindow', 
 							'Unbekannter Fehler in der Kommunikation mit dem Server aufgetreten.', 
 							None),
-						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+						QMessageBox.Ok, QMessageBox.Ok
 					)
 			finally:
 				self.disableProgressBar()
 		else:
 			self.enableProgressBar(self.ui.tabMail, _translate('MainWindow', 'Loading mail list...', None))
-			self.dataLoader = MailListLoader(self.rpc, self)
-			self.dataLoader.dataLoaded.connect(self.mailListLoaded)
-			self.dataLoader.certError.connect(self.dataLoadCertError)
-			self.dataLoader.socketError.connect(self.dataLoadSocketError)
-			self.dataLoader.protocolError.connect(self.dataLoadProtocolError)
-			self.dataLoader.unknownError.connect(self.dataLoadError)
-			self.dataLoader.start()
+			dataLoader = MailListLoader(self.rpc)
+			dataLoader.dataLoaded.connect(self.mailListLoaded)
+			dataLoader.certError.connect(self.dataLoadCertError)
+			dataLoader.socketError.connect(self.dataLoadSocketError)
+			dataLoader.protocolError.connect(self.dataLoadProtocolError)
+			dataLoader.unknownError.connect(self.dataLoadError)
+			QThreadPool.globalInstance().start(dataLoader)
 
 	@pyqtSlot(list)
 	def mailListLoaded(self, data):
-		self.dataLoader = None
 		self.mails = MailAccountList()
 		for item in data:
 			self.mails.add(MailAccount.fromDict(item))
@@ -1541,48 +1873,48 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				self.domains.add(Domain.fromDict(item))
 		except ssl.CertificateError as e:
 			log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
-			QtGui.QMessageBox.critical(
+			QMessageBox.critical(
 				self, _translate('MainWindow', 'Warnung', None), 
 				_translate('MainWindow', 
 					'Potentieller Angriff! Server-Zertifikat ist fehlerhaft! Bitte informieren Sie Ihren Administrator!', 
 					None),
-				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+				QMessageBox.Ok, QMessageBox.Ok
 			)
 		except socket.error as e:
 			log.error('Connection to server lost!')
-			QtGui.QMessageBox.critical(
+			QMessageBox.critical(
 				self, _translate('MainWindow', 'Warnung', None), 
 				_translate('MainWindow', 
 					'Verbindung zum Server nicht möglich. Bitte versuchen Sie es später noch einmal.', 
 					None),
-				QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+				QMessageBox.Ok, QMessageBox.Ok
 			)
 		except xmlrpc.client.ProtocolError as e:
 			if e.errcode == 403:
 				log.warning('Missing rights for loading mails (%s)' % (e,))
-				QtGui.QMessageBox.warning(
+				QMessageBox.warning(
 					self, _translate('MainWindow', 'Fehlende Rechte', None), 
 					_translate('MainWindow', 
 						'Sie haben nicht ausreichend Rechte!', 
 						None),
-					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					QMessageBox.Ok, QMessageBox.Ok
 				)
 			else:
 				log.warning('Unexpected error in protocol: %s' % (e,))
-				QtGui.QMessageBox.warning(
+				QMessageBox.warning(
 					self, _translate('MainWindow', 'Unbekannter Fehler', None), 
 					_translate('MainWindow', 
 						'Unbekannter Fehler in der Kommunikation mit dem Server aufgetreten.', 
 						None),
-					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					QMessageBox.Ok, QMessageBox.Ok
 				)
 
 	@pyqtSlot()
 	def triggerWhatsThis(self):
-		if QtGui.QWhatsThis.inWhatsThisMode():
-			QtGui.QWhatsThis.leaveWhatsThisMode()
+		if QWhatsThis.inWhatsThisMode():
+			QWhatsThis.leaveWhatsThisMode()
 		else:
-			QtGui.QWhatsThis.enterWhatsThisMode()
+			QWhatsThis.enterWhatsThisMode()
 
 	def enableProgressBar(self, tab = None, msg = None):
 		if self.stateProgressBar:
@@ -1615,12 +1947,12 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				break
 
 		if pending:
-			msg = QtGui.QMessageBox.question(
+			msg = QMessageBox.question(
 				self, _translate('MainWindow', 'Warnung', None), 
 				_translate('MainWindow', 'Alle Änderungen gehen verloren. Fortfahren?', None),
-				QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.No
+				QMessageBox.Yes | QMessageBox.No, QMessageBox.No
 			)
-			if msg == QtGui.QMessageBox.Yes:
+			if msg == QMessageBox.Yes:
 				self.loadCerts()
 				self.loadCertData()
 		else:
@@ -1635,12 +1967,12 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		except:
 			return
 
-		fd = QtGui.QFileDialog(self, None)
+		fd = QFileDialog(self, None)
 		fd.setWindowModality(QtCore.Qt.ApplicationModal)
-		fd.setOption(QtGui.QFileDialog.ReadOnly, True)
+		fd.setOption(QFileDialog.ReadOnly, True)
 		filters = [_translate('MainWindow', 'Zertifikate (*.pem *.p12)', None)]
 		fd.setNameFilters(filters)
-		fd.setFileMode(QtGui.QFileDialog.ExistingFiles | QtGui.QFileDialog.AcceptOpen)
+		fd.setFileMode(QFileDialog.ExistingFiles | QFileDialog.AcceptOpen)
 		fd.filesSelected.connect(self.certificatesSelected)
 		fd.show()
 
@@ -1691,14 +2023,14 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				pk = None
 				while not loaded and not aborted:
 					try:
-						pk = OpenSSL.crypto.load_pkcs12(cnt, passphrase)
+						pk = OpenSSL.crypto.load_pkcs12(cnt, passphrase.encode('utf-8'))
 					except OpenSSL.crypto.Error as e:
 						log.warning('Got error: %s' % (e,))
-						passphrase = QtGui.QInputDialog.getText(
+						passphrase = QInputDialog.getText(
 							self, 
 							_translate('MainWindow', 'Kennwort erforderlich', None),
 							_translate('MainWindow', 'Kennwort für %s' % (f,), None),
-							QtGui.QLineEdit.Password,
+							QLineEdit.Password,
 							'',
 						)
 						(passphrase, ok) = passphrase
@@ -1714,7 +2046,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 
 				pubkey = pk.get_certificate()
 				if pubkey.has_expired():
-					QtGui.QMessageBox.information(
+					QMessageBox.information(
 						self, _translate('MainWindow', 'Information', None), 
 						_translate(
 							'MainWindow', 
@@ -1740,11 +2072,11 @@ class FLScpMainWindow(QtGui.QMainWindow):
 							pk = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, cnt, passphrase.encode('utf-8'))
 						except OpenSSL.crypto.Error as e:
 							log.warning('Got error: %s' % (e,))
-							passphrase = QtGui.QInputDialog.getText(
+							passphrase = QInputDialog.getText(
 								self, 
 								_translate('MainWindow', 'Kennwort erforderlich', None),
 								_translate('MainWindow', 'Kennwort für %s' % (f,), None),
-								QtGui.QLineEdit.Password,
+								QLineEdit.Password,
 								''
 							)
 							(passphrase, ok) = passphrase
@@ -1762,7 +2094,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 					pubkey = pk
 				else:
 					if pubkey.has_expired():
-						QtGui.QMessageBox.information(
+						QMessageBox.information(
 							self, _translate('MainWindow', 'Information', None), 
 							_translate(
 								'MainWindow', 
@@ -1776,7 +2108,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				try:
 					cert = self.getCert(pubkey)
 				except:
-					QtGui.QMessageBox.information(
+					QMessageBox.information(
 						self, _translate('MainWindow', 'Fehler', None), 
 						_translate(
 							'MainWindow', 
@@ -1791,42 +2123,49 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				rowNr = self.ui.adminTable.rowCount()
 				self.ui.adminTable.insertRow(rowNr)
 				# number
-				item = QtGui.QTableWidgetItem()
+				item = QTableWidgetItem()
 				item.setText('%s' % (rowNr + 1,))
 				self.ui.adminTable.setVerticalHeaderItem(rowNr, item)
 				# hash (to identify later)
-				item = QtGui.QTableWidgetItem()
+				item = QTableWidgetItem()
 				item.setText('%s' % (cert.__hash__(),))
 				self.ui.adminTable.setItem(rowNr, 0, item)
 				# name
-				item = QtGui.QTableWidgetItem()
+				item = QTableWidgetItem()
 				item.setText('%s' % (cert.subject.commonName,))
 				self.ui.adminTable.setItem(rowNr, 1, item)
 				# email
-				item = QtGui.QTableWidgetItem()
+				item = QTableWidgetItem()
 				item.setText(cert.subject.emailAddress)
 				self.ui.adminTable.setItem(rowNr, 2, item)
 				# serial number
-				item = QtGui.QTableWidgetItem()
+				item = QTableWidgetItem()
 				item.setText('%s' % (cert.serialNumber,))
-				self.ui.adminTable.setItem(rowNr, 3, item)		
+				self.ui.adminTable.setItem(rowNr, 3, item)
+				# expires on...
+				item = QTableWidgetItem()
+				if cert.notAfter is not None:
+					item.setText(cert.notAfter.strftime('%d.%m.%Y %H:%M:%S'))
+				else:
+					item.setText('')
+				self.ui.adminTable.setItem(rowNr, 4, item)
 				# status
-				item = QtGui.QTableWidgetItem()
-				icon = QtGui.QIcon()
+				item = QTableWidgetItem()
+				icon = QIcon()
 				if cert.state == flscertification.FLSCertificate.STATE_OK:
-					icon.addPixmap(QtGui.QPixmap(":/status/ok.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+					icon.addPixmap(QPixmap(":/status/ok.png"), QIcon.Normal, QIcon.Off)
 					item.setText(_translate("MainWindow", "OK", None))
 				elif cert.state == flscertification.FLSCertificate.STATE_ADDED:
-					icon.addPixmap(QtGui.QPixmap(":/status/state_add.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+					icon.addPixmap(QPixmap(":/status/state_add.png"), QIcon.Normal, QIcon.Off)
 					item.setText(_translate("MainWindow", "wird hinzugefügt", None))
 				elif cert.state == flscertification.FLSCertificate.STATE_DELETE:
-					icon.addPixmap(QtGui.QPixmap(":/status/trash.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+					icon.addPixmap(QPixmap(":/status/trash.png"), QIcon.Normal, QIcon.Off)
 					item.setText(_translate("MainWindow", "wird gelöscht", None))
 				else:
-					icon.addPixmap(QtGui.QPixmap(":/status/warning.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+					icon.addPixmap(QPixmap(":/status/warning.png"), QIcon.Normal, QIcon.Off)
 					item.setText(_translate("MainWindow", "Unbekannt", None))
 				item.setIcon(icon)
-				self.ui.adminTable.setItem(rowNr, 4, item)		
+				self.ui.adminTable.setItem(rowNr, 5, item)
 
 	@pyqtSlot()
 	def deleteCertificates(self):
@@ -1859,34 +2198,34 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				break
 
 		if pending:
-			msg = QtGui.QMessageBox.question(
+			msg = QMessageBox.question(
 				self, _translate('MainWindow', 'Warnung', None), 
 				_translate('MainWindow', 'Alle Änderungen gehen verloren. Fortfahren?', None),
-				QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.No
+				QMessageBox.Yes | QMessageBox.No, QMessageBox.No
 			)
-			if msg == QtGui.QMessageBox.Yes:
+			if msg == QMessageBox.Yes:
 				try:
 					self.loadMails()
 				except xmlrpc.client.Fault as e:
 					log.critical('Could not load mails because of %s' % (e,))
-					QtGui.QMessageBox.critical(
+					QMessageBox.critical(
 						self, _translate('MainWindow', 'Daten nicht ladbar', None), 
 						_translate('MainWindow', 
 							'Die E-Mail-Konten konnten nicht abgerufen werden.', 
 							None),
-						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+						QMessageBox.Ok, QMessageBox.Ok
 					)
 		else:
 			try:
 				self.loadMails()
 			except xmlrpc.client.Fault as e:
 				log.critical('Could not load mails because of %s' % (e,))
-				QtGui.QMessageBox.critical(
+				QMessageBox.critical(
 					self, _translate('MainWindow', 'Daten nicht ladbar', None), 
 					_translate('MainWindow', 
 						'Die E-Mail-Konten konnten nicht abgerufen werden.', 
 						None),
-					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					QMessageBox.Ok, QMessageBox.Ok
 				)
 		self.disableProgressBar()
 
@@ -1897,7 +2236,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		for row in self.mails:
 			rowNr = self.ui.mailTable.rowCount()
 			self.ui.mailTable.insertRow(rowNr)
-			item = QtGui.QTableWidgetItem()
+			item = QTableWidgetItem()
 			try:
 				item.setText('%s' % (row.id,))
 			except Exception as e:
@@ -1906,40 +2245,64 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			item.setTextAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
 			self.ui.mailTable.setItem(rowNr, 0, item)
 			# mail
-			item = QtGui.QTableWidgetItem()
+			item = QTableWidgetItem()
 			item.setText(row.getMailAddress())
 			self.ui.mailTable.setItem(rowNr, 1, item)
 			# type
-			item = QtGui.QTableWidgetItem()
-			icon = QtGui.QIcon()
+			item = QTableWidgetItem()
+			icon = QIcon()
 			if row.type == MailAccount.TYPE_ACCOUNT:
-				icon.addPixmap(QtGui.QPixmap(":/typ/account.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+				icon.addPixmap(QPixmap(":/typ/account.png"), QIcon.Normal, QIcon.Off)
 				item.setText(_translate("MainWindow", "Konto", None))
+			elif row.type == MailAccount.TYPE_FWDSMTP:
+				icon.addPixmap(QPixmap(":/typ/fwdsmtp.png"), QIcon.Normal, QIcon.Off)
+				item.setText(_translate("MainWindow", "Weiterleitung mit SMTP", None))
 			else:
-				icon.addPixmap(QtGui.QPixmap(":/typ/forward.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+				icon.addPixmap(QPixmap(":/typ/forward.png"), QIcon.Normal, QIcon.Off)
 				item.setText(_translate("MainWindow", "Weiterleitung", None))
 			item.setIcon(icon)
 			self.ui.mailTable.setItem(rowNr, 2, item)
+			# quota (human readable)
+			item = QTableWidgetItem()
+			item.setText(row.getQuotaReadable())
+			item.setTextAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
+			self.ui.mailTable.setItem(rowNr, 3, item)
+			# quotaSts (in percent)
+			item = QTableWidgetItem()
+			item.setText(row.getQuotaStatus())
+			item.setTextAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
+			self.ui.mailTable.setItem(rowNr, 4, item)
+			# Enabled / Disabled
+			item = QTableWidgetItem()
+			if row.enabled:
+				item.setText(_translate('MainWindow', 'Ja'))
+			else:
+				item.setText(_translate('MainWindow', 'Nein'))
+			item.setTextAlignment(QtCore.Qt.AlignCenter|QtCore.Qt.AlignVCenter)
+			self.ui.mailTable.setItem(rowNr, 5, item)
 			# status
-			item = QtGui.QTableWidgetItem()
-			icon = QtGui.QIcon()
+			item = QTableWidgetItem()
+			icon = QIcon()
 			if row.state == MailAccount.STATE_OK:
-				icon.addPixmap(QtGui.QPixmap(":/status/ok.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+				icon.addPixmap(QPixmap(":/status/ok.png"), QIcon.Normal, QIcon.Off)
 				item.setText(_translate("MainWindow", "OK", None))
 			elif row.state == MailAccount.STATE_CHANGE:
-				icon.addPixmap(QtGui.QPixmap(":/status/waiting.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+				icon.addPixmap(QPixmap(":/status/waiting.png"), QIcon.Normal, QIcon.Off)
 				item.setText(_translate("MainWindow", "wird geändert", None))
 			elif row.state == MailAccount.STATE_CREATE:
-				icon.addPixmap(QtGui.QPixmap(":/status/state_add.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+				icon.addPixmap(QPixmap(":/status/state_add.png"), QIcon.Normal, QIcon.Off)
 				item.setText(_translate("MainWindow", "wird hinzugefügt", None))
 			elif row.state == MailAccount.STATE_DELETE:
-				icon.addPixmap(QtGui.QPixmap(":/status/trash.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+				icon.addPixmap(QPixmap(":/status/trash.png"), QIcon.Normal, QIcon.Off)
 				item.setText(_translate("MainWindow", "wird gelöscht", None))
+			elif row.state == MailAccount.STATE_QUOTA:
+				icon.addPixmap(QPixmap(":/status/general_process.png"), QIcon.Normal, QIcon.Off)
+				item.setText(_translate("MainWindow", "Quota wird neuberechnet", None))
 			else:
-				icon.addPixmap(QtGui.QPixmap(":/status/warning.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+				icon.addPixmap(QPixmap(":/status/warning.png"), QIcon.Normal, QIcon.Off)
 				item.setText(_translate("MainWindow", "Unbekannt", None))
 			item.setIcon(icon)
-			self.ui.mailTable.setItem(rowNr, 3, item)
+			self.ui.mailTable.setItem(rowNr, 6, item)
 
 		self.ui.mailTable.setSortingEnabled(True)
 
@@ -1970,6 +2333,17 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.loadMailData()
 
 	@pyqtSlot()
+	def calculateMailQuota(self):
+		log.info('Clicked "calculate mail quota"')
+		for selectedRow in self.ui.mailTable.selectionModel().selectedRows():
+			nr = self.ui.mailTable.item(selectedRow.row(), 0).text()
+			account = self.mails.findById(nr)
+			account.markQuotaCalc()
+			log.debug('Marked mail to recalculation.')
+
+		self.loadMailData()
+
+	@pyqtSlot()
 	def deleteMail(self):
 		nrSelected = len(self.ui.mailTable.selectionModel().selectedRows())
 		log.info('Have to delete %i items!' % (nrSelected,))
@@ -1986,6 +2360,19 @@ class FLScpMainWindow(QtGui.QMainWindow):
 					# do not remove (because we want to see the pending action!)
 					account.state = MailAccount.STATE_DELETE
 					log.info('state set to delete')
+
+		self.loadMailData()
+
+	@pyqtSlot()
+	def toggleStatusMail(self):
+		nrSelected = len(self.ui.mailTable.selectionModel().selectedRows())
+		log.info('Have to toggle %i items!' % (nrSelected,))
+
+		for selectedRow in self.ui.mailTable.selectionModel().selectedRows():
+			nr = self.ui.mailTable.item(selectedRow.row(), 0).text()
+			account = self.mails.findById(nr)
+			if account is not None:
+				account.toggleStatus()
 
 		self.loadMailData()
 
@@ -2013,7 +2400,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.ui.domainTree.setSortingEnabled(True)
 
 	def insertDomainData(self, row, parent = None):
-		item = QtGui.QTreeWidgetItem()
+		item = QTreeWidgetItem()
 		try:
 			item.setText(0, '%s' % (row.id,))
 		except Exception as e:
@@ -2029,21 +2416,21 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		# ipv6
 		item.setText(4, row.ipv6)
 		# state
-		icon = QtGui.QIcon()
+		icon = QIcon()
 		if row.state == Domain.STATE_OK:
-			icon.addPixmap(QtGui.QPixmap(":/status/ok.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+			icon.addPixmap(QPixmap(":/status/ok.png"), QIcon.Normal, QIcon.Off)
 			item.setText(5, _translate("MainWindow", "OK", None))
 		elif row.state == Domain.STATE_CHANGE:
-			icon.addPixmap(QtGui.QPixmap(":/status/waiting.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+			icon.addPixmap(QPixmap(":/status/waiting.png"), QIcon.Normal, QIcon.Off)
 			item.setText(5, _translate("MainWindow", "wird geändert", None))
 		elif row.state == Domain.STATE_CREATE:
-			icon.addPixmap(QtGui.QPixmap(":/status/state_add.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+			icon.addPixmap(QPixmap(":/status/state_add.png"), QIcon.Normal, QIcon.Off)
 			item.setText(5, _translate("MainWindow", "wird hinzugefügt", None))
 		elif row.state == Domain.STATE_DELETE:
-			icon.addPixmap(QtGui.QPixmap(":/status/trash.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+			icon.addPixmap(QPixmap(":/status/trash.png"), QIcon.Normal, QIcon.Off)
 			item.setText(5, _translate("MainWindow", "wird gelöscht", None))
 		else:
-			icon.addPixmap(QtGui.QPixmap(":/status/warning.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+			icon.addPixmap(QPixmap(":/status/warning.png"), QIcon.Normal, QIcon.Off)
 			item.setText(5, _translate("MainWindow", "Unbekannt", None))
 		item.setIcon(5, icon)
 
@@ -2057,15 +2444,210 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			self.insertDomainData(childs, item)
 
 	@pyqtSlot()
+	def addDomain(self):
+		addDNS = False
+
+		elms = self.ui.tabDNS.currentWidget()
+		# first we think, that the selected element contains tree widget:
+		activeTable = elms.findChild(QTreeWidget)
+		if activeTable is None:
+			addDNS = True
+			activeTable = elms.findChild(QTableWidget)
+			if activeTable is None:
+				return
+
+		if addDNS:
+			self.addDNSEntry(dnsTable=activeTable)
+		else:
+			# if we have something selected, than lets use that as parent!
+			selectedIds = []
+			for selectedRow in self.ui.domainTree.selectedItems():
+				selectedIds.append(selectedRow.text(0))
+
+			parentDomain = None
+			if len(selectedIds) == 1:
+				parentDomain = self.domains.findById(selectedIds[0])
+
+			de = DomainEditor(self.domains, parentDomain=parentDomain, parent=self)
+			de.show()
+			de.exec_()
+			if de.accepted:
+				log.debug('Yes... domain can be added. Can we?')
+				nD = de.domain
+				if nD is not None:
+					self.domains.add(nD)
+					self.loadDomainData()
+			else:
+				log.debug('No... domain creation was cancelled!')
+
+	@pyqtSlot()
+	def editDomain(self):
+		editDNS = False
+
+		elms = self.ui.tabDNS.currentWidget()
+		# first we think, that the selected element contains tree widget:
+		activeTable = elms.findChild(QTreeWidget)
+		if activeTable is None:
+			editDNS = True
+			activeTable = elms.findChild(QTableWidget)
+			if activeTable is None:
+				return
+
+		if editDNS:
+			# eehm... we do not support it ;)
+			return
+		else:
+			# if we have something selected, than lets use that as parent!
+			for selectedRow in self.ui.domainTree.selectedItems():
+				did = selectedRow.text(0)
+				domain = self.domains.findById(did)
+				if domain is not None:
+					de = DomainEditor(self.domains, domain=domain, parent=self)
+					de.show()
+					de.exec_()
+					if de.accepted:
+						log.debug('Yes... domain can be saved. Can we?')
+						self.loadDomainData()
+					else:
+						log.debug('No... domain editing was cancelled!')
+						# so do nothing! ;)
+
+	def addDNSEntry(self, triggered = False, dnsTable = False):
+		if dnsTable is None:
+			dnsTable = self.ui.tabDNS.currentWidget().findChild(QTableWidget)
+			if dnsTable is None:
+				return
+
+		domainId = dnsTable.property('domainId')
+		# first: create a new DNS Entry
+		dnse = Dns()
+		dnse.generateId()
+		dnse.domainId = domainId
+		dnse.state = Dns.STATE_CREATE
+		# add to the global list!
+		self.dns.add(dnse)
+
+		# now add to the dnsTable!
+		dnsTable.setRowCount(dnsTable.rowCount())
+		typeList = [
+			Dns.TYPE_SOA,
+			Dns.TYPE_NS,
+			Dns.TYPE_MX,
+			Dns.TYPE_A,
+			Dns.TYPE_AAAA,
+			Dns.TYPE_CNAME,
+			Dns.TYPE_TXT,
+			Dns.TYPE_SPF,
+			Dns.TYPE_SRV
+		]
+
+		rowNr = dnsTable.rowCount()
+		dnsTable.insertRow(rowNr)
+		# id
+		item = QTableWidgetItem()
+		item.setText('%s' % (dnse.id,))
+		item.setFlags(QtCore.Qt.ItemIsSelectable|QtCore.Qt.ItemIsUserCheckable|QtCore.Qt.ItemIsEnabled)
+		item.setData(QtCore.Qt.UserRole, 'id')
+		item.setData(QtCore.Qt.UserRole + 5, True) # changes not relevant
+		dnsTable.setItem(rowNr, 0, item)
+		# key
+		item = QTableWidgetItem()
+		item.setText('%s' % (dnse.key,))
+		item.setData(QtCore.Qt.UserRole, 'key')
+		dnsTable.setItem(rowNr, 1, item)
+		# type
+		item = QComboBox()
+		item.setProperty('dnsKeyName', 'type')
+		item.addItems(typeList)
+		currentType = item.findText(dnse.type)
+		item.setCurrentIndex(currentType)
+		dnsTable.setCellWidget(rowNr, 2, item)
+		wtcn = WidgetTableChangeNotifier(dnsTable, rowNr, 2, item)
+		item.currentIndexChanged.connect(wtcn.currentIndexChanged)
+		wtcn.widgetIndexChanged.connect(self.dnsWidgetChanged)
+		self.ui.dnsNotifier[domainId].append(wtcn)
+		# prio
+		item = QTableWidgetItem()
+		item.setText('%s' % (dnse.prio,))
+		item.setData(QtCore.Qt.UserRole, 'prio')
+		dnsTable.setItem(rowNr, 3, item)
+		# value
+		item = QTableWidgetItem()
+		item.setText('%s' % (dnse.value,))
+		item.setData(QtCore.Qt.UserRole, 'value')
+		dnsTable.setItem(rowNr, 4, item)
+		# weight
+		item = QTableWidgetItem()
+		item.setText('%s' % (dnse.weight,))
+		item.setData(QtCore.Qt.UserRole, 'weight')
+		dnsTable.setItem(rowNr, 5, item)
+		# port
+		item = QTableWidgetItem()
+		item.setText('%s' % (dnse.port,))
+		item.setData(QtCore.Qt.UserRole, 'port')
+		dnsTable.setItem(rowNr, 6, item)
+		# admin
+		item = QTableWidgetItem()
+		item.setText('%s' % (dnse.dnsAdmin,))
+		item.setData(QtCore.Qt.UserRole, 'dnsAdmin')
+		dnsTable.setItem(rowNr, 7, item)
+		# refresh
+		item = QTableWidgetItem()
+		item.setText('%s' % (dnse.refreshRate,))
+		item.setData(QtCore.Qt.UserRole, 'refreshRate')
+		dnsTable.setItem(rowNr, 8, item)
+		# retry
+		item = QTableWidgetItem()
+		item.setText('%s' % (dnse.retryRate,))
+		item.setData(QtCore.Qt.UserRole, 'retryRate')
+		dnsTable.setItem(rowNr, 9, item)
+		# expire
+		item = QTableWidgetItem()
+		item.setText('%s' % (dnse.expireTime,))
+		item.setData(QtCore.Qt.UserRole, 'expireTime')
+		dnsTable.setItem(rowNr, 10, item)
+		# ttl
+		item = QTableWidgetItem()
+		item.setText('%s' % (dnse.ttl,))
+		item.setData(QtCore.Qt.UserRole, 'ttl')
+		dnsTable.setItem(rowNr, 11, item)
+		# status
+		item = QTableWidgetItem()
+		icon = QIcon()
+		if dnse.state == Dns.STATE_OK:
+			icon.addPixmap(QPixmap(":/status/ok.png"), QIcon.Normal, QIcon.Off)
+			item.setText(_translate("MainWindow", "OK", None))
+		elif dnse.state == Dns.STATE_CREATE:
+			icon.addPixmap(QPixmap(":/status/state_add.png"), QIcon.Normal, QIcon.Off)
+			item.setText(_translate("MainWindow", "wird hinzugefügt", None))
+		elif dnse.state == Dns.STATE_CHANGE:
+			icon.addPixmap(QPixmap(":/status/waiting.png"), QIcon.Normal, QIcon.Off)
+			item.setText(_translate("MainWindow", "wird geändert", None))
+		elif dnse.state == Dns.STATE_DELETE:
+			icon.addPixmap(QPixmap(":/status/trash.png"), QIcon.Normal, QIcon.Off)
+			item.setText(_translate("MainWindow", "wird gelöscht", None))
+		else:
+			icon.addPixmap(QPixmap(":/status/warning.png"), QIcon.Normal, QIcon.Off)
+			item.setText(_translate("MainWindow", "Unbekannt", None))
+		item.setIcon(icon)
+		item.setFlags(QtCore.Qt.ItemIsSelectable|QtCore.Qt.ItemIsUserCheckable|QtCore.Qt.ItemIsEnabled)
+		item.setData(QtCore.Qt.UserRole, 'state')
+		item.setData(QtCore.Qt.UserRole + 5, True) # changes not relevant
+		dnsTable.setItem(rowNr, 12, item)
+		dsco = DnsStateChangeObserver(dnsTable, item, dnse)
+		dnse.stateChanged.connect(dsco.stateChanged)
+		self.ui.dnsNotifier[domainId].append(dsco)
+
+	@pyqtSlot()
 	def deleteDomain(self):
 		editDNS = False
 
 		elms = self.ui.tabDNS.currentWidget()
 		# first we think, that the selected element contains tree widget:
-		activeTable = elms.findChild(QtGui.QTreeWidget)
+		activeTable = elms.findChild(QTreeWidget)
 		if activeTable is None:
 			editDNS = True
-			activeTable = elms.findChild(QtGui.QTableWidget)
+			activeTable = elms.findChild(QTableWidget)
 			if activeTable is None:
 				return
 
@@ -2099,7 +2681,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 	@pyqtSlot(bool)
 	def deleteDNSEntries(self, triggered = False, activeTable = None):
 		if activeTable is None:
-			activeTable = self.ui.tabDNS.currentWidget().findChild(QtGui.QTableWidget)
+			activeTable = self.ui.tabDNS.currentWidget().findChild(QTableWidget)
 			if activeTable is None:
 				return
 
@@ -2119,101 +2701,149 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				activeTable.removeRow(selectedRow.row())
 				self.dns.remove(dns)
 
-		#self.loadDNSData(<id>????)
+	@pyqtSlot()
+	def generateBindFile(self):
+		elms = self.ui.tabDNS.currentWidget()
+		# first we think, that the selected element contains tree widget:
+		activeTable = elms.findChild(QTreeWidget)
+		if activeTable is None:
+			activeTable = elms.findChild(QTableWidget)
+			if activeTable is not None:
+				self.generateBindFileByDns(activeTable)
+			return
+
+		nrSelected = len(self.ui.domainTree.selectionModel().selectedRows())
+		log.info('Have to generate bind file for %i items!' % (nrSelected,))
+
+		zoneFiles = []
+		for selectedRow in self.ui.domainTree.selectedItems():
+			nr = int(selectedRow.text(0))
+			# now get the zone file
+			try:
+				zoneFiles.append(self.rpc.getDomainZoneFile(nr))
+			except Exception as e:
+				log.error('Could not generate zone file: %s' % (str(e),))
+				QMessageBox.warning(
+					self, _translate('MainWindow', 'Zonen-Erstellung', None), 
+					_translate(
+						'MainWindow', 
+						'BIND-Datei konnte nicht erzeugt werden, weil nicht alle erforderlichen DNS-Einträge erstellt worden sind! ' +
+						'Haben Sie bereits alle Änderungen gespeichert?', 
+						None
+					)
+				)
+
+		for f in zoneFiles:
+			self.zoneFileLoaded(f)
+
+	def generateBindFileByDns(self, table):
+		domainId = table.property('domainId')
+		log.info('Have to generate bind file for domain %s!' % (domainId,))
+		try:
+			self.zoneFileLoaded(self.rpc.getDomainZoneFile(nr))
+		except Exception as e:
+			pass
+
+	@pyqtSlot(str)
+	def zoneFileLoaded(self, text):
+		log.debug(text)
+		fco = FlsCpOutput(self)
+		fco.setText(text)
+		fco.show()
 	
 	def createDNSWidget(self, domain):
-		tabDomainDNS = QtGui.QWidget()
-		verticalLayout = QtGui.QVBoxLayout(tabDomainDNS)
-		tableDNS = QtGui.QTableWidget(tabDomainDNS)
-		tableDNS.setEditTriggers(QtGui.QAbstractItemView.DoubleClicked|QtGui.QAbstractItemView.EditKeyPressed)
+		tabDomainDNS = QWidget()
+		verticalLayout = QVBoxLayout(tabDomainDNS)
+		tableDNS = QTableWidget(tabDomainDNS)
+		tableDNS.setEditTriggers(QAbstractItemView.DoubleClicked|QAbstractItemView.EditKeyPressed)
 		tableDNS.setAlternatingRowColors(True)
-		tableDNS.setSelectionBehavior(QtGui.QAbstractItemView.SelectRows)
+		tableDNS.setSelectionBehavior(QAbstractItemView.SelectRows)
 		tableDNS.setColumnCount(13)
 		tableDNS.setRowCount(0)
 		tableDNS.setSortingEnabled(False)
-		item = QtGui.QTableWidgetItem()
+		item = QTableWidgetItem()
 		tableDNS.setVerticalHeaderItem(0, item)
-		item = QtGui.QTableWidgetItem()
+		item = QTableWidgetItem()
 		tableDNS.setVerticalHeaderItem(1, item)
-		item = QtGui.QTableWidgetItem()
+		item = QTableWidgetItem()
 		item.setTextAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignVCenter)
-		font = QtGui.QFont()
+		font = QFont()
 		font.setBold(True)
 		font.setWeight(75)
 		item.setFont(font)
 		tableDNS.setHorizontalHeaderItem(0, item)
-		item = QtGui.QTableWidgetItem()
+		item = QTableWidgetItem()
 		item.setTextAlignment(QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
-		font = QtGui.QFont()
+		font = QFont()
 		font.setBold(True)
 		font.setWeight(75)
 		item.setFont(font)
 		tableDNS.setHorizontalHeaderItem(1, item)
-		item = QtGui.QTableWidgetItem()
+		item = QTableWidgetItem()
 		item.setTextAlignment(QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
-		font = QtGui.QFont()
+		font = QFont()
 		font.setBold(True)
 		font.setWeight(75)
 		item.setFont(font)
 		tableDNS.setHorizontalHeaderItem(2, item)
-		item = QtGui.QTableWidgetItem()
+		item = QTableWidgetItem()
 		item.setTextAlignment(QtCore.Qt.AlignHCenter|QtCore.Qt.AlignVCenter|QtCore.Qt.AlignCenter)
-		font = QtGui.QFont()
+		font = QFont()
 		font.setBold(True)
 		font.setWeight(75)
 		item.setFont(font)
 		tableDNS.setHorizontalHeaderItem(3, item)
-		item = QtGui.QTableWidgetItem()
+		item = QTableWidgetItem()
 		item.setTextAlignment(QtCore.Qt.AlignLeft|QtCore.Qt.AlignVCenter)
-		font = QtGui.QFont()
+		font = QFont()
 		font.setBold(True)
 		font.setWeight(75)
 		item.setFont(font)
 		tableDNS.setHorizontalHeaderItem(4, item)
-		item = QtGui.QTableWidgetItem()
-		font = QtGui.QFont()
+		item = QTableWidgetItem()
+		font = QFont()
 		font.setBold(True)
 		font.setWeight(75)
 		item.setFont(font)
 		tableDNS.setHorizontalHeaderItem(5, item)
-		item = QtGui.QTableWidgetItem()
-		font = QtGui.QFont()
+		item = QTableWidgetItem()
+		font = QFont()
 		font.setBold(True)
 		font.setWeight(75)
 		item.setFont(font)
 		tableDNS.setHorizontalHeaderItem(6, item)
-		item = QtGui.QTableWidgetItem()
-		font = QtGui.QFont()
+		item = QTableWidgetItem()
+		font = QFont()
 		font.setBold(True)
 		font.setWeight(75)
 		item.setFont(font)
 		tableDNS.setHorizontalHeaderItem(7, item)
-		item = QtGui.QTableWidgetItem()
-		font = QtGui.QFont()
+		item = QTableWidgetItem()
+		font = QFont()
 		font.setBold(True)
 		font.setWeight(75)
 		item.setFont(font)
 		tableDNS.setHorizontalHeaderItem(8, item)
-		item = QtGui.QTableWidgetItem()
-		font = QtGui.QFont()
+		item = QTableWidgetItem()
+		font = QFont()
 		font.setBold(True)
 		font.setWeight(75)
 		item.setFont(font)
 		tableDNS.setHorizontalHeaderItem(9, item)
-		item = QtGui.QTableWidgetItem()
-		font = QtGui.QFont()
+		item = QTableWidgetItem()
+		font = QFont()
 		font.setBold(True)
 		font.setWeight(75)
 		item.setFont(font)
 		tableDNS.setHorizontalHeaderItem(10, item)
-		item = QtGui.QTableWidgetItem()
-		font = QtGui.QFont()
+		item = QTableWidgetItem()
+		font = QFont()
 		font.setBold(True)
 		font.setWeight(75)
 		item.setFont(font)
 		tableDNS.setHorizontalHeaderItem(11, item)
-		item = QtGui.QTableWidgetItem()
-		font = QtGui.QFont()
+		item = QTableWidgetItem()
+		font = QFont()
 		font.setBold(True)
 		font.setWeight(75)
 		item.setFont(font)
@@ -2241,8 +2871,8 @@ class FLScpMainWindow(QtGui.QMainWindow):
 
 		# add context menu
 		# create context menu
-		action = QtGui.QAction(
-			QtGui.QIcon(QtGui.QPixmap(':actions/delete.png')), 
+		action = QAction(
+			QIcon(QPixmap(':actions/delete.png')), 
 			_translate("MainWindow", "Löschen", None), tableDNS
 		)
 		action.triggered.connect(self.deleteDNSEntries)
@@ -2259,7 +2889,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 	@pyqtSlot()
 	def reloadDnsData(self, activeTable=None, interactive = False):
 		if activeTable is None:
-			activeTable = self.ui.tabDNS.currentWidget().findChild(QtGui.QTableWidget)
+			activeTable = self.ui.tabDNS.currentWidget().findChild(QTableWidget)
 			if activeTable is None:
 				return
 
@@ -2298,45 +2928,46 @@ class FLScpMainWindow(QtGui.QMainWindow):
 						pending = True
 
 		if pending:
-			msg = QtGui.QMessageBox.question(
+			msg = QMessageBox.question(
 				self, _translate('MainWindow', 'Warnung', None), 
 				_translate('MainWindow', 'Alle Änderungen gehen verloren. Fortfahren?', None),
-				QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.No
+				QMessageBox.Yes | QMessageBox.No, QMessageBox.No
 			)
 
-			if msg == QtGui.QMessageBox.Yes:
+			if msg == QMessageBox.Yes:
 				pending = False
 	
 		if not pending or not interactive:
 			# remove all entries for domain id
 			self.dns.removeByDomain(domainId)
 
-			self.dataLoader = DnsListLoader(self.rpc, domainId, self)
-			self.dataLoader.dataLoaded.connect(self.dnsDataLoaded)
-			self.dataLoader.certError.connect(self.dataLoadCertError)
-			self.dataLoader.socketError.connect(self.dataLoadSocketError)
-			self.dataLoader.protocolError.connect(self.dataLoadProtocolError)
-			self.dataLoader.unknownError.connect(self.dataLoadError)
-			self.dataLoader.start()
+			dataLoader = DnsListLoader(self.rpc, domainId)
+			dataLoader.dataLoadedDict.connect(self.dnsDataLoaded)
+			dataLoader.certError.connect(self.dataLoadCertError)
+			dataLoader.socketError.connect(self.dataLoadSocketError)
+			dataLoader.protocolError.connect(self.dataLoadProtocolError)
+			dataLoader.unknownError.connect(self.dataLoadError)
+			QThreadPool.globalInstance().start(dataLoader)
 
 	@pyqtSlot(int, list)
-	def dnsDataLoaded(self, domain, data):
+	def dnsDataLoaded(self, data):
 
-		for f in data:
-			d = Dns.fromDict(f)
-			# check if d already in dns
-			if d not in self.dns:
-				self.dns.add(d)
+		for domainId, entries in data.items():
+			for f in entries:
+				d = Dns.fromDict(f)
+				# check if d already in dns
+				if d not in self.dns:
+					self.dns.add(d)
 
-		if domain is not None:
-			self.loadDnsData(domain)
+			if domainId is not None:
+				self.loadDnsData(domainId)
 
 		self.disableProgressBar()
 
 	def loadDnsData(self, domainId):
 		if domainId not in self.ui.dnsTabs or \
 			domainId not in self.ui.dnsTable:
-			log.info('Got new data for domain #%s, but no table is open for that.' % (domainId,))
+			log.debug('Got new data for domain #%s, but no table is open for that.' % (domainId,))
 
 		dnsTab = self.ui.dnsTabs[domainId]
 		dnsTable = self.ui.dnsTable[domainId]
@@ -2345,14 +2976,14 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			log.warning('Should update table for domain #%s, but objects are not present.' % (domainId,))
 			return
 
-		log.info('Reload DNS-table for domain #%s' % (domainId,))
+		log.debug('Reload DNS-table for domain #%s' % (domainId,))
 
 		dnsTable.setSortingEnabled(False)
 		dnsTable.setRowCount(0)
 
 		# remove all notifier
 		if domainId in self.ui.dnsNotifier:
-			log.info(
+			log.debug(
 				'Found %i notifier. Have to remove them (but only if i\'ve found more than zero!\').' % (
 					len(self.ui.dnsNotifier[domainId]),
 				)
@@ -2365,8 +2996,8 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				self.ui.dnsNotifier[domainId].remove(f)
 			del(notifier)
 		else:
-			log.info('Found no notifier for domain.')
-		log.info('Found %i notifier. Expected: 0' % (len(self.ui.dnsNotifier[domainId]),))
+			log.debug('Found no notifier for domain.')
+		log.debug('Found %i notifier. Expected: 0' % (len(self.ui.dnsNotifier[domainId]),))
 
 		typeList = [
 			Dns.TYPE_SOA,
@@ -2384,19 +3015,19 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			rowNr = dnsTable.rowCount()
 			dnsTable.insertRow(rowNr)
 			# id
-			item = QtGui.QTableWidgetItem()
+			item = QTableWidgetItem()
 			item.setText('%s' % (dnse.id,))
 			item.setFlags(QtCore.Qt.ItemIsSelectable|QtCore.Qt.ItemIsUserCheckable|QtCore.Qt.ItemIsEnabled)
 			item.setData(QtCore.Qt.UserRole, 'id')
 			item.setData(QtCore.Qt.UserRole + 5, True) # changes not relevant
 			dnsTable.setItem(rowNr, 0, item)
 			# key
-			item = QtGui.QTableWidgetItem()
+			item = QTableWidgetItem()
 			item.setText('%s' % (dnse.key,))
 			item.setData(QtCore.Qt.UserRole, 'key')
 			dnsTable.setItem(rowNr, 1, item)
 			# type
-			item = QtGui.QComboBox()
+			item = QComboBox()
 			item.setProperty('dnsKeyName', 'type')
 			item.addItems(typeList)
 			currentType = item.findText(dnse.type)
@@ -2407,67 +3038,67 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			wtcn.widgetIndexChanged.connect(self.dnsWidgetChanged)
 			self.ui.dnsNotifier[domainId].append(wtcn)
 			# prio
-			item = QtGui.QTableWidgetItem()
+			item = QTableWidgetItem()
 			item.setText('%s' % (dnse.prio,))
 			item.setData(QtCore.Qt.UserRole, 'prio')
 			dnsTable.setItem(rowNr, 3, item)
 			# value
-			item = QtGui.QTableWidgetItem()
+			item = QTableWidgetItem()
 			item.setText('%s' % (dnse.value,))
 			item.setData(QtCore.Qt.UserRole, 'value')
 			dnsTable.setItem(rowNr, 4, item)
 			# weight
-			item = QtGui.QTableWidgetItem()
+			item = QTableWidgetItem()
 			item.setText('%s' % (dnse.weight,))
 			item.setData(QtCore.Qt.UserRole, 'weight')
 			dnsTable.setItem(rowNr, 5, item)
 			# port
-			item = QtGui.QTableWidgetItem()
+			item = QTableWidgetItem()
 			item.setText('%s' % (dnse.port,))
 			item.setData(QtCore.Qt.UserRole, 'port')
 			dnsTable.setItem(rowNr, 6, item)
 			# admin
-			item = QtGui.QTableWidgetItem()
+			item = QTableWidgetItem()
 			item.setText('%s' % (dnse.dnsAdmin,))
 			item.setData(QtCore.Qt.UserRole, 'dnsAdmin')
 			dnsTable.setItem(rowNr, 7, item)
 			# refresh
-			item = QtGui.QTableWidgetItem()
+			item = QTableWidgetItem()
 			item.setText('%s' % (dnse.refreshRate,))
 			item.setData(QtCore.Qt.UserRole, 'refreshRate')
 			dnsTable.setItem(rowNr, 8, item)
 			# retry
-			item = QtGui.QTableWidgetItem()
+			item = QTableWidgetItem()
 			item.setText('%s' % (dnse.retryRate,))
 			item.setData(QtCore.Qt.UserRole, 'retryRate')
 			dnsTable.setItem(rowNr, 9, item)
 			# expire
-			item = QtGui.QTableWidgetItem()
+			item = QTableWidgetItem()
 			item.setText('%s' % (dnse.expireTime,))
 			item.setData(QtCore.Qt.UserRole, 'expireTime')
 			dnsTable.setItem(rowNr, 10, item)
 			# ttl
-			item = QtGui.QTableWidgetItem()
+			item = QTableWidgetItem()
 			item.setText('%s' % (dnse.ttl,))
 			item.setData(QtCore.Qt.UserRole, 'ttl')
 			dnsTable.setItem(rowNr, 11, item)
 			# status
-			item = QtGui.QTableWidgetItem()
-			icon = QtGui.QIcon()
+			item = QTableWidgetItem()
+			icon = QIcon()
 			if dnse.state == Dns.STATE_OK:
-				icon.addPixmap(QtGui.QPixmap(":/status/ok.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+				icon.addPixmap(QPixmap(":/status/ok.png"), QIcon.Normal, QIcon.Off)
 				item.setText(_translate("MainWindow", "OK", None))
 			elif dnse.state == Dns.STATE_CREATE:
-				icon.addPixmap(QtGui.QPixmap(":/status/state_add.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+				icon.addPixmap(QPixmap(":/status/state_add.png"), QIcon.Normal, QIcon.Off)
 				item.setText(_translate("MainWindow", "wird hinzugefügt", None))
 			elif dnse.state == Dns.STATE_CHANGE:
-				icon.addPixmap(QtGui.QPixmap(":/status/waiting.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+				icon.addPixmap(QPixmap(":/status/waiting.png"), QIcon.Normal, QIcon.Off)
 				item.setText(_translate("MainWindow", "wird geändert", None))
 			elif dnse.state == Dns.STATE_DELETE:
-				icon.addPixmap(QtGui.QPixmap(":/status/trash.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+				icon.addPixmap(QPixmap(":/status/trash.png"), QIcon.Normal, QIcon.Off)
 				item.setText(_translate("MainWindow", "wird gelöscht", None))
 			else:
-				icon.addPixmap(QtGui.QPixmap(":/status/warning.png"), QtGui.QIcon.Normal, QtGui.QIcon.Off)
+				icon.addPixmap(QPixmap(":/status/warning.png"), QIcon.Normal, QIcon.Off)
 				item.setText(_translate("MainWindow", "Unbekannt", None))
 			item.setIcon(icon)
 			item.setFlags(QtCore.Qt.ItemIsSelectable|QtCore.Qt.ItemIsUserCheckable|QtCore.Qt.ItemIsEnabled)
@@ -2485,7 +3116,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		ccn.tableItemChanged.connect(self.dnsItemChanged)
 		self.ui.dnsNotifier[domainId].append(ccn)
 
-	@pyqtSlot(QtGui.QTableWidget, str, QtGui.QTableWidgetItem)
+	@pyqtSlot(QTableWidget, str, QTableWidgetItem)
 	def dnsItemChanged(self, table, id, item):
 		# find dns by id
 		dns = self.dns.findById(id)
@@ -2505,7 +3136,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		# value
 		value = item.text()
 
-		if hasattr(dns, dnsProperty) and getattr(dns, dnsProperty) != value:
+		if hasattr(dns, dnsProperty) and str(getattr(dns, dnsProperty)) != str(value):
 			setattr(dns, dnsProperty, value)
 			if dns.state == Dns.STATE_OK:
 				dns.changeState(Dns.STATE_CHANGE)
@@ -2518,7 +3149,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 
 		log.debug('Item changed: DNS: %s, Name: %s, Text: %s' % (id, dnsProperty, item.text()))
 
-	@pyqtSlot(QtGui.QTableWidget, int, int, str, QtGui.QWidget, str)
+	@pyqtSlot(QTableWidget, int, int, str, QWidget, str)
 	def dnsWidgetChanged(self, table, row, col, id, widget, value):
 		# find dns by id.
 		dns = self.dns.findById(id)
@@ -2535,7 +3166,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			log.debug('Widget change not interesting: DNS: %s, Name: %s' % (id, dnsProperty))
 			return
 
-		if hasattr(dns, dnsProperty) and getattr(dns, dnsProperty) != value:
+		if hasattr(dns, dnsProperty) and str(getattr(dns, dnsProperty)) != str(value):
 			setattr(dns, dnsProperty, value)
 			if dns.state == Dns.STATE_OK:
 				dns.changeState(Dns.STATE_CHANGE)
@@ -2557,7 +3188,7 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		curCol = 0
 		maxCol = table.columnCount()
 
-		brush = QtGui.QBrush(QtGui.QColor(255, 207, 207))
+		brush = QBrush(QColor(255, 207, 207))
 		if state:
 			log.info('DNS change is valid!')
 		else:
@@ -2608,25 +3239,48 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		if not hasattr(self.ui, 'dnsNotifier'):
 			self.ui.dnsNotifier = {}
 
-		if self.ui.tabDNS.currentWidget().findChild(QtGui.QTreeWidget) is None:
+		if self.ui.tabDNS.currentWidget().findChild(QTreeWidget) is None:
 			return
 
 		nrSelected = len(self.ui.domainTree.selectionModel().selectedRows())
 		log.info('Have to open %i domains!' % (nrSelected,))
 
+		firstSave = False
+		alreadyDelete = False
 		for selectedRow in self.ui.domainTree.selectedItems():
-			nr = int(selectedRow.text(0))
+			nr = selectedRow.text(0)
 			domain = self.domains.findById(nr)
 			if domain is not None:
 				if domain.state != Domain.STATE_CREATE and \
 					domain.state != Domain.STATE_DELETE:
 					# is a tab with this already open?
 					self.createDNSWidget(domain)
+				elif domain.state == Domain.STATE_CREATE:
+					firstSave = True
+				elif domain.state == Domain.STATE_DELETE:
+					alreadyDelete = True
+
+		if alreadyDelete:
+			QMessageBox.information(
+				self, _translate('MainWindow', 'DNS-Einstellungen ändern', None), 
+				_translate('MainWindow', 
+					'Die Domain wird bereits entfernt. DNS-Einstellungen können nicht vorgenommen werden.',
+					None),
+				QMessageBox.Ok, QMessageBox.Ok
+			)
+		elif firstSave:
+			QMessageBox.information(
+				self, _translate('MainWindow', 'DNS-Einstellungen ändern', None), 
+				_translate('MainWindow', 
+					'Bitte speichern Sie zunächst die neu angelegten Domains!',
+					None),
+				QMessageBox.Ok, QMessageBox.Ok
+			)
 
 	@pyqtSlot()
 	def reloadDomainTree(self):
 		# which tab?
-		activeWidget = self.ui.tabDNS.currentWidget().findChild(QtGui.QTableWidget)
+		activeWidget = self.ui.tabDNS.currentWidget().findChild(QTableWidget)
 		if activeWidget is not None and activeWidget.property('domainId') is not None:
 			self.reloadDnsData(interactive=True)
 			return
@@ -2644,12 +3298,12 @@ class FLScpMainWindow(QtGui.QMainWindow):
 
 		loadDomainData = True
 		if pending:
-			msg = QtGui.QMessageBox.question(
+			msg = QMessageBox.question(
 				self, _translate('MainWindow', 'Warnung', None), 
 				_translate('MainWindow', 'Alle Änderungen gehen verloren. Fortfahren?', None),
-				QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.No
+				QMessageBox.Yes | QMessageBox.No, QMessageBox.No
 			)
-			if msg != QtGui.QMessageBox.Yes:
+			if msg != QMessageBox.Yes:
 				loadDomainData = False
 
 
@@ -2658,12 +3312,12 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				self.loadDomains()
 			except xmlrpc.client.Fault as e:
 				log.critical('Could not load domains because of %s' % (e,))
-				QtGui.QMessageBox.critical(
+				QMessageBox.critical(
 					self, _translate('MainWindow', 'Daten nicht ladbar', None), 
 					_translate('MainWindow', 
 						'Die Domains konnten nicht abgerufen werden.', 
 						None),
-					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					QMessageBox.Ok, QMessageBox.Ok
 				)
 			else:
 				self.loadDomainData()
@@ -2674,6 +3328,13 @@ class FLScpMainWindow(QtGui.QMainWindow):
 	def dnsCloseTab(self, idx):
 		if idx == 0:
 			log.info('Cannot close the domain overview!')
+			QMessageBox.information(
+				self, _translate('MainWindow', 'Domain-Tab', None), 
+				_translate('MainWindow', 
+					'Die Überssichtsseite kann nicht geschlossen werden.', 
+					None),
+				QMessageBox.Ok, QMessageBox.Ok
+			)
 		else:
 			log.info('Close domain tab %i' % (idx,))
 			# find the item
@@ -2700,12 +3361,200 @@ class FLScpMainWindow(QtGui.QMainWindow):
 			self.ui.tabDNS.removeTab(idx)
 
 	@pyqtSlot()
+	def commitDomainData(self):
+		editDNS = False
+
+		elms = self.ui.tabDNS.currentWidget()
+		# first we think, that the selected element contains tree widget:
+		activeTable = elms.findChild(QTreeWidget)
+		if activeTable is None:
+			editDNS = True
+			activeTable = elms.findChild(QTableWidget)
+			if activeTable is None:
+				return
+
+		if editDNS:
+			self.saveDNSEntries(activeTable=activeTable)
+		else:
+			domainList = DomainList()
+			for domain in self.domains:
+				if domain is not None:
+					if domain.state == Domain.STATE_CREATE:
+						# we cancel pending creation action.
+						self.ui.domainTree.removeItemWidget(selectedRow)
+						self.domains.remove(domain)
+					else:
+						# do not remove (because we want to see the pending action!)
+						# check possibility!
+						# this means: are there mails with this domain?
+						if domain.state == Domain.STATE_DELETE and not domain.isDeletable(self.domains, self.mails):
+							log.error('cannot delete domain %s!' % (domain.name,))
+							continue
+						else:
+							domainList.add(domain)
+
+			if len(domainList) > 0:
+				try:
+					self.rpc.saveDomains(domainList)
+				except TypeError as e:
+					log.error('Uhhh we tried to send things the server does not understood (%s)' % (e,))
+					log.debug('Tried to send: %s' % (str(data),))
+					QMessageBox.warning(
+							self, _translate('MainWindow', 'Datenfehler', None), 
+							_translate('MainWindow', 
+								'Bei der Kommunikation mit dem Server ist ein Datenfehler aufgetreten!', 
+								None),
+							QMessageBox.Ok, QMessageBox.Ok
+						)
+				except ssl.CertificateError as e:
+					log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
+					QMessageBox.critical(
+						self, _translate('MainWindow', 'Warnung', None), 
+						_translate('MainWindow', 
+							'Potentieller Angriff! Server-Zertifikat ist fehlerhaft! Bitte informieren Sie Ihren Administrator!', 
+							None),
+						QMessageBox.Ok, QMessageBox.Ok
+					)
+				except socket.error as e:
+					QMessageBox.critical(
+						self, _translate('MainWindow', 'Warnung', None), 
+						_translate('MainWindow', 
+							'Verbindung zum Server nicht möglich. Bitte versuchen Sie es später noch einmal.', 
+							None),
+						QMessageBox.Ok, QMessageBox.Ok
+					)
+				except xmlrpc.client.ProtocolError as e:
+					if e.errcode == 403:
+						log.warning('Missing rights for loading mails (%s)' % (e,))
+						QMessageBox.warning(
+							self, _translate('MainWindow', 'Fehlende Rechte', None), 
+							_translate('MainWindow', 
+								'Sie haben nicht ausreichend Rechte!', 
+								None),
+							QMessageBox.Ok, QMessageBox.Ok
+						)
+					else:
+						log.warning('Unexpected error in protocol: %s' % (e,))
+						QMessageBox.warning(
+							self, _translate('MainWindow', 'Unbekannter Fehler', None), 
+							_translate('MainWindow', 
+								'Unbekannter Fehler in der Kommunikation mit dem Server aufgetreten.', 
+								None),
+							QMessageBox.Ok, QMessageBox.Ok
+						)
+				else:
+					log.debug('Saved with success. Now reload domain data.')
+					try:
+						self.loadDomains()
+					except xmlrpc.client.Fault as e:
+						log.critical('Could not load domains because of %s' % (e,))
+						QMessageBox.critical(
+							self, _translate('MainWindow', 'Daten nicht ladbar', None), 
+							_translate('MainWindow', 
+								'Die Domains konnten nicht abgerufen werden.', 
+								None),
+							QMessageBox.Ok, QMessageBox.Ok
+						)
+					else:
+						self.loadDomainData()
+						
+		self.disableProgressBar()
+
+	@pyqtSlot(bool)
+	def saveDNSEntries(self, triggered = False, activeTable = None):
+		if activeTable is None:
+			activeTable = self.ui.tabDNS.currentWidget().findChild(QTableWidget)
+			if activeTable is None:
+				return
+
+		# first: check whether all dns entries are valid!
+		domainId = activeTable.property('domainId')
+		if domainId is None:
+			return
+
+		dList = DNSList()
+		errors = False
+		for dns in self.dns.iterByDomain(domainId):
+			if not dns.validate():
+				errors = True
+				break
+			else:
+				dList.add(dns)
+
+		if errors:
+			QMessageBox.warning(
+				self, _translate('MainWindow', 'DNs-Fehler', None), 
+				_translate('MainWindow', 
+					'Die DNS-Tabelle enthält Fehler und kann nicht gespeichert werden.', 
+					None),
+				QMessageBox.Ok, QMessageBox.Ok
+			)
+			return
+
+		# All is ok. Now save (but only for given domain!)
+		self.enableProgressBar()
+		if len(dList) > 0:
+			try:
+				self.rpc.saveDns(domainId, dList)
+			except TypeError as e:
+				log.error('Uhhh we tried to send things the server does not understood (%s)' % (e,))
+				log.debug('Tried to send: %s' % (str(data),))
+				QMessageBox.warning(
+						self, _translate('MainWindow', 'Datenfehler', None), 
+						_translate('MainWindow', 
+							'Bei der Kommunikation mit dem Server ist ein Datenfehler aufgetreten!', 
+							None),
+						QMessageBox.Ok, QMessageBox.Ok
+					)
+			except ssl.CertificateError as e:
+				log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
+				QMessageBox.critical(
+					self, _translate('MainWindow', 'Warnung', None), 
+					_translate('MainWindow', 
+						'Potentieller Angriff! Server-Zertifikat ist fehlerhaft! Bitte informieren Sie Ihren Administrator!', 
+						None),
+					QMessageBox.Ok, QMessageBox.Ok
+				)
+			except socket.error as e:
+				QMessageBox.critical(
+					self, _translate('MainWindow', 'Warnung', None), 
+					_translate('MainWindow', 
+						'Verbindung zum Server nicht möglich. Bitte versuchen Sie es später noch einmal.', 
+						None),
+					QMessageBox.Ok, QMessageBox.Ok
+				)
+			except xmlrpc.client.ProtocolError as e:
+				if e.errcode == 403:
+					log.warning('Missing rights for loading mails (%s)' % (e,))
+					QMessageBox.warning(
+						self, _translate('MainWindow', 'Fehlende Rechte', None), 
+						_translate('MainWindow', 
+							'Sie haben nicht ausreichend Rechte!', 
+							None),
+						QMessageBox.Ok, QMessageBox.Ok
+					)
+				else:
+					log.warning('Unexpected error in protocol: %s' % (e,))
+					QMessageBox.warning(
+						self, _translate('MainWindow', 'Unbekannter Fehler', None), 
+						_translate('MainWindow', 
+							'Unbekannter Fehler in der Kommunikation mit dem Server aufgetreten.', 
+							None),
+						QMessageBox.Ok, QMessageBox.Ok
+					)
+
+			else:
+				self.reloadDnsDataByDomain(domainId, interactive=False)
+
+		self.disableProgressBar()
+
+	@pyqtSlot()
 	def about(self):
 		aboutWin = FlsCpAbout(self)
 
 	@pyqtSlot()
 	def aboutQt(self):
-		QtGui.QMessageBox.aboutQt(self)
+		QMessageBox.aboutQt(self)
 
 	@pyqtSlot()
 	def quitApp(self):
@@ -2717,12 +3566,12 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				break
 
 		if pending:
-			msg = QtGui.QMessageBox.question(
+			msg = QMessageBox.question(
 				self, _translate('MainWindow', 'Warnung', None), 
 				_translate('MainWindow', 'Alle Änderungen gehen verloren. Beenden?', None),
-				QtGui.QMessageBox.Yes | QtGui.QMessageBox.No, QtGui.QMessageBox.No
+				QMessageBox.Yes | QMessageBox.No, QMessageBox.No
 			)
-			if msg == QtGui.QMessageBox.Yes:
+			if msg == QMessageBox.Yes:
 				self.close()
 
 		else:
@@ -2762,48 +3611,48 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				print(data._items[0])
 				Printer(data._items[0])
 				log.debug('Tried to send: %s' % (str(data),))
-				QtGui.QMessageBox.warning(
+				QMessageBox.warning(
 						self, _translate('MainWindow', 'Datenfehler', None), 
 						_translate('MainWindow', 
 							'Bei der Kommunikation mit dem Server ist ein Datenfehler aufgetreten!', 
 							None),
-						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+						QMessageBox.Ok, QMessageBox.Ok
 					)
 			except ssl.CertificateError as e:
 				log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
-				QtGui.QMessageBox.critical(
+				QMessageBox.critical(
 					self, _translate('MainWindow', 'Warnung', None), 
 					_translate('MainWindow', 
 						'Potentieller Angriff! Server-Zertifikat ist fehlerhaft! Bitte informieren Sie Ihren Administrator!', 
 						None),
-					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					QMessageBox.Ok, QMessageBox.Ok
 				)
 			except socket.error as e:
-				QtGui.QMessageBox.critical(
+				QMessageBox.critical(
 					self, _translate('MainWindow', 'Warnung', None), 
 					_translate('MainWindow', 
 						'Verbindung zum Server nicht möglich. Bitte versuchen Sie es später noch einmal.', 
 						None),
-					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					QMessageBox.Ok, QMessageBox.Ok
 				)
 			except xmlrpc.client.ProtocolError as e:
 				if e.errcode == 403:
 					log.warning('Missing rights for loading mails (%s)' % (e,))
-					QtGui.QMessageBox.warning(
+					QMessageBox.warning(
 						self, _translate('MainWindow', 'Fehlende Rechte', None), 
 						_translate('MainWindow', 
 							'Sie haben nicht ausreichend Rechte!', 
 							None),
-						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+						QMessageBox.Ok, QMessageBox.Ok
 					)
 				else:
 					log.warning('Unexpected error in protocol: %s' % (e,))
-					QtGui.QMessageBox.warning(
+					QMessageBox.warning(
 						self, _translate('MainWindow', 'Unbekannter Fehler', None), 
 						_translate('MainWindow', 
 							'Unbekannter Fehler in der Kommunikation mit dem Server aufgetreten.', 
 							None),
-						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+						QMessageBox.Ok, QMessageBox.Ok
 					)
 
 			else:
@@ -2811,12 +3660,12 @@ class FLScpMainWindow(QtGui.QMainWindow):
 					self.loadMails()
 				except xmlrpc.client.Fault as e:
 					log.critical('Could not load mails because of %s' % (e,))
-					QtGui.QMessageBox.critical(
+					QMessageBox.critical(
 						self, _translate('MainWindow', 'Daten nicht ladbar', None), 
 						_translate('MainWindow', 
 							'Die E-Mail-Konten konnten nicht abgerufen werden.', 
 							None),
-						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+						QMessageBox.Ok, QMessageBox.Ok
 					)
 				else:
 					self.loadMailData()
@@ -2825,14 +3674,14 @@ class FLScpMainWindow(QtGui.QMainWindow):
 	def setupMailTable(self):
 		# create context menu
 		actions = []
-		act = QtGui.QAction(
-			QtGui.QIcon(QtGui.QPixmap(':actions/edit.png')), 
+		act = QAction(
+			QIcon(QPixmap(':actions/edit.png')), 
 			_translate("MainWindow", "Bearbeiten", None), self.ui.mailTable
 		)
 		act.triggered.connect(self.editMail)
 		actions.append(act)
-		act = QtGui.QAction(
-			QtGui.QIcon(QtGui.QPixmap(':actions/delete.png')), 
+		act = QAction(
+			QIcon(QPixmap(':actions/delete.png')), 
 			_translate("MainWindow", "Löschen", None), self.ui.mailTable
 		)
 		act.triggered.connect(self.deleteMail)
@@ -2853,39 +3702,47 @@ class FLScpMainWindow(QtGui.QMainWindow):
 				self.rpc.saveCerts(data.__serialize__())
 			except ssl.CertificateError as e:
 				log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
-				QtGui.QMessageBox.critical(
+				QMessageBox.critical(
 					self, _translate('MainWindow', 'Warnung', None), 
 					_translate('MainWindow', 
 						'Potentieller Angriff! Server-Zertifikat ist fehlerhaft! Bitte informieren Sie Ihren Administrator!', 
 						None),
-					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					QMessageBox.Ok, QMessageBox.Ok
 				)
 			except socket.error as e:
-				QtGui.QMessageBox.critical(
+				QMessageBox.critical(
 					self, _translate('MainWindow', 'Warnung', None), 
 					_translate('MainWindow', 
 						'Verbindung zum Server nicht möglich. Bitte versuchen Sie es später noch einmal.', 
 						None),
-					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					QMessageBox.Ok, QMessageBox.Ok
+				)
+			except xmlrpc.client.Fault as e:
+				QMessageBox.critical(
+					self, _translate('MainWindow', 'Warnung', None), 
+					_translate('MainWindow', 
+						'Austausch von Daten mit dem Server ist fehlerhaft.', 
+						None),
+					QMessageBox.Ok, QMessageBox.Ok
 				)
 			except xmlrpc.client.ProtocolError as e:
 				if e.errcode == 403:
 					log.warning('Missing rights for loading mails (%s)' % (e,))
-					QtGui.QMessageBox.warning(
+					QMessageBox.warning(
 						self, _translate('MainWindow', 'Fehlende Rechte', None), 
 						_translate('MainWindow', 
 							'Sie haben nicht ausreichend Rechte!', 
 							None),
-						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+						QMessageBox.Ok, QMessageBox.Ok
 					)
 				else:
 					log.warning('Unexpected error in protocol: %s' % (e,))
-					QtGui.QMessageBox.warning(
+					QMessageBox.warning(
 						self, _translate('MainWindow', 'Unbekannter Fehler', None), 
 						_translate('MainWindow', 
 							'Unbekannter Fehler in der Kommunikation mit dem Server aufgetreten.', 
 							None),
-						QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+						QMessageBox.Ok, QMessageBox.Ok
 					)
 			except TypeError as err:
 				for f in data:
@@ -2900,8 +3757,8 @@ class FLScpMainWindow(QtGui.QMainWindow):
 	def setupCertTable(self):
 		# create context menu
 		actions = []
-		act = QtGui.QAction(
-			QtGui.QIcon(QtGui.QPixmap(':actions/delete.png')), 
+		act = QAction(
+			QIcon(QPixmap(':actions/delete.png')), 
 			_translate("MainWindow", "Löschen", None), self.ui.mailTable
 		)
 		act.triggered.connect(self.deleteCertificates)
@@ -2910,6 +3767,12 @@ class FLScpMainWindow(QtGui.QMainWindow):
 		self.ui.adminTable.addActions(actions)
 
 	def start(self):
+		# load the data!
+		self.splash.showMessage(_translate('SplashScreen', 'Starte Benutzeroberfläche...'), 10, color=QColor(255, 255, 255))
+		self.app.processEvents()
+
+		self.splash.finish(self)
+		#self.splash.close()
 		self.showNormal()
 
 if __name__ == "__main__":
@@ -2926,7 +3789,8 @@ if __name__ == "__main__":
 	log.addHandler(hdlr)
 	log.setLevel(logging.DEBUG)
 
-	app = QtGui.QApplication(sys.argv)
-	ds = FLScpMainWindow()
+	app = QApplication(sys.argv)
+	app.installTranslator(cpTranslator.getTranslator())
+	ds = FLScpMainWindow(app)
 	QtCore.QTimer.singleShot(0, ds.init)
-	sys.exit(app.exec_())
+	app.exec()

@@ -3,16 +3,18 @@ buildDir   = build
 debugFlg   = 
 PACKAGE = @PACKAGE_NAME@
 #Directory with ui and resource files
-UI_FILES = cp.ui mailform.ui maileditor.ui about.ui
+UI_FILES = cp.ui mailform.ui maileditor.ui about.ui output.ui domain.ui
 RESOURCES = logos.qrc
 STATIC_LIBS = libs
 TEMPLATES = templates
 PYTHONS = $(wildcard $(PACKAGE)/*.py)
 PYTHON_MODULS = $(wildcard $(PACKAGE)/modules/*.py)
 PYTHON_UIS = $(wildcard $(PACKAGE)/ui/*.py)
+TRANSLATION = $(wildcard $(PACKAGE)/l18n/*.ts)
 
 RESOURCE_DIR = $(PACKAGE)/res
 UI_DIR = $(PACKAGE)/ui
+L18N_DIR = $(PACKAGE)/l18n
 python_PYTHON = $(PYTHONS)
 
 COMPILED_UI = $(UI_FILES:%.ui=$(buildDir)/$(PACKAGE)/ui/ui_%.py)
@@ -20,36 +22,44 @@ COMPILED_RESOURCES = $(RESOURCES:%.qrc=$(buildDir)/$(PACKAGE)/%_rc.py)
 COMPILED_PYTHONS = $(PYTHONS:%.py=$(buildDir)/%.py)
 COMPILED_PYTHON_MODS = $(PYTHON_MODULS:%.py=$(buildDir)/%.py)
 COMPILED_PYTHON_UIS = $(PYTHON_UIS:%.py=$(buildDir)/%.py)
+COMPILED_TRANSLATION = $(TRANSLATION:%.ts=$(buildDir)/%.qm)
 
-PYUIC = @PYUIC4@
-PYRCC = @PYRCC4@
+PYUIC = @PYUIC5@
+PYRCC = @PYRCC5@
 PYTHON = @PYTHON@
 PYPARM = 
 RSYNC = @RSYNC@
 RSYNCPARM = -rupE
+LUPDATE = lupdate
+LRELEASE = lrelease
 
 all: createDir debug libs templates
 
 run: all
-	rm /var/run/flscp.sock
 	$(PYTHON) $(PYPARM) $(buildDir)/$(PACKAGE)/flscp.py
 
 server: all
+	@if [ -e "/var/run/flscp.sock" ]; then rm /var/run/flscp.sock; fi
 	$(PYTHON) $(PYPARM) $(buildDir)/$(PACKAGE)/flscpserver.py
 
+translate:
+	$(LUPDATE) -recursive -source-language de $(PACKAGE)/ -ts $(PACKAGE)/l18n/de_DE.ts -codecfortr UTF-8
+	$(PYTHON) lupdate.py -source-language de_DE -target-language en_US -ts $(PACKAGE)/l18n/de_DE.ts -codecfortr UTF-8 $(PACKAGE)/
+
 release: PYPARM := -OO
-release: pythons resources ui
+release: pythons resources ui translations
 
 debug: debugFlg := -x
 debug: PYPARM := -v
-debug: pythons resources ui
+debug: pythons resources ui translations
 
 createDir:
 	@if [ ! -d "$(buildDir)/$(PACKAGE)/" ]; then mkdir -p $(buildDir)/$(PACKAGE)/; fi
 	@if [ ! -d "$(buildDir)/$(PACKAGE)/modules/" ]; then mkdir -p $(buildDir)/$(PACKAGE)/modules/; fi
 	@if [ ! -d "$(buildDir)/$(PACKAGE)/ui/" ]; then mkdir -p $(buildDir)/$(PACKAGE)/ui/; fi
+	@if [ ! -d "$(buildDir)/$(L18N_DIR)/" ]; then mkdir -p $(buildDir)/$(L18N_DIR)/; fi
 
-pythons: $(COMPILED_PYTHONS) $(COMPILED_PYTHON_MODS) $(COMPILED_PYTHON_UIS)
+pythons: $(COMPILED_PYTHONS) $(COMPILED_PYTHON_MODS) $(COMPILED_PYTHON_UIS) 
 $(buildDir)/%.py: %.py
 	cp $< $@
 	chmod +x $@
@@ -66,12 +76,16 @@ $(buildDir)/$(PACKAGE)/$(TEMPLATES):
 
 resources: $(COMPILED_RESOURCES)  
 ui: $(COMPILED_UI)
+translations: $(COMPILED_TRANSLATION)
 
 $(buildDir)/$(PACKAGE)/ui/ui_%.py: $(UI_DIR)/%.ui
 	$(PYUIC) $(debugFlg) $< -o $@
  
 $(buildDir)/$(PACKAGE)/%_rc.py: $(RESOURCE_DIR)/%.qrc
-	$(PYRCC) -py3 $< -o $@
+	$(PYRCC) $< -o $@
+
+$(buildDir)/$(PACKAGE)/l18n/%.qm: $(L18N_DIR)/%.ts
+	$(LRELEASE) $< -qm $@
 
 version:
 	@echo `git rev-parse --abbrev-ref --short HEAD`/`git rev-parse --short HEAD` > $(buildDir)/$(PACKAGE)/VERSION
@@ -80,4 +94,5 @@ clean:
 	$(RM) -rvf $(COMPILED_UI)
 	$(RM) -rvf $(COMPILED_RESOURCES)
 	$(RM) -rvf $(COMPILED_PYTHONS)
+	$(RM) -rvf $(COMPILED_TRANSLATION)
 	$(RM) -rvf ${cacheDirs}

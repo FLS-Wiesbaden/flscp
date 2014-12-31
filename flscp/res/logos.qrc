@@ -6,6 +6,7 @@
     <file>fls_logo_60.png</file>
   </qresource>
   <qresource prefix="typ">
+    <file>fwdsmtp.png</file>
     <file>forward.png</file>
     <file>account.png</file>
   </qresource>
@@ -18,6 +19,8 @@
     <file>keys.png</file>
   </qresource>
   <qresource prefix="status">
+    <file>general_process.png</file>
+    <file>expired.png</file>
     <file>trash.png</file>
     <file>state_add.png</file>
     <file>ok.png</file>
@@ -25,6 +28,9 @@
     <file>warning.png</file>
   </qresource>
   <qresource prefix="actions">
+    <file>toggle.png</file>
+    <file>calculator.png</file>
+    <file>page_text.png</file>
     <file>clear_log.png</file>
     <file>arrow-left.png</file>
     <file>arrow-right.png</file>

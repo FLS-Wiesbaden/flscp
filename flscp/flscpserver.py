@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# vim: set noet fenc=utf-8 ff=unix sts=0 sw=4 ts=4 : 
+# vim: fenc=utf-8:ts=8:sw=8:si:sta:noet
 # require: bsddb3, python-magic
 from logging.handlers import WatchedFileHandler
 from ansistrm import ColorizingStreamHandler
@@ -19,14 +19,15 @@ from database import MailDatabase, SaslDatabase
 from flsconfig import FLSConfig
 from modules.flscertification import *
 from modules.mail import *
+from modules.dns import Dns, DNSList
 try:
 	import fcntl
 except:
 	fcntl = None
 
 __author__  = 'Lukas Schreiner'
-__copyright__ = 'Copyright (C) 2013 - 2014 Website-Team Friedrich-List-Schule-Wiesbaden'
-__version__ = '0.5'
+__copyright__ = 'Copyright (C) 2013 - 2015 Website-Team Friedrich-List-Schule-Wiesbaden'
+__version__ = '0.7'
 
 FORMAT = '%(asctime)-15s %(message)s'
 formatter = logging.Formatter(FORMAT, datefmt='%b %d %H:%M:%S')
@@ -69,6 +70,26 @@ def reloadPostfix():
 
 	return state
 
+def reloadDns():
+	# do that only if dns is enabled.
+	if not conf.getboolean('dns', 'active'):
+		return True
+
+	state = True
+	cmd = shlex.split('%s' % (conf.get('dns', 'reload'),))
+	try:
+		with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as p:
+			out = p.stdout.read()
+			err = p.stderr.read()
+			if len(out) > 0:
+				log.info(out)
+			if len(err) > 0:
+				log.warning(err)
+				state = False
+	except Exception as e:
+		raise
+
+	return state
 
 class ControlPanel:
 
@@ -109,6 +130,78 @@ class ControlPanel:
 					if f.endswith('.ini'):
 						arcname = arcname.replace(f, f + '.example')
 					zip.write(p, arcname)
+
+	def __addZoneFile(self, domain, zoneFile):
+		path = conf.get('dns', 'zoneConfig')
+		content = []
+		if os.path.exists(path):
+			with open(path, 'rb') as f:
+				content = f.read().decode('utf-8').replace('\r\n', '\n').split('\n')
+
+		fullDomain = domain.getFullDomain()
+		pattern = '// dmn [%s] cfg entry BEGIN.' % (fullDomain,)
+		# check if our file does exists.
+		alreadyExist = False
+		for f in content:
+			if pattern in f:
+				alreadyExist = True
+
+		if not alreadyExist:
+			# start comment
+			content.append('\n')
+			content.append('// dmn [%s] cfg entry BEGIN.' % (fullDomain,))
+			content.append('zone "%s" {' % (fullDomain,))
+			content.append('\ttype master;')
+			content.append('\tfile "%s";' % (zoneFile,))
+			content.append('\tnotify YES;')
+			content.append('};')
+			content.append('// dmn [%s] cfg entry END.' % (fullDomain,))
+
+			# now write
+			data = '\n'.join(content)
+			try:
+				with open(path, 'wb') as f:
+					f.write(data.encode('utf-8'))
+			except:
+				log.error('Could not write the zone configuration file!')
+
+	def __removeZoneFile(self, domain, zoneFile):
+		fullDomain = domain.getFullDomain()
+		patternStart = '// dmn [%s] cfg entry BEGIN.' % (fullDomain,)
+		patternEnd = '// dmn [%s] cfg entry END.' % (fullDomain,)
+		path = conf.get('dns', 'zoneConfig')
+		content = []
+
+		if os.path.exists(path):
+			with open(path, 'rb') as f:
+				content = f.read().decode('utf-8').replace('\r\n', '\n').split('\n')
+			# now search
+			start = False
+			for line in content:
+				if not start and patternStart in line:
+					start = True
+
+				if start:
+					content.remove(line)
+
+				if start and patternEnd in line:
+					start = False
+					break
+
+			# write back
+			data = '\n'.join(content)
+			try:
+				with open(path, 'wb') as f:
+					f.write(data.encode('utf-8'))
+			except:
+				log.error('Could not write the zone configuration file!')
+
+		# remove the cache file
+		if os.path.exists(zoneFile):
+			try:
+				os.unlink(zoneFile)
+			except:
+				log.error('Could not delete zone file %s' % (zoneFile,))
 
 	def getCerts(self):
 		if not os.path.exists(os.path.expanduser(conf.get('connection', 'authorizekeys'))):
@@ -153,24 +246,33 @@ class ControlPanel:
 
 		return True
 
+	def getSystemUsers(self):
+		import pwd
+		return [ {'name': f.pw_name, 'uid': f.pw_uid} for f in pwd.getpwall() ]
+
+	def getSystemGroups(self):
+		import grp
+		return [ {'name': f.gr_name, 'gid': f.gr_gid} for f in grp.getgrall() ]
+
 	def getDomains(self):
 		data = []
 		db = MailDatabase.getInstance()
 		cursor = db.getCursor()
 		query = (
 			'SELECT domain_id, domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created, \
-			domain_last_modified, domain_status FROM domain'
+			domain_last_modified, domain_srvpath, domain_status FROM domain'
 		)
 		cursor.execute(query)
-		for (domain_id, domain_parent, domain_name, ipv6, ipv4, gid, uid, created, modified, state) in cursor:
+		for (domain_id, domain_parent, domain_name, ipv6, ipv4, gid, uid, created, modified, srvpath, state) in cursor:
 			data.append(
 				{
 					'id': domain_id, 
-					'domain': domain_name,
+					'name': domain_name,
 					'ipv6': ipv6,
 					'ipv4': ipv4,
 					'gid': gid,
 					'uid': uid,
+					'srvpath': srvpath,
 					'parent': domain_parent,
 					'created': created,
 					'modified': modified,
@@ -210,6 +312,99 @@ class ControlPanel:
 		cursor.close()
 		
 		return data
+
+	def saveDns(self, domain, dns):
+		from modules.domain import Domain
+		dnsList = DNSList()
+		for f in dns['_items']:
+			dnsList.add(Dns.fromDict(f))
+		log.debug('Want to save %i dns items!' % (len(dnsList),))
+
+		for d in dnsList:
+			d.save()
+
+		if domain is not None and (type(domain) == int or len(domain.strip()) > 0) and conf.getboolean('dns', 'active'):
+			content = self.getDomainZoneFile(domain)
+			# now we need the Domain
+			dom = Domain(domain)
+			if not dom.load():
+				log.warning('Could not load the domain %s for generating zone file!' % (domain,))
+				return False
+
+			# we need the fully qualified domain name!
+			fqdn = dom.getFullDomain()
+			# now try to save it!
+			fileName = '%s.db' % (fqdn,)
+			path = os.path.join(conf.get('dns', 'cache'), fileName)
+			addToZoneFile = False
+			if not os.path.exists(path):
+				addToZoneFile = True
+			try:
+				with open(path, 'wb') as f:
+					f.write(content.encode('utf-8'))
+			except Exception as e:
+				log.warning('Could not update the database file for the DNS-Service because of %s' % (str(e),))
+			else:
+				log.info('Update the DNS-Service-Database %s' % (os.path.join(conf.get('dns', 'cache'), fileName),))
+				if addToZoneFile:
+					self.__addZoneFile(path)
+
+			# reload 
+			try:
+				reloadDns()
+			except Exception as e:
+				log.critical('Could not reload the DNS-Service because of %s!' % (str(e),))
+			else:
+				log.info('DNS-Service reloaded with success!')
+
+		return True
+
+	def saveDomains(self, domains):
+		from modules.domain import Domain, DomainList
+		domainList = DomainList()
+		for f in domains['_items']:
+			domainList.add(Domain.fromDict(f))
+		log.debug('Want to save %i domains' % (len(domainList),))
+
+		for domain in domainList:
+			# get the old domain
+			oldDomain = None
+			if domain.state != Domain.STATE_CREATE:
+				oldDomain = Domain(domain.id)
+				oldDomain.load()
+				
+			domain.save(oldDomain)
+			# check if corresponding dns file exists.
+			
+			if conf.getboolean('dns', 'active'):
+				fqdn = domain.getFullDomain()
+				fileName = '%s.db' % (fqdn,)
+				path = os.path.join(conf.get('dns', 'cache'), fileName)
+				if domain.state != Domain.STATE_DELETE:
+					if not os.path.exists(path):
+						try:
+							with open(path, 'wb') as f:
+								f.write('\n'.encode('utf-8'))
+						except:
+							pass
+						else:
+							self.__addZoneFile(domain, path)
+					else:
+						self.__addZoneFile(domain, path)
+				else:
+					self.__removeZoneFile(domain, path)
+
+	def getDomainZoneFile(self, domainId):
+		from modules.domain import Domain
+		content = ''
+		d = Domain(domainId)
+		if not d.load():
+			log.warning('Could not get the domain %s' % (domainId,))
+			return content
+
+		content = d.generateBindFile()
+		log.debug('Generated the domain bind file for domain %s' % (domainId,))
+		return content
 
 	def getListOfLogs(self):
 		base = '/var/log/'
@@ -255,16 +450,21 @@ class ControlPanel:
 		domainsRaw = self.getDomains()
 		domains = {}
 		for f in domainsRaw:
-			domains[f['id']] = f['domain']
+			domains[f['id']] = f['name']
 
 		data = []
 		cursor = db.getCursor()
 		query = (
-			'SELECT mail_id, mail_acc, mail_addr, mail_type, mail_forward, `status`, domain_id, alternative_addr \
-			FROM mail_users'
+			'SELECT m.mail_id, m.mail_acc, m.mail_addr, m.mail_type, m.mail_forward, m.quota, m.status, m.domain_id, m.alternative_addr, \
+			m.enabled, q.bytes FROM mail_users m LEFT JOIN quota_dovecot q ON m.mail_addr = q.username'
 		)
 		cursor.execute(query)
-		for (mail_id, mail_acc, mail_addr, mail_type, mail_forward, status, domain_id, alternative_addr) in cursor:
+		for (mail_id, mail_acc, mail_addr, mail_type, mail_forward, quota, status, domain_id, alternative_addr, enabled, usedBytes) in cursor:
+			quotaSts = 0.00
+			if usedBytes is not None:
+				if usedBytes > 0 and quota > 0:
+					quotaSts = round(usedBytes*100/quota, 2)
+
 			data.append(
 				{
 					'id': mail_id, 
@@ -276,7 +476,10 @@ class ControlPanel:
 					'state': status,
 					'type': mail_type,
 					'pw': '',
-					'genPw': False
+					'genPw': False,
+					'enabled': bool(enabled),
+					'quota': quota,
+					'quotaSts': quotaSts
 				}
 			)
 
@@ -400,7 +603,7 @@ class FLSUnixRequestHandler(socketserver.BaseRequestHandler):
 			return False
 
 		# now check alternative addr
-		if maccount.altMail != alt:
+		if maccount.altMail.lower().strip() != alt.lower().strip():
 			log.info('Alternative Mail %s is wrong (expected: %s)!' % (alt, maccount.altMail))
 			return False
 
@@ -461,11 +664,11 @@ class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
 
 			if not msg:
 				break
-			
-			log.debug('Got: %s' % (msg,))
 
 			cmd = msg[:1]
 			if cmd == 'H':
+				#log.debug('Got: %s' % (msg,))
+				log.debug('Got an H-message. Will not print for security reason.')
 				log.info('Got Hello...')
 				tryCompressed = msg.split('\n')
 				if len(tryCompressed) > 1 and tryCompressed[1][:1] == 'L':
@@ -474,13 +677,17 @@ class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
 					log.info('It is a compressed query. Go ahead...')
 				else:
 					continue
-					
+			# be careful! Don't make a elif out of this, because we can get an
+			# compressed lookup so the first cmd will be "H"!!!
 			if cmd == 'L':
 				msg = msg.strip()
 				try:
 					namespace, typ, user, pwd, mech, cert = msg[1:].split('/', 6)
 				except ValueError:
+					log.debug('Got: %s' % (msg,))
 					namespace, typ, user = msg[1:].split('/', 3)
+				else:
+					log.debug('Got: %s%s/%s/%s/%s/%s/%s' % (cmd, namespace, typ, user, '***', mech, cert))
 
 				log.info('I:%s, %s, %s' % (namespace, typ, user))
 
@@ -501,6 +708,7 @@ class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
 				else:
 					self.request.send('F\n'.encode('utf-8'))
 			else:
+				log.debug('Got: %s' % (msg,))
 				self.request.send('F\n'.encode('utf-8'))
 
 	def lookup(self, namespace, typ, arg):
@@ -531,10 +739,27 @@ class FLSRequestHandler(SimpleXMLRPCRequestHandler):
 
 		if not os.path.exists(os.path.expanduser(conf.get('connection', 'authorizekeys'))):
 			(rmtIP, rmtPort) = self.request.getpeername()
-			log.warning('We don\'t have keys at the moment. So we only allow local users!')
-			if rmtIP.startswith('127.'):
+			log.warning(
+					'We don\'t have keys at the moment. So we only allow users from %s / %s' % (
+						conf.get('connection', 'permitSourceV4'), 
+						conf.get('connection', 'permitSourceV6')
+					)
+			)
+			if rmtIP.startswith('127.') or rmtIP == conf.get('connection', 'permitSourceV4') \
+					or rmtIP.upper() == conf.get('connection', 'permitSourceV6').upper():
 				return True
 			else:
+				return False
+
+		# if validation is disabled, then we check for a specific source IP (just to ensure)
+		if conf.getboolean('connection', 'validateAuth') is False:
+			(rmtIP, rmtPort) = self.request.getpeername()
+			if rmtIP == conf.get('connection', 'permitSourceV4') or \
+					rmtIP.upper() == conf.get('connection', 'permitSourceV6').upper():
+				log.info('We allow the source ip %s to login...' % (rmtIP,))
+				return True
+			else:
+				log.warning('Someone tried to login (%s) but does not match!' % (rmtIP,))
 				return False
 
 		# create cert

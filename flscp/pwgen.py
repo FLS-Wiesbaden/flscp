@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# vim: fenc=utf-8:ts=8:sw=8:si:sta:noet
 ## {{{ http://code.activestate.com/recipes/578169/ (r6)
 from os import urandom
 from random import choice

@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# vim: fenc=utf-8:ts=8:sw=8:si:sta:noet
 import os, os.path
 import subprocess
 import shlex
@@ -10,7 +13,7 @@ import zlib
 import uuid
 from database import MailDatabase, SaslDatabase
 from flsconfig import FLSConfig
-from modules.domain import *
+from modules.domain import Domain
 from pwgen import generate_pass
 from saltencryption import SaltEncryption
 from mailer import *
@@ -76,17 +79,25 @@ class MailAccountList:
 class MailAccount:
 	TYPE_ACCOUNT = 'account'
 	TYPE_FORWARD = 'forward'
+	TYPE_FWDSMTP = 'fwdsmtp'
 
 	STATE_OK = 'ok'
 	STATE_CHANGE = 'change'
 	STATE_CREATE = 'create'
 	STATE_DELETE = 'delete'
+	STATE_QUOTA = 'quota'
 
 	def __init__(self):
+		conf = FLSConfig.getInstance()
 		self.id = None
 		self.type = MailAccount.TYPE_ACCOUNT
 		self.state = MailAccount.STATE_OK
-		self.quota = 1073741824
+		if conf is not None:
+			self.quota = conf.getint('userdefault', 'quota')
+		else:
+			# 100 MB
+			self.quota = 104857600
+		self.quotaSts = 0.0
 		self.mail = ''
 		self.domain = ''
 		self.pw = ''
@@ -96,6 +107,7 @@ class MailAccount:
 		self.forward = []
 		self.authCode = None
 		self.authValid = None
+		self.enabled = True
 
 	def getMailAddress(self):
 		return '%s@%s' % (self.mail, self.domain)
@@ -125,6 +137,12 @@ class MailAccount:
 		conf = FLSConfig.getInstance()
 		return os.path.join(conf.get('mailserver', 'basemailpath'), 'virtual', self.domain, self.mail)
 
+	def getMailDir(self):
+		return os.path.join(self.getHomeDir(), 'mails')
+
+	def getMailDirFormat(self):
+		return 'maildir:' + os.path.join('~', 'mails')
+
 	def authenticate(self, mech, pwd, cert = None):
 		conf = FLSConfig.getInstance()
 		log = logging.getLogger('flscp')
@@ -133,7 +151,7 @@ class MailAccount:
 			'userdb_home': '',
 			'userdb_uid': '',
 			'userdb_gid': '',
-			#'userdb_mail': '',
+			'userdb_mail': '',
 			'nopassword': 1
 		}
 		localPartDir = os.path.join(conf.get('mailserver', 'basemailpath'), 'virtual')
@@ -158,13 +176,24 @@ class MailAccount:
 			data['userdb_home'] = self.getHomeDir()
 			data['userdb_uid'] = conf.get('mailserver', 'uid')
 			data['userdb_gid'] = conf.get('mailserver', 'gid')
-			#data['userdb_mail'] = 'maildir:%s' % (username,)
+			data['userdb_mail'] = self.getMailDirFormat()
 
 			return data
 
 		else:
 			return False
 
+	def markQuotaCalc(self):
+		if self.state == MailAccount.STATE_OK:
+			self.state = MailAccount.STATE_QUOTA
+
+	def toggleStatus(self):
+		if self.enabled:
+			self.enabled = False
+		else:
+			self.enabled = True
+
+		self.state = MailAccount.STATE_CHANGE
 
 	# this is not allowed on client side! Only here....
 	def changePassword(self, pwd):
@@ -198,6 +227,39 @@ class MailAccount:
 		log.info('Generating password for user %s' % (self.mail,))
 		self.pw = generate_pass(12)
 
+	def getQuota(self):
+		return self.quota
+
+	def getQuotaMb(self):
+		try:
+			return round(self.quota/1024/1024, 0)
+		except:
+			return 1
+
+	def getQuotaReadable(self):
+		try:
+			quotaKb = round(self.quota/1024, 0)
+		except TypeError:
+			return ''
+		quotaMb = round(self.quota/1024/1024, 0)
+		quotaGb = round(self.quota/1024/1024/1024, 0)
+		if quotaGb < 1:
+			if quotaMb < 1:
+				if quotaKb < 1:
+					return str(self.quota) + ' B'
+				else:
+					return str(quotaKb) + ' KB'
+			else:
+				return str(quotaMb) + ' MB'
+		else:
+			return str(quotaGb) + ' GB'
+	
+	def getQuotaStatus(self):
+		if self.quotaSts is not None:
+			return str(self.quotaSts) + ' %'
+		else:
+			return str(0.00) + ' %'
+
 	def save(self):
 		log = logging.getLogger('flscp')
 		conf = FLSConfig.getInstance()
@@ -207,6 +269,9 @@ class MailAccount:
 			return
 		elif self.state == MailAccount.STATE_DELETE:
 			self.delete()
+			return
+		elif self.state == MailAccount.STATE_QUOTA:
+			self.recalculateQuota()
 			return
 
 		# now save!
@@ -237,25 +302,26 @@ class MailAccount:
 
 		cx = db.getCursor()
 		if (self.type == MailAccount.TYPE_ACCOUNT and self.hashPw != '') \
+			or (self.type == MailAccount.TYPE_FWDSMTP and self.hashPw != '') \
 			or self.type == MailAccount.TYPE_FORWARD:
 			query = (
 				'UPDATE mail_users SET mail_acc = %s, mail_pass = %s, mail_forward = %s, ' \
 				'domain_id = %s, mail_type = %s, status = %s, quota = %s, mail_addr = %s, ' \
-				'alternative_addr = %s WHERE mail_id = %s'
+				'alternative_addr = %s, enabled = %s WHERE mail_id = %s'
 			)
 			params = (
 				self.mail, self.hashPw, ','.join(self.forward), d.id, self.type, self.state, self.quota, 
-				'%s@%s' % (self.mail, self.domain), self.altMail, self.id
+				'%s@%s' % (self.mail, self.domain), self.altMail, str(int(self.enabled)), self.id
 			)
 		else:
 			query = (
 				'UPDATE mail_users SET mail_acc = %s, mail_forward = %s, ' \
 				'domain_id = %s, mail_type = %s, status = %s, quota = %s, mail_addr = %s, ' \
-				'alternative_addr = %s WHERE mail_id = %s'
+				'alternative_addr = %s, enabled = %s WHERE mail_id = %s'
 			)
 			params = (
 				self.mail, ','.join(self.forward), d.id, self.type, self.state, self.quota, 
-				'%s@%s' % (self.mail, self.domain), self.altMail, self.id
+				'%s@%s' % (self.mail, self.domain), self.altMail, str(int(self.enabled)), self.id
 			)
 
 		cx.execute(
@@ -307,11 +373,12 @@ class MailAccount:
 		# all best? Than go forward and update set state,...
 		self.setState(MailAccount.STATE_OK)
 
-		# notify 
+		# notify
 		if len(self.altMail) > 0:
 			m = Mailer(self)
 			state = False
-			if self.type == MailAccount.TYPE_ACCOUNT:
+			if self.type == MailAccount.TYPE_ACCOUNT \
+					or self.type == MailAccount.TYPE_FWDSMTP:
 				state = m.changeAccount()
 			else:
 				state = m.changeForward()
@@ -332,7 +399,7 @@ class MailAccount:
 		log = logging.getLogger('flscp')
 		conf = FLSConfig.getInstance()
 
-		# delete!		
+		# delete!
 		# 1. remove credentials
 		# 2. remove entry from /etc/postfix/fls/aliases
 		# 3. remove entry from /etc/postfix/fls/mailboxes
@@ -362,6 +429,24 @@ class MailAccount:
 			query = ('DELETE FROM mail_users WHERE mail_id = %s')
 			cx.execute(query, (self.id,))
 			cx.close()
+
+	def recalculateQuota(self):
+		log = logging.getLogger('flscp')
+		conf = FLSConfig.getInstance()
+
+		cmd = shlex.split('%s quota recalc -u %s' % (conf.get('mailserver', 'doveadm'), '%s@%s' % (self.mail, self.domain)))
+		state = True
+		with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as p:
+			out = p.stdout.read()
+			err = p.stderr.read()
+			if len(out) > 0:
+				log.info(out)
+			if len(err) > 0:
+				log.warning(err)
+				state = False
+
+		self.setState(MailAccount.STATE_OK)
+		return state
 
 	def exists(self):
 		# check if entry exists already in mail_users!
@@ -399,14 +484,14 @@ class MailAccount:
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
 		query = (
-			'INSERT INTO mail_users (mail_acc, mail_pass, mail_forward, domain_id, mail_type, status, quota, mail_addr, alternative_addr) ' \
-			'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)'
+			'INSERT INTO mail_users (mail_acc, mail_pass, mail_forward, domain_id, mail_type, status, quota, mail_addr, alternative_addr, enabled) ' \
+			'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
 		)
 		cx.execute(
 			query, 
 			(
 				self.mail, self.hashPw, ','.join(self.forward), d.id, self.type, self.state, self.quota, 
-				'%s@%s' % (self.mail, self.domain), self.altMail
+				'%s@%s' % (self.mail, self.domain), self.altMail, str(int(self.enabled))
 			)
 		)
 		db.commit()
@@ -447,7 +532,8 @@ class MailAccount:
 		if len(self.altMail) > 0:
 			m = Mailer(self)
 			state = False
-			if self.type == MailAccount.TYPE_ACCOUNT:
+			if self.type == MailAccount.TYPE_ACCOUNT \
+					or self.type == MailAccount.TYPE_FWDSMTP:
 				state = m.newAccount()
 			else:
 				state = m.newForward()
@@ -571,7 +657,10 @@ class MailAccount:
 
 		# now add data:
 		if self.state in (MailAccount.STATE_CHANGE, MailAccount.STATE_CREATE):
-			cnt.append('%s\t%s' % (mailAddr, 'OK'))
+			if self.enabled:
+				cnt.append('%s\t%s' % (mailAddr, 'OK'))
+			else:
+				cnt.append('%s\t%s' % (mailAddr, '4508q 4.2.1 User is disabled at the moment'))
 
 		# now sort file
 		cnt.sort()
@@ -602,13 +691,32 @@ class MailAccount:
 
 	@classmethod
 	def getByEMail(self, mail):
+		log = logging.getLogger('flscp')
 		ma = MailAccount()
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
 		query = ('SELECT * FROM mail_users WHERE mail_addr = %s')
-		cx.execute(query, ('%s' % (mail,),))
+		cx.execute(query, (mail,))
+		if cx is None:
+			log.warning('Execution failed in MailAccount::getByEMail(%s).' % (mail,))
+			return None
+
 		try:
-			(mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, quota, mail_addr, alternative_addr, authcode, authvalid,) = cx.fetchone()
+			resultRow = cx.fetchone()
+		except:
+			log.critical('Got error in MailAccount::getByEMail: %s' % (e,))
+			try:
+				cx.close()
+			except:
+				pass
+			return None
+		else:
+			if resultRow is None:
+				log.info('No user found by mail %s' % (mail,))
+				return None
+
+		try:
+			(mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, quota, mail_addr, alternative_addr, authcode, authvalid, enabled) = resultRow
 			ma.id = mail_id
 			ma.quota = quota
 			ma.mail = mail_acc
@@ -616,13 +724,17 @@ class MailAccount:
 			ma.domain = mail_addr.split('@')[1]
 			ma.altMail = alternative_addr
 			ma.forward = mail_forward.split(',')
-			ma.type = MailAccount.TYPE_ACCOUNT if mail_type == 'account' else MailAccount.TYPE_FORWARD
+			ma.type = MailAccount.TYPE_ACCOUNT
+			if mail_type == 'fwdsmtp':
+				ma.type = MailAccount.TYPE_FWDSMTP
+			elif mail_type == 'forward':
+				ma.type = MailAccount.TYPE_FORWARD
 			ma.status = status
 			ma.authCode = authcode
 			ma.authValid = authvalid
+			ma.enabled = bool(enabled)
 		except Exception as e:
-			log = logging.getLogger('flscp')
-			log.critical('Got error: %s' % (e,))
+			log.critical('Got error in MailAccount::getByEMail: %s' % (e,))
 			cx.close()
 			return None
 		else:
@@ -645,6 +757,7 @@ class MailAccount:
 			self.altMail == obj.altMail and \
 			self.forward == obj.forward and \
 			self.state == obj.state and \
+			self.enabled == obj.enabled and \
 			self.quota == obj.quota:
 			return True
 		else:
@@ -666,5 +779,9 @@ class MailAccount:
 		self.state = data['state']
 		self.pw = data['pw']
 		self.genPw = data['genPw']
+		self.enabled = data['enabled']
+		self.quota = data['quota']
+		if 'quotaSts' in data:
+			self.quotaSts = data['quotaSts']
 
 		return self

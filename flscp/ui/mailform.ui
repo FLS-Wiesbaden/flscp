@@ -10,7 +10,7 @@
     <x>0</x>
     <y>0</y>
     <width>438</width>
-    <height>417</height>
+    <height>496</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -189,64 +189,6 @@
      </property>
     </widget>
    </item>
-   <item row="9" column="0">
-    <widget class="QLabel" name="labType">
-     <property name="text">
-      <string>Typ</string>
-     </property>
-     <property name="buddy">
-      <cstring>fldTypeAccount</cstring>
-     </property>
-    </widget>
-   </item>
-   <item row="9" column="1">
-    <widget class="QGroupBox" name="fldTypeGroup">
-     <property name="styleSheet">
-      <string notr="true">border:0</string>
-     </property>
-     <property name="title">
-      <string notr="true"/>
-     </property>
-     <property name="flat">
-      <bool>false</bool>
-     </property>
-     <layout class="QVBoxLayout" name="verticalLayout">
-      <item>
-       <widget class="QRadioButton" name="fldTypeAccount">
-        <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Kontotyp. Typ &amp;quot;Konto&amp;quot; bedeutet, der Nutzer kann später die E-Mails per POP3/IMAP herunterladen (sprich: sich auf dem Server anmelden) und auch E-Mails über &amp;quot;SMTP&amp;quot; versenden. Ebenso besteht die Möglichkeit, Filter online einzurichten (oder bei einem unterstützten Programm) und E-Mails direkt weiterleiten zu lassen (wenn man bspw. nur SMTP nutzen möchte).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-        </property>
-        <property name="text">
-         <string>Konto (Weiterleitung möglich)</string>
-        </property>
-        <property name="checked">
-         <bool>true</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QRadioButton" name="fldTypeForward">
-        <property name="whatsThis">
-         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Kontotyp. Typ &amp;quot;Weiterleitung&amp;quot; bedeutet, dass alle eingehenden E-Mails direkt weitergeleitet werden. Der Nutzer kann sich nicht auf dem Server anmelden. Ebenso kann er nicht mit dieser E-Mail-Adresse E-Mails versenden. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-        </property>
-        <property name="text">
-         <string>Weiterleitung</string>
-        </property>
-       </widget>
-      </item>
-     </layout>
-    </widget>
-   </item>
-   <item row="11" column="1">
-    <widget class="QDialogButtonBox" name="buttonBox">
-     <property name="orientation">
-      <enum>Qt::Horizontal</enum>
-     </property>
-     <property name="standardButtons">
-      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Save</set>
-     </property>
-    </widget>
-   </item>
    <item row="8" column="1">
     <widget class="QFrame" name="frame">
      <property name="frameShape">
@@ -300,10 +242,106 @@
      </layout>
     </widget>
    </item>
+   <item row="9" column="0">
+    <widget class="QLabel" name="labType">
+     <property name="text">
+      <string>Typ</string>
+     </property>
+     <property name="buddy">
+      <cstring>fldTypeAccount</cstring>
+     </property>
+    </widget>
+   </item>
+   <item row="9" column="1">
+    <widget class="QGroupBox" name="fldTypeGroup">
+     <property name="styleSheet">
+      <string notr="true">border:0</string>
+     </property>
+     <property name="title">
+      <string notr="true"/>
+     </property>
+     <property name="flat">
+      <bool>false</bool>
+     </property>
+     <layout class="QVBoxLayout" name="verticalLayout">
+      <item>
+       <widget class="QRadioButton" name="fldTypeAccount">
+        <property name="whatsThis">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Kontotyp. Typ &amp;quot;Konto&amp;quot; bedeutet, der Nutzer kann später die E-Mails per POP3/IMAP herunterladen (sprich: sich auf dem Server anmelden) und auch E-Mails über &amp;quot;SMTP&amp;quot; versenden. Ebenso besteht die Möglichkeit, Filter online einzurichten (oder bei einem unterstützten Programm) und E-Mails direkt weiterleiten zu lassen (wenn man bspw. nur SMTP nutzen möchte).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>Konto (Weiterleitung möglich)</string>
+        </property>
+        <property name="checked">
+         <bool>true</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QRadioButton" name="fldTypeFwdSmtp">
+        <property name="whatsThis">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Kontotyp. Typ &amp;quot;Weiterleitung mit SMTP&amp;quot; bedeutet, dem Nutzer werden später jegliche E-Mail an die Weiterleitungsadressen weitergeleitet. Es werden keine E-Mails auf dem Server gespeichert. Zusätzlich hat der Nutzer die Möglichkeit, per SMTP E-Mails zu versenden. Es besteht nicht die Möglichkeit, Filter einzurichten.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>Weiterleitung mit SMTP</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QRadioButton" name="fldTypeForward">
+        <property name="whatsThis">
+         <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Kontotyp. Typ &amp;quot;Weiterleitung&amp;quot; bedeutet, dass alle eingehenden E-Mails direkt weitergeleitet werden. Der Nutzer kann sich nicht auf dem Server anmelden. Ebenso kann er nicht mit dieser E-Mail-Adresse E-Mails versenden. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+        </property>
+        <property name="text">
+         <string>Weiterleitung</string>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </widget>
+   </item>
+   <item row="10" column="0">
+    <widget class="QLabel" name="labQuota">
+     <property name="text">
+      <string>Quota</string>
+     </property>
+     <property name="buddy">
+      <cstring>fldQuota</cstring>
+     </property>
+    </widget>
+   </item>
+   <item row="10" column="1">
+    <widget class="QSpinBox" name="fldQuota">
+     <property name="whatsThis">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Es ist möglich, eine Limitierung des verfügbaren Speichers per Konto zu setzen. Die Funktion kann nur global aktiviert oder deaktiviert werden durch den Systemadministrator. Pro Benutzer ist es möglich. Das Quota ist für reine Weiterleitungskonten irrelevant.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
+     <property name="suffix">
+      <string> MB</string>
+     </property>
+     <property name="minimum">
+      <number>1</number>
+     </property>
+     <property name="maximum">
+      <number>102400</number>
+     </property>
+     <property name="value">
+      <number>1</number>
+     </property>
+    </widget>
+   </item>
+   <item row="11" column="1">
+    <widget class="QDialogButtonBox" name="buttonBox">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+     <property name="standardButtons">
+      <set>QDialogButtonBox::Cancel|QDialogButtonBox::Save</set>
+     </property>
+    </widget>
+   </item>
   </layout>
  </widget>
  <tabstops>
-  <tabstop>fldID</tabstop>
   <tabstop>fldMail</tabstop>
   <tabstop>fldDomain</tabstop>
   <tabstop>fldPw</tabstop>
@@ -311,7 +349,12 @@
   <tabstop>fldGenPw</tabstop>
   <tabstop>fldAltMail</tabstop>
   <tabstop>fldForward</tabstop>
-  <tabstop>buttonBox</tabstop>
+  <tabstop>butForwardDel</tabstop>
+  <tabstop>butForwardAdd</tabstop>
+  <tabstop>fldTypeAccount</tabstop>
+  <tabstop>fldTypeFwdSmtp</tabstop>
+  <tabstop>fldTypeForward</tabstop>
+  <tabstop>fldQuota</tabstop>
  </tabstops>
  <resources>
   <include location="../res/logos.qrc"/>

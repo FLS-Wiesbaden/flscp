@@ -1,9 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# vim: fenc=utf-8:ts=8:sw=8:si:sta:noet
 import logging
 import zlib
 import uuid
 import time
 from database import MailDatabase
-from modules.dns import Dns
 from tools import hashPostFile
 
 class DomainList:
@@ -60,6 +62,16 @@ class DomainList:
 
 		return item
 
+	def existDomain(self, name):
+		log = logging.getLogger('flscp')
+		name = name.strip().lower()
+		for f in self._items:
+			log.debug('Compare %s with %s for equal domain' % (name, f.getFullDomain(self).lower()))
+			if f.getFullDomain(self).lower() == name:
+				return True
+
+		return False
+
 	def findByParent(self, parent):
 		item = None
 		try:
@@ -87,6 +99,7 @@ class Domain:
 		self.ipv4 = ''
 		self.gid = ''
 		self.uid = ''
+		self.srvpath = ''
 		self.parent = None
 		self.created = None
 		self.modified = None
@@ -95,7 +108,9 @@ class Domain:
 		self.ttl = 3600
 
 	def load(self):
+		log = logging.getLogger('flscp')
 		if self.id is None:
+			log.info('Can not load data for a domain with no id!')
 			return False
 
 		state = False
@@ -103,12 +118,12 @@ class Domain:
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
 		query = (
-			'SELECT domain_id, domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created, \
-			domain_last_modified, domain_status WHERE domain_id = %s LIMIT 1'
+			'SELECT domain_id, domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_srvpath, \
+			domain_created, domain_last_modified, domain_status FROM domain WHERE domain_id = %s LIMIT 1'
 		)
 		try:
 			cx.execute(query, (self.id,))
-			for (did, parent, domain_name, ipv6, ipv4, gid, uid, created, modified, state) in cx:
+			for (did, parent, domain_name, ipv6, ipv4, gid, uid, srvpath, created, modified, state) in cx:
 				self.id = did
 				self.parent = parent
 				self.name = domain_name
@@ -116,10 +131,12 @@ class Domain:
 				self.ipv4 = ipv4
 				self.gid = gid
 				self.uid = uid
+				self.srvpath = srvpath
 				self.created = created
 				self.modified = modified
 				self.state = state
 		except Exception as e:
+			log.warning('Could not load the domain %s because of %s' % (self.id, str(e)))
 			state = False
 		else:
 			state = True
@@ -130,6 +147,14 @@ class Domain:
 
 	def generateId(self):
 		self.id = 'Z%s' % (str(zlib.crc32(uuid.uuid4().hex.encode('utf-8')))[0:3],)
+
+	def save(self, oldDomain = None):
+		if self.state == Domain.STATE_CREATE:
+			self.create()
+		elif self.state == Domain.STATE_DELETE:
+			self.delete(oldDomain)
+		elif self.state == Domain.STATE_CHANGE:
+			self.update(oldDomain)
 
 	def create(self):
 		# 1. create entry in domain
@@ -152,39 +177,118 @@ class Domain:
 		self.state = Domain.STATE_CREATE
 		query = (
 			'INSERT INTO domain (domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created, \
-			domain_last_modified, domain_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)'
+			domain_last_modified, domain_srvpath, domain_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)'
 		)
 		cx.execute(
 			query, 
 			(
 				self.parent, self.name, self.ipv6, self.ipv4, self.gid, self.uid, 
-				self.created, self.modified, self.state
+				self.created, self.modified, self.srvpath, self.state
 			)
 		)
 		db.commit()
 
-		self.updateDomainFile()
+	def update(self, oldDomain = None):
+		# is it a valid domain?
+		if len(self.name) <= 0:
+			raise ValueError('No valid domain given!')
 
-	def updateDomainFile(self):
-		pass
+		self.modified = time.time()
+		db = MailDatabase.getInstance()
+		cx = db.getCursor()
+		self.state = Domain.STATE_OK
+		query = (
+			'UPDATE domain SET ipv6 = %s, ipv4 = %s, domain_gid = %s, domain_uid = %s, domain_last_modified = %s, \
+			domain_srvpath = %s, domain_status = %s WHERE domain_id = %s'
+		)
+		cx.execute(
+			query, 
+			(
+				self.ipv6, self.ipv4, self.gid, self.uid, 
+				self.modified, self.srvpath, self.state, self.id
+			)
+		)
+		db.commit()
+
+		# if we have updated, we now have to move the data folder?
+		if oldDomain.srvpath != self.srvpath and len(oldDomain) > 0 and len(self.srvpath) > 0:
+			parentFolder = self.srvpath
+			if parentFolder == '/':
+				parentFolder = parentFolder[:-1]
+			parentFolderSplit = parentFolder.split('/')
+			parentFolder = '/'.join(parentFolderSplit[:-1])
+			if not os.path.exists(parentFolder):
+				os.makedirs(parentFolder)
+
+			os.rename(oldDomain.srvpath, self.srvpath)
+		elif len(self.srvpath) > 0:
+			if not os.path.exists(self.srvpath):
+				os.makedirs(self.srvpath)
+				os.chmod(self.srvpath, 0o750)
+				os.chown(self.srvpath, self.uid, self.gid)
+
+				# now create the default structure
+				os.makedirs(os.path.join(self.srvpath, 'htdocs'))
+				os.chmod(os.path.join(self.srvpath, 'htdocs'), 0o750)
+				os.chown(os.path.join(self.srvpath, 'htdocs'), self.uid, self.gid)
+
+	def delete(self, oldDomain = None):
+		# delete first all dns entries!
+		query = (
+			'DELETE FROM dns WHERE domain_id = %s'
+		)
+		cx.execute(
+			query, 
+			(
+				self.id
+			)
+		)
+		query = (
+			'DELETE FROM domain WHERE domain_id = %s'
+		)
+		cx.execute(
+			query, 
+			(
+				self.id
+			)
+		)
+		db.commit()
+
+	def exists(self):
+		exists = False
+		db = MailDatabase.getInstance()
+		cx = db.getCursor()
+		query = ('SELECT domain_id FROM domain WHERE domain_name = %s and domain_parent = %s')
+		cx.execute(query, (self.name, self.parent))
+		exists = len(cx.fetchall()) > 0
+		cx.close()
+		return exists
 
 	def generateBindFile(self):
+		dl = DomainList()
 		content = []
-		content.append('$ORIGIN %s.' % (self.getFullDomain(),))
+		content.append('$ORIGIN .')
 		content.append('$TTL %is' % (self.ttl,))
 		# get soa entry.
-		soa = Dns.getSoaForDomain(self.domainId)
+		from modules.dns import Dns
+		soa = Dns.getSoaForDomain(self.id)
 		if soa is None:
 			raise ValueError('Missing SOA-Entry. Cannot generatee Bind-File before!')
 			return False
 
-		for f in soa.generateDnsEntry:
+		for f in soa.generateDnsEntry(dl):
 			content.append(f)
 
+		# first add all entries, which have no key!
+		for dns in Dns.getDnsForDomain(self.id):
+			if len(dns.key.strip()) <= 0:
+				content.extend(dns.generateDnsEntry(dl))
+
+		content.append('$ORIGIN %s.' % (self.getFullDomain(dl),))
 		# now the rest
-		for dns in Dns.getDnsForDomain(self.domainId):
-			for f in dns.generateDnsEntry():
-				content.append(f)
+		for dns in Dns.getDnsForDomain(self.id):
+			if len(dns.key.strip()) > 0:
+				content.extend(dns.generateDnsEntry(dl))
 
 		return '\n'.join(content)
 
@@ -198,11 +302,19 @@ class Domain:
 
 		self.state = state
 
-	def getFullDomain(self, domainList):
+	def getFullDomain(self, domainList = None):
 		domain = self.name
 
 		if self.parent is not None:
-			parent = domainList.findById(self.parent)
+			if domainList is not None:
+				parent = domainList.findById(self.parent)
+			else:
+				parent = Domain(self.parent)
+				if not parent.load():
+					log = logging.getLogger('flscp')
+					log.warning('Could not get the parent with did = %s' % (self.parent,))
+					parent = None
+
 			if parent is None:
 				return domain
 			else:
@@ -223,7 +335,7 @@ class Domain:
 			if item is None:
 				return True
 			else:
-				return False			
+				return False
 
 	def __eq__(self, obj):
 		log = logging.getLogger('flscp')
@@ -234,6 +346,7 @@ class Domain:
 			self.ipv4 == obj.ipv4 and \
 			self.uid  == obj.uid and \
 			self.gid  == obj.gid and \
+			self.srvpath  == obj.srvpath and \
 			self.state == obj.state:
 			return True
 		else:
@@ -247,17 +360,26 @@ class Domain:
 		self = ma()
 
 		self.id = data['id']
-		self.name = data['domain']
+		self.name = data['name']
 		self.ipv6 = data['ipv6']
 		self.ipv4 = data['ipv4']
 		self.gid = data['gid']
 		self.uid = data['uid']
+		self.srvpath = data['srvpath']
 		self.parent = data['parent']
 		self.created = data['created']
 		self.modified = data['modified']
 		self.state = data['state']
 
 		return self
+
+	def toDict(self):
+		d = {}
+		for k, v in vars(self).items():
+			if not k.startswith('_'):
+				d[k] = v
+
+		return d
 
 	@classmethod
 	def getByName(dom, name):

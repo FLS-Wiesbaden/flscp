@@ -23,6 +23,8 @@ Ihr Kennwort:
 Eingerichtete Weiterleitungen:
 %(forwarders)s
 
+Ihr Limit beträgt %(quota)s.
+
 Das Ihnen mitgeteilte Kennwort wurde %(notgenerated)s automatisch generiert.
 
 Die Webmail-Applikation erreichen Sie wahlweise unter

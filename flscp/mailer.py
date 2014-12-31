@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+# vim: fenc=utf-8:ts=8:sw=8:si:sta:noet
 import os
 import logging
 import re
@@ -24,7 +27,8 @@ class Mailer:
 				'username': '%s@%s' % (self.account.mail,self.account.domain),
 				'password': self.account.pw,
 				'forwarders': ', '.join(self.account.forward) if len(self.account.forward) > 0 else mailContent['params']['noforward'],
-				'notgenerated': mailContent['params']['notgenerated'] if not self.account.genPw else ''
+				'notgenerated': mailContent['params']['notgenerated'] if not self.account.genPw else '',
+				'quota': self.account.getQuotaReadable()
 			},
 			_charset='utf-8'
 		)
@@ -67,7 +71,8 @@ class Mailer:
 			mailContent['body'] % {
 				'username': '%s@%s' % (self.account.mail,self.account.domain),
 				'password': self.account.pw if len(self.account.pw) > 0 else mailContent['params']['notchanged'],
-				'forwarders': ', '.join(self.account.forward) if len(self.account.forward) > 0 else mailContent['params']['noforward']
+				'forwarders': ', '.join(self.account.forward) if len(self.account.forward) > 0 else mailContent['params']['noforward'],
+				'quota': self.account.getQuotaReadable()
 			},
 			_charset='utf-8'
 		)
@@ -162,20 +167,24 @@ class Mailer:
 			'params': {}
 		}
 
-		basePath = '%s/templates' % (workDir,)
+		basePath = os.path.join(workDir, 'templates', 'default', '%s.txt' % (mail,))
+		basePathCustom = os.path.join(workDir, 'templates', 'custom', '%s.txt' % (mail,))
+		homePath = os.path.expanduser(os.path.join('~', '.config', 'flscp', 'templates', '%s.txt' % (mail,)))
+		etcPath = os.path.join(os.sep, 'etc', 'flscp', 'templates', '%s.txt' % (mail,))
+		etcPathLocal = os.path.join(os.sep, 'usr', 'local', 'etc', 'flscp', 'templates', '%s.txt' % (mail,))
+		pathList = [homePath, etcPath, etcPathLocal, basePathCustom, basePath]
 
 		content = None
-		# try to find custom
-		if os.path.exists('%s/custom/%s.txt' % (basePath, mail)):
-			with open('%s/custom/%s.txt' % (basePath, mail)) as f:
-				content = f.read()
-
-		else:
-			with open('%s/default/%s.txt' % (basePath, mail)) as f:
-				content = f.read()
+		for f in pathList:
+			if os.path.exists(f):
+				with open(f, 'rb') as f:
+					content = f.read()
+				break
 
 		if content is None:
 			return None
+		else:
+			content = content.decode('utf-8')
 
 		# now extract data
 		## first the sender

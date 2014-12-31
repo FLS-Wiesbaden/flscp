@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+# vim: fenc=utf-8:ts=8:sw=8:si:sta:noet
 import datetime
 
 class FLSCertificateGeneralSubject:
@@ -84,6 +85,7 @@ class FLSCertificate:
 	STATE_OK = 0
 	STATE_DELETE = 1
 	STATE_ADDED = 2
+	STATE_EXPIRED = 4
 
 	def __init__(self):
 		self.issuer = None
@@ -122,6 +124,33 @@ class FLSCertificate:
 			except:
 				raise
 
+	def setNotAfter(self, dt):
+		#20141007T21:09:59
+		dt = str(dt)
+		if dt is not None:
+			try:
+				self.notAfter = datetime.datetime.strptime(dt, '%Y%m%dT%H:%M:%S')
+			except:
+				self.notAfter = None
+
+		if self.isExpired():
+			self.state = FLSCertificate.STATE_EXPIRED
+
+	def setNotBefore(self, dt):
+		dt = str(dt)
+		if dt is not None:
+			try:
+				self.notBefore = datetime.datetime.strptime(dt, '%Y%m%dT%H:%M:%S')
+			except:
+				self.notBefore = None
+
+	def isExpired(self):
+		if self.notAfter is not None:
+			if datetime.datetime.now() > self.notAfter:
+				return True
+
+		return False
+
 	def __hash__(self):
 		return hash(
 			'sn=%s,sub=%s,iss=%s' % (
@@ -135,7 +164,7 @@ class FLSCertificate:
 				data[k] = v.__serialize__()
 			except:
 				if isinstance(v, datetime.datetime):
-					data[k] = v.strftime('%Y-%m-%dT%H:%M:%S%z')
+					data[k] = v.strftime('%Y-%m-%dT%H:%M:%S')
 				else:
 					data[k] = v
 
@@ -147,7 +176,8 @@ class FLSCertificate:
 
 		for k,v in data.items():
 			if k in ['notBefore', 'notAfter']:
-				newV = datetime.datetime.strptime(v, '%Y-%m-%dT%H:%M:%S%z')
+				newV = datetime.datetime.strptime(v, '%Y-%m-%dT%H:%M:%S')
+				newV = newV.replace(tzinfo=None)
 				setattr(self, k, newV)
 			elif k in ['subject']:
 				newV = FLSCertificateSubject.__deserialize__(v)
@@ -157,6 +187,10 @@ class FLSCertificate:
 				setattr(self, k, newV)
 			elif k in ['state', 'serialNumber']:
 				setattr(self, k, int(v))
+
+		# check to change state?
+		if self.isExpired():
+			self.state = FLSCertificate.STATE_EXPIRED
 
 		return self
 
@@ -177,10 +211,13 @@ class FLSCertificate:
 			sh.setSubject(subject)
 		if 'notAfter' in obj:
 			sh.notAfter = datetime.datetime.strptime(obj['notAfter'], '%b %d %H:%M:%S %Y %Z')
-			sh.notAfter = sh.notAfter.replace(tzinfo=datetime.timezone.utc)
+			#sh.notAfter = sh.notAfter.replace(tzinfo=datetime.timezone.utc)
+			sh.notAfter = sh.notAfter.replace(tzinfo=None)
+
 		if 'notBefore' in obj:
 			sh.notBefore = datetime.datetime.strptime(obj['notBefore'], '%b %d %H:%M:%S %Y %Z')
-			sh.notBefore = sh.notBefore.replace(tzinfo=datetime.timezone.utc)
+			#sh.notBefore = sh.notBefore.replace(tzinfo=datetime.timezone.utc)
+			sh.notBefore = sh.notBefore.replace(tzinfo=None)
 		#if 'version' in obj:
 		#	sh.version = obj['version']
 		if 'serialNumber' in obj:
@@ -189,10 +226,10 @@ class FLSCertificate:
 		now = datetime.datetime.now().replace(tzinfo=datetime.timezone.utc)
 		if sh.serialNumber is None or sh.notAfter is None or sh.notBefore is None:
 			return None
-		elif not sh.notBefore <= now <= sh.notAfter:
-			return None
 		else:
 			self = sh
+			if self.isExpired():
+				self.state = FLSCertificate.STATE_EXPIRED
 			return self
 
 	@classmethod
@@ -200,8 +237,8 @@ class FLSCertificate:
 		#import rpdb2; rpdb2.start_embedded_debugger('test', fDebug=True, fAllowUnencrypted=False, timeout=5)
 		sh = FLSCertificate()
 		sh.setSerialNumber(obj['serialNumber'])
-		sh.notAfter = obj['notAfter']
-		sh.notBefore = obj['notBefore']
+		sh.setNotAfter(obj['notAfter'])
+		sh.setNotBefore(obj['notBefore'])
 		sh.state = obj['state']
 		#sh.version = obj['version']
 		sh.setIssuer(FLSCertificateIssuer.fromPyDict(obj['issuer']))
