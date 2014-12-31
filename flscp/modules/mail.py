@@ -695,8 +695,8 @@ class MailAccount:
 		ma = MailAccount()
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
-		query = ('SELECT * FROM mail_users WHERE mail_addr = %s')
-		cx.execute(query, (mail,))
+		query = ('SELECT mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, quota, mail_addr, alternative_addr, authcode, authvalid, enabled FROM mail_users WHERE mail_addr = %s')
+		cx.execute(query, (mail.lower(),))
 		if cx is None:
 			log.warning('Execution failed in MailAccount::getByEMail(%s).' % (mail,))
 			return None
@@ -750,7 +750,7 @@ class MailAccount:
 
 		if self.id == obj.id and \
 			self.type == obj.type and \
-			self.mail == obj.mail and \
+			self.mail.lower() == obj.mail.lower() and \
 			self.domain == obj.domain and \
 			self.pw == obj.pw and \
 			self.genPw == obj.genPw and \
@@ -772,8 +772,8 @@ class MailAccount:
 
 		self.id = data['id']
 		self.type = data['type']
-		self.mail = data['mail']
-		self.domain = data['domain']
+		self.mail = data['mail'].lower()
+		self.domain = data['domain'].lower()
 		self.altMail = data['altMail']
 		self.forward = data['forward']
 		self.state = data['state']
