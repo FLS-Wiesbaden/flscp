@@ -152,6 +152,7 @@ class MailAccount:
 			'userdb_uid': '',
 			'userdb_gid': '',
 			'userdb_mail': '',
+			'quota_rule': '',
 			'nopassword': 1
 		}
 		localPartDir = os.path.join(conf.get('mailserver', 'basemailpath'), 'virtual')
@@ -177,6 +178,7 @@ class MailAccount:
 			data['userdb_uid'] = conf.get('mailserver', 'uid')
 			data['userdb_gid'] = conf.get('mailserver', 'gid')
 			data['userdb_mail'] = self.getMailDirFormat()
+			data['quota_rule'] = '*:storage=%sb' % (self.quota,)
 
 			return data
 

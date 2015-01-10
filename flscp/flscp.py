@@ -1369,12 +1369,12 @@ class FLScpMainWindow(QMainWindow):
 				self.close()
 				return
 			except Exception as e:
-				QtGui.QMessageBox.critical(
+				QMessageBox.critical(
 					self, _translate('MainWindow', 'Unbekannter Fehler beim Verbinden', None), 
 					_translate('MainWindow', 
 						'Der Server konnte den Verbindungsversuch nicht erfolgreich abarbeiten',
 						None),
-					QtGui.QMessageBox.Ok, QtGui.QMessageBox.Ok
+					QMessageBox.Ok, QMessageBox.Ok
 				)
 				self.close()
 				return
