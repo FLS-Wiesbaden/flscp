@@ -717,7 +717,8 @@ class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
 			return {
 				'home': maccount.getHomeDir(),
 				'uid': conf.get('mailserver', 'uid'),
-				'gid': conf.get('mailserver', 'gid')
+				'gid': conf.get('mailserver', 'gid'),
+				'quota_rule': '*:storage=%sb' % (maccount.quota,)
 			}
 		else:
 			return False
