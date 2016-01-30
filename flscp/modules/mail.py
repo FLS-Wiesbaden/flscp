@@ -681,6 +681,10 @@ class MailAccount:
 		return '%s\x00%s\x00%s' % (self.mail, self.domain, 'userPassword')
 
 	def updateCredentials(self):
+		conf = FLSConfig.getInstance()
+		if not conf.getboolean('features', 'sasldb'):
+			return None
+
 		db = SaslDatabase.getInstance()
 
 		if self.state == MailAccount.STATE_DELETE or len(self.hashPw.strip()) <= 0:

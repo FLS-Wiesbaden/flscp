@@ -15,6 +15,7 @@ from distutils.version import StrictVersion as V
 import logging, os, sys, shlex, subprocess, smtplib
 import ssl, re, socketserver, socket, io, pickle, configparser, base64, stat
 import zipfile, tempfile, datetime, json, magic, gzip
+import atexit
 from database import MailDatabase, SaslDatabase
 from flsconfig import FLSConfig
 from modules.flscertification import *
@@ -27,7 +28,7 @@ except:
 
 __author__  = 'Lukas Schreiner'
 __copyright__ = 'Copyright (C) 2013 - 2015 Website-Team Friedrich-List-Schule-Wiesbaden'
-__version__ = '0.7'
+__version__ = '0.8'
 
 FORMAT = '%(asctime)-15s %(message)s'
 formatter = logging.Formatter(FORMAT, datefmt='%b %d %H:%M:%S')
@@ -905,11 +906,38 @@ class FLSCpUnixServer(Thread, UnixStreamServer):
 		)
 		self.serve_forever()
 
+
+def writepid():
+	# Check for a pidfile to see if the daemon already runs
+	try:
+		pf = open(conf.get('general', 'pidfile'),'r')
+		pid = int(pf.read().strip())
+		pf.close()
+	except IOError:
+		pid = None
+	except SystemExit:
+		pid = None
+
+	if pid:
+		message = "pidfile %s already exists. Is it already running?\n"
+		sys.stderr.write(message % self.pidfile)
+		sys.exit(1)
+
+	pid = str(os.getpid())
+	open(conf.get('general', 'pidfile'),'w+').write("%s\n" % pid)
+		
+def delpid():
+	os.remove(conf.get('general', 'pidfile'))
+
 if __name__ == '__main__':
-	hdlr = WatchedFileHandler('flscpserver.log')
+	hdlr = WatchedFileHandler(conf.get('general', 'logfile'))
 	hdlr.setFormatter(formatter)
 	log.addHandler(hdlr)
 	log.setLevel(logging.DEBUG)
+
+	# Write pidfile
+	writepid()
+	atexit.register(delpid) # Make sure pid file is removed if we quit
 
 	threads = []
 	try:

@@ -59,7 +59,7 @@ buildOpts = {
 
 setup(
 	name = "FLS Control Panel",
-	version = "0.7",
+	version = "0.8",
 	description = "FLS Control panel Client",
 	author = "Friedrich-List-Schule Wiesbaden",
 	author_email = "website-team@fls-wiesbaden.de",
