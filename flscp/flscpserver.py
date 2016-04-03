@@ -758,12 +758,7 @@ class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
 	def lookup(self, namespace, typ, arg):
 		maccount = MailAccount.getByEMail(arg)
 		if maccount is not None:
-			return {
-				'home': maccount.getHomeDir(),
-				'uid': conf.get('mailserver', 'uid'),
-				'gid': conf.get('mailserver', 'gid'),
-				'quota_rule': '*:storage=%sb' % (maccount.quota,)
-			}
+			return maccount.getUserLookup()
 		else:
 			return False
 

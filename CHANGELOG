@@ -3,3 +3,4 @@ Version 0.9:
  - Scrambler plugin supported
  - Host selection implemented
  - Remember geometry and state of the window when closed
+ - After creating a new mail, the filter was discarded. Kept now.

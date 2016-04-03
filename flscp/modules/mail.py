@@ -191,7 +191,7 @@ class MailAccount:
 			data['userdb_mail'] = self.getMailDirFormat()
 			data['quota_rule'] = '*:storage=%sb' % (self.quota,)
 			data['scrambler_plain_password'] = pwd if self.encryption else ''
-			data['scrambler_enabled'] = self.encryption
+			data['scrambler_enabled'] = '1' if self.encryption else '0'
 			data['scrambler_public_key'] = self.publicKey
 			data['scrambler_private_key'] = self.privateKey
 			data['scrambler_private_key_salt'] = self.privateKeySalt
@@ -201,6 +201,21 @@ class MailAccount:
 
 		else:
 			return False
+
+	def getUserLookup(self):
+		data = {
+			'home': self.getHomeDir(),
+			'uid': conf.get('mailserver', 'uid'),
+			'gid': conf.get('mailserver', 'gid'),
+			'quota_rule': '*:storage=%sb' % (maccount.quota,),
+			'scrambler_enabled': '1' if self.encryption else '0',
+			'scrambler_public_key': self.publicKey,
+			'scrambler_private_key': self.privateKey,
+			'scrambler_private_key_salt': self.privateKeySalt,
+			'scrambler_private_key_iterations': self.privateKeyIterations
+		}
+		
+		return data
 
 	def markQuotaCalc(self):
 		if self.state == MailAccount.STATE_OK:
@@ -601,7 +616,7 @@ class MailAccount:
 			'INSERT INTO mail_users (mail_acc, mail_pass, mail_forward, domain_id, mail_type, ' \
 			'status, quota, mail_addr, alternative_addr, encryption, public_key, private_key, ' \
 			'private_key_salt, private_key_iterations, enabled) ' \
-			'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
+			'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
 		)
 		cx.execute(
 			query, 

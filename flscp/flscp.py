@@ -2533,6 +2533,8 @@ class FLScpMainWindow(QMainWindow):
 			self.ui.mailTable.setItem(rowNr, 6, item)
 
 		self.ui.mailTable.setSortingEnabled(True)
+		if len(self.ui.search.text()) > 0:
+			self.filterMail(self.ui.search.text())
 
 	def selectHost(self):
 		mf = HostSelectionForm(self.splash)
