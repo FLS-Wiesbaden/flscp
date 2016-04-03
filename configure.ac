@@ -101,6 +101,22 @@ else:
     AC_MSG_RESULT([yes])
 fi
 
+# OpenSSL
+AC_MSG_CHECKING([for OpenSSL])
+prog="[import sys, string
+try: import OpenSSL
+except ImportError: sys.exit(1)
+sys.exit(0)]"
+${PYTHON} -c "${prog}"
+retval=$?
+
+if test $retval -ne 0; then
+    AC_MSG_RESULT([0])
+    AC_MSG_FAILURE([cannot find OpenSSL support])
+else:
+    AC_MSG_RESULT([yes])
+fi
+
 AC_CHECK_FUNCS([mkdir chmod])
 # Checks for programs.
 

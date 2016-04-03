@@ -12,7 +12,7 @@ from ui.ui_domain import *
 from ui.ui_hostselector import *
 from translator import CPTranslator
 from PyQt5 import QtCore
-from PyQt5.QtCore import pyqtSlot, pyqtSignal, QRunnable, QThreadPool, QObject
+from PyQt5.QtCore import pyqtSlot, pyqtSignal, QRunnable, QThreadPool, QObject, QSettings
 from PyQt5.QtGui import QIcon, QPixmap, QColor, QPalette, QBrush, QFont, QTextDocument
 from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QWidget, QDialog, QListWidgetItem, QMainWindow, QApplication
 from PyQt5.QtWidgets import QHeaderView, QProgressBar, QLabel, QAction, QMessageBox, QDialogButtonBox
@@ -34,7 +34,7 @@ except ImportError:
 	pass
 
 __author__  = 'Lukas Schreiner'
-__copyright__ = 'Copyright (C) 2013 - 2016 Website-Team Friedrich-List-Schule-Wiesbaden'
+__copyright__ = 'Copyright (C) 2013 - 2016 Website-Team Friedrich-List-Schule Wiesbaden'
 __version__ = '0.9'
 __min_server__ = '0.9'
 
@@ -53,6 +53,8 @@ workDir = os.path.dirname(os.path.realpath(__file__))
 KEYFILE 		= 'certs/clientKey.pem'
 CERTFILE 		= 'certs/clientCert.pem'
 CACERT 			= 'certs/cacert.pem'
+SETTINGS_ORG 	= 'Friedrich-List-Schule Wiesbaden'
+SETTINGS_APP	= 'FLS Control Panel'
 ### CONFIGURE END ###
 cpTranslator = CPTranslator(os.path.join(workDir, 'l18n'))
 
@@ -1086,8 +1088,7 @@ class HostSelectionForm(QDialog):
 			self.ui.hostList.addItem(item)
 
 	def actions(self):
-		self.ui.buttonBox.accepted.connect(self.select)
-		self.ui.buttonBox.rejected.connect(self.cancel)
+		self.ui.hostList.itemDoubleClicked.connect(self.accept)
 
 	def validate(self):
 		items = self.ui.hostList.selectedItems()
@@ -1106,17 +1107,17 @@ class HostSelectionForm(QDialog):
 		return True
 
 	@pyqtSlot()
-	def select(self):
+	def accept(self):
 		self.aborted = False
 		if self.validate():
-			self.accept()
+			super().accept()
 		else:
 			return False
 
 	@pyqtSlot()
-	def cancel(self):
+	def reject(self):
 		self.aborted = True
-		self.reject()
+		super().reject()
 
 ###### END WINDOWS ######
 class FLSSafeTransport(xmlrpc.client.Transport):
@@ -1172,7 +1173,8 @@ class FlsServer(xmlrpc.client.ServerProxy):
 
 class FLScpMainWindow(QMainWindow):
 	execInit = pyqtSignal()
-	sigQuitApp = pyqtSignal()
+	sigCancelStart = pyqtSignal()
+	killApp = pyqtSignal()
 
 	def __init__(self, app):
 		QMainWindow.__init__(self)
@@ -1200,18 +1202,19 @@ class FLScpMainWindow(QMainWindow):
 		self.dns = DNSList()
 		self.certs = flscertification.FLSCertificateList()
 		self.splash = CpSplashScreen(self, QPixmap(":/logo/splash.png"), 10)
-		self.splash.show()
-		self.splash.showMessage(_translate('SplashScreen', 'Lade Anwendung...'), 1, color=QColor(255, 255, 255))
-		self.app.processEvents()
 
 		# connect to xml-rpc
 		self.rpc = None
-
 		self.actions()
 
+		# start
+		QtCore.QTimer.singleShot(0, self.init)
+
 	def actions(self):
-		# general
-		self.sigQuitApp.connect(self.quitApp)
+		# global
+		self.sigCancelStart.connect(self.abortStartup)
+		self.killApp.connect(self.app.quit)
+		self.app.aboutToQuit.connect(self.preQuitSlot)
 
 		# menu
 		self.ui.actionExit.triggered.connect(self.quitApp)
@@ -1328,6 +1331,19 @@ class FLScpMainWindow(QMainWindow):
 				_translate("MainWindow", "Logged in as %s <%s>" % (pubsub.commonName, pubsub.emailAddress), None)
 			)
 			self.ui.statusbar.addWidget(self.ui.labUser)
+
+	def readSettings(self):
+		log.info('Reading all settings.')
+		settings = QSettings(SETTINGS_ORG, SETTINGS_APP)
+		self.restoreGeometry(settings.value('geometry'))
+		self.restoreState(settings.value('windowState'))
+
+	def closeEvent(self, event):
+		if self.isVisible():
+			settings = QSettings(SETTINGS_ORG, SETTINGS_APP)
+			settings.setValue('geometry', self.saveGeometry())
+			settings.setValue('windowState', self.saveState())
+		super().closeEvent(event)
 
 	@pyqtSlot()
 	def switchToDomain(self):
@@ -1485,6 +1501,10 @@ class FLScpMainWindow(QMainWindow):
 
 	@pyqtSlot()
 	def init(self):
+		self.splash.show()
+		self.splash.showMessage(_translate('SplashScreen', 'Lade Anwendung...'), 1, color=QColor(255, 255, 255))
+		self.app.processEvents()
+
 		self.update()
 		self.splash.showMessage(_translate('SplashScreen', 'Lade Anwendung...'), 1, color=QColor(255, 255, 255))
 		self.app.processEvents()
@@ -1495,11 +1515,7 @@ class FLScpMainWindow(QMainWindow):
 			self.app.processEvents()
 			if not self.selectHost():
 				log.warning('Host selection aborted. Close application.')
-				#### FIXME ####
-				self.ui.progress.hide()
-				self.splash.close()
-				self.close()
-				self.sigQuitApp.emit()
+				self.sigCancelStart.emit()
 				return
 		else:
 			# select the default host.
@@ -1528,8 +1544,7 @@ class FLScpMainWindow(QMainWindow):
 						None),
 					QMessageBox.Ok, QMessageBox.Ok
 				)
-
-				self.close()
+				self.sigCancelStart.emit()
 				return
 			except socket.error as e:
 				log.warning('Connection not possible: %s' % (e,))
@@ -1540,8 +1555,7 @@ class FLScpMainWindow(QMainWindow):
 						None),
 					QMessageBox.Ok, QMessageBox.Ok
 				)
-
-				self.close()
+				self.sigCancelStart.emit()
 				return
 			except xmlrpc.client.ProtocolError as e:
 				# uhhh error?
@@ -1562,7 +1576,7 @@ class FLScpMainWindow(QMainWindow):
 							None),
 						QMessageBox.Ok, QMessageBox.Ok
 					)
-				self.close()
+				self.sigCancelStart.emit()
 				return
 			except Exception as e:
 				QMessageBox.critical(
@@ -1572,7 +1586,7 @@ class FLScpMainWindow(QMainWindow):
 						None),
 					QMessageBox.Ok, QMessageBox.Ok
 				)
-				self.close()
+				self.sigCancelStart.emit()
 				return
 			self.rpc.__transport.timeout = timeout
 			self.loginNeeded = False
@@ -1589,11 +1603,12 @@ class FLScpMainWindow(QMainWindow):
 				QMessageBox.critical(
 					self, _translate('MainWindow', 'Versionsfehler!', None), 
 					_translate('MainWindow', 
-						'Eine Verbindung kann nicht aufgebaut werden. Bitte aktualisieren Sie den Server!', 
+						'Eine Verbindung kann nicht aufgebaut werden wegen Versionsinkompatibilität. ' \
+						'Bitte aktualisieren Sie die Server- oder Clientapplikation!', 
 						None),
 					QMessageBox.Ok, QMessageBox.Ok
 				)
-				self.close()
+				self.sigCancelStart.emit()
 				return
 
 			# connection possible - now check the version
@@ -1657,9 +1672,7 @@ class FLScpMainWindow(QMainWindow):
 				)
 		else:
 			if not self.initLoginCert():
-				self.splash.close()
-				self.stateProgressBar = False
-				self.close()
+				self.sigCancelStart.emit()
 				return
 
 		# disable splash screen!
@@ -2522,7 +2535,7 @@ class FLScpMainWindow(QMainWindow):
 		self.ui.mailTable.setSortingEnabled(True)
 
 	def selectHost(self):
-		mf = HostSelectionForm(self)
+		mf = HostSelectionForm(self.splash)
 		mf.show()
 		mf.exec_()
 		if not mf.aborted:
@@ -3785,6 +3798,18 @@ class FLScpMainWindow(QMainWindow):
 		QMessageBox.aboutQt(self)
 
 	@pyqtSlot()
+	def preQuitSlot(self):
+		if self.rpc is not None:
+			del(self.rpc)
+
+	@pyqtSlot()
+	def abortStartup(self): 
+		self.splash.close()
+		self.stateProgressBar = False
+		self.close()
+		self.killApp.emit()
+
+	@pyqtSlot()
 	def quitApp(self):
 		# are there some pending actions?
 		pending = False
@@ -4000,10 +4025,9 @@ class FLScpMainWindow(QMainWindow):
 		# load the data!
 		self.splash.showMessage(_translate('SplashScreen', 'Starte Benutzeroberfläche...'), 10, color=QColor(255, 255, 255))
 		self.app.processEvents()
-
 		self.splash.finish(self)
-		#self.splash.close()
-		self.showNormal()
+		self.readSettings()
+		self.show()
 
 if __name__ == "__main__":
 	if os.path.exists('flscp.log'):
@@ -4021,8 +4045,8 @@ if __name__ == "__main__":
 
 	app = QApplication(sys.argv)
 	app.installTranslator(cpTranslator.getTranslator())
+	app.setQuitOnLastWindowClosed(False)
 	ds = FLScpMainWindow(app)
-	QtCore.QTimer.singleShot(0, ds.init)
-	app.exec_()
+	app.exec()
 	os.kill(os.getpid(), 15)
 	sys.exit(0)

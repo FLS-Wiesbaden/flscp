@@ -2,3 +2,4 @@ Version 0.9:
  - Unlimited quota (0B) implemented
  - Scrambler plugin supported
  - Host selection implemented
+ - Remember geometry and state of the window when closed

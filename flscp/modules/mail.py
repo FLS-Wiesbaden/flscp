@@ -297,7 +297,7 @@ class MailAccount:
 		if len(self.pw) <= 0:
 			return
 
-		self.privateKeySalt = bcrypt.gensalt(self.privateKeySalt, b'2a')
+		self.privateKeySalt = bcrypt.gensalt(self.privateKeyIterations, b'2a')
 
 		return self.privateKeySalt
 
@@ -315,7 +315,7 @@ class MailAccount:
 		if len(self.pw) <= 0 or len(self.privateKeySalt) <= 0:
 			return
 		hashedPw = bcrypt.hashpw(self.pw.encode('utf-8'), self.privateKeySalt)
-		pkey = OpenSSL.crypto.Pkey()
+		pkey = OpenSSL.crypto.PKey()
 		pkey.generate_key(OpenSSL.crypto.TYPE_RSA, 2048)
 		if not pkey.check():
 			raise Exception('Could not generate private key!')
@@ -600,18 +600,15 @@ class MailAccount:
 		query = (
 			'INSERT INTO mail_users (mail_acc, mail_pass, mail_forward, domain_id, mail_type, ' \
 			'status, quota, mail_addr, alternative_addr, encryption, public_key, private_key, ' \
-			'private_key_salt, private_key_iterations, encryption, public_key, private_key, ' \
 			'private_key_salt, private_key_iterations, enabled) ' \
-			'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
+			'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
 		)
 		cx.execute(
 			query, 
 			(
 				self.mail, self.hashPw, ','.join(self.forward), d.id, self.type, self.state, self.quota, 
 				'%s@%s' % (self.mail, self.domain), self.altMail, str(int(self.encryption)), self.publicKey, 
-				self.privateKey, self.privateKeySalt, self.privateKeyIterations, str(int(self.encryption)),
-				self.publicKey, self.privateKey, self.privateKeySalt, self.privateKeyIterations,
-				str(int(self.enabled))
+				self.privateKey, self.privateKeySalt, self.privateKeyIterations, str(int(self.enabled))
 			)
 		)
 		db.commit()
