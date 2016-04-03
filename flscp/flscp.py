@@ -9,6 +9,7 @@ from ui.ui_mailform import *
 from ui.ui_maileditor import *
 from ui.ui_output import *
 from ui.ui_domain import *
+from ui.ui_hostselector import *
 from translator import CPTranslator
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSlot, pyqtSignal, QRunnable, QThreadPool, QObject
@@ -21,6 +22,7 @@ from Printer import Printer
 import logging, os, sys, copy, xmlrpc.client, http.client, ssl, socket, datetime
 # import re, zlib, uuid
 import tempfile, zipfile, base64
+from flsconfig import FLSConfig, DEFAULT_CLIENT_CONFIGS
 from flssplash import CpSplashScreen
 from modules import flscertification
 from modules.domain import DomainList, Domain
@@ -32,8 +34,9 @@ except ImportError:
 	pass
 
 __author__  = 'Lukas Schreiner'
-__copyright__ = 'Copyright (C) 2013 - 2015 Website-Team Friedrich-List-Schule-Wiesbaden'
-__version__ = '0.7'
+__copyright__ = 'Copyright (C) 2013 - 2016 Website-Team Friedrich-List-Schule-Wiesbaden'
+__version__ = '0.9'
+__min_server__ = '0.9'
 
 FORMAT = '%(asctime)-15s %(message)s'
 formatter = logging.Formatter(FORMAT, datefmt='%b %d %H:%M:%S')
@@ -46,17 +49,27 @@ log.addHandler(hdlr)
 workDir = os.path.dirname(os.path.realpath(__file__))
 
 ##### CONFIGURE #####
-# connection
-#RPCHOST 		= 'cp.lschreiner.de' 
-RPCHOST 		= 'cp.fls-wiesbaden.de' 
-RPCPORT 		= 10027
-RPCPATH			= 'RPC2'
 # ssl connection
 KEYFILE 		= 'certs/clientKey.pem'
 CERTFILE 		= 'certs/clientCert.pem'
 CACERT 			= 'certs/cacert.pem'
 ### CONFIGURE END ###
 cpTranslator = CPTranslator(os.path.join(workDir, 'l18n'))
+
+# search for config
+conf = FLSConfig()
+fread = conf.read(
+		[
+			'flscp.ini', os.path.expanduser('~/.flscp.ini'), os.path.expanduser('~/.flscp/client.ini'),
+			os.path.expanduser('~/.config/flscp/client.ini'), '/etc/flscp/client.ini', '/usr/local/etc/flscp/client.ini'
+		]
+	)
+if len(fread) <= 0:
+	log.info('No configuration file found. Load defaults.')
+	conf.read_dict(DEFAULT_CLIENT_CONFIGS)
+else:
+	log.debug('Using config files "%s"' % (fread.pop(),))
+
 def _translate(context, text, disambig = None, param = None):
 	return cpTranslator.pyTranslate(context, text, disambig, param)
 
@@ -451,11 +464,26 @@ class MailForm(QDialog):
 
 		self.ui = Ui_MailForm()
 		self.ui.setupUi(self)
+		self._features = []
+		self.getFeatures()
 		self.account = account
 		self.orgAccount = copy.copy(account)
 		self.aborted = False
 		self.actions()
 		self.initFields()
+
+	def getFeatures(self):
+		try:
+			self._features = self.rpc.getFeatures()
+		except ssl.CertificateError as e:
+			log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
+		except socket.error as e:
+			log.error('Connection to server lost!')
+		except xmlrpc.client.ProtocolError as e:
+			if e.errcode == 403:
+				log.warning('Missing rights for loading features (%s)' % (e,))
+			else:
+				log.warning('Unexpected error in protocol: %s' % (e,))
 
 	def initFields(self):
 		dl = DomainList()
@@ -509,7 +537,29 @@ class MailForm(QDialog):
 			self.ui.fldTypeForward.setChecked(True)
 
 		# quota
-		self.ui.fldQuota.setValue(self.account.getQuotaMb())
+		if 'quota' in self._features:
+			self.ui.fldQuota.setValue(self.account.getQuotaMb())
+			self.ui.fldQuota.setVisible(True)
+			self.ui.labQuota.setVisible(True)
+		else:
+			self.ui.fldQuota.setValue(0)
+			self.ui.fldQuota.setVisible(False)
+			self.ui.labQuota.setVisible(False)
+
+		# encryption available and set?
+		if 'encryption' in self._features:
+			if self.account.encryption:
+				self.ui.fldEncryption.setChecked(True)
+			else:
+				self.ui.fldEncryption.setChecked(False)
+			self.ui.fldEncryption.setVisible(True)
+			self.ui.labEnc.setVisible(True)
+			self.ui.labEncWarning.setVisible(True)
+		else:
+			self.ui.fldEncryption.setChecked(False)
+			self.ui.fldEncryption.setVisible(False)
+			self.ui.labEnc.setVisible(False)
+			self.ui.labEncWarning.setVisible(False)
 
 	def actions(self):
 		self.ui.butForwardDel.clicked.connect(self.deleteMail)
@@ -635,6 +685,20 @@ class MailForm(QDialog):
 			self.ui.fldPw.setPalette(palette)
 			state = state and False
 
+		# Enabling encryption can only be done, if the new password is set!
+		if self.ui.fldEncryption.isChecked() and len(self.ui.fldPw.text()) <= 0 \
+			and not self.ui.fldGenPw.isChecked():
+			palette = QPalette()
+			palette.setColor(self.ui.fldGenPw.backgroundRole(), QColor(255, 110, 110))
+			self.ui.fldGenPw.setPalette(palette)
+			palette = QPalette()
+			palette.setColor(self.ui.fldPw.backgroundRole(), QColor(255, 110, 110))
+			self.ui.fldPw.setPalette(palette)
+			palette = QPalette()
+			palette.setColor(self.ui.fldEncryption.backgroundRole(), QColor(255, 110, 110))
+			self.ui.fldEncryption.setPalette(palette)
+			state = state and False
+
 		log.info('Validation result: %s' % ('valid' if state else 'invalid',))
 		return state
 
@@ -661,6 +725,7 @@ class MailForm(QDialog):
 		self.account.pw = self.ui.fldPw.text()
 		self.account.genPw = self.ui.fldGenPw.isChecked()
 		self.account.quota = self.ui.fldQuota.value()*1024*1024
+		self.account.encryption = self.ui.fldEncryption.isChecked()
 		self.account.forward = []
 		i = 0
 		while i < self.ui.fldForward.count():
@@ -681,6 +746,7 @@ class MailForm(QDialog):
 		self.account.pw = self.ui.fldPw.text()
 		self.account.genPw = self.ui.fldGenPw.isChecked()
 		self.account.quota = self.ui.fldQuota.value()*1024*1024
+		self.account.encryption = self.ui.fldEncryption.isChecked()
 		self.account.forward = []
 		i = 0
 		while i < self.ui.fldForward.count():
@@ -947,6 +1013,111 @@ class DomainEditor(QDialog):
 			log.debug('Selected the group id ' + str(gid))
 			return gid
 
+class MailEditor(QDialog):
+	
+	def __init__(self, parent):
+		super().__init__(parent=parent)
+
+		self.accepted = False
+		self.ui = Ui_MailEditor()
+		self.ui.setupUi(self)
+
+		self.ui.buttonBox.accepted.connect(self.setAcceptState)
+		self.ui.buttonBox.rejected.connect(self.setRejectState)
+
+		buttonRole = dict((x, n) for x, n in vars(QDialogButtonBox).items() if \
+				isinstance(n, QDialogButtonBox.StandardButton))
+		self.okButton = self.ui.buttonBox.button(buttonRole['Ok'])
+		if self.okButton is not None:
+			# we found button!!!
+			self.okButton.setDisabled(True)
+
+		self.ui.fldMail.textChanged.connect(self.checkValidMail)
+
+		# init
+		self.checkValidMail()
+
+	@pyqtSlot()
+	def checkValidMail(self):
+		log.debug('Check valid mail!!!!')
+		palette = QPalette()
+
+		if len(self.ui.fldMail.text().strip()) == 0 \
+				or not MailValidator(self.ui.fldMail.text()):
+			palette.setColor(self.ui.fldMail.backgroundRole(), QColor(255, 110, 110))
+			self.okButton.setDisabled(True)
+		else:
+			palette.setColor(self.ui.fldMail.backgroundRole(), QColor(151, 255, 139))
+			self.okButton.setDisabled(False)
+
+		self.ui.fldMail.setPalette(palette)
+
+	@pyqtSlot()
+	def setAcceptState(self):
+		self.accepted = True
+
+	@pyqtSlot()
+	def setRejectState(self):
+		self.accepted = False
+
+	def getValue(self):
+		return self.ui.fldMail.text()
+
+class HostSelectionForm(QDialog):
+	
+	def __init__(self, parent):
+		super().__init__(parent=parent)
+
+		self.ui = Ui_HostSelector()
+		self.ui.setupUi(self)
+		self.selectedHost = ''
+		self.aborted = False
+		self.actions()
+		self.initFields()
+
+	def initFields(self):
+		# load host list.
+		self.ui.hostList.clear()
+		for f in conf.items('hosts'):
+			# create QListWidgetItem
+			f = f[1]
+			item = QListWidgetItem(conf.get(f, 'name'))
+			item.setData(QtCore.Qt.UserRole, f)
+			self.ui.hostList.addItem(item)
+
+	def actions(self):
+		self.ui.buttonBox.accepted.connect(self.select)
+		self.ui.buttonBox.rejected.connect(self.cancel)
+
+	def validate(self):
+		items = self.ui.hostList.selectedItems()
+		if len(items) <= 0 or len(items) > 1:
+			QMessageBox.warning(
+				self, _translate('MainWindow', 'Server auswählen', None), 
+				_translate('MainWindow', 
+					'Sie müssen einen Server auswählen!', 
+					None),
+				QMessageBox.Ok, QMessageBox.Ok
+			)
+			return False
+
+		# get user role
+		self.selectedHost = items[0].data(QtCore.Qt.UserRole)
+		return True
+
+	@pyqtSlot()
+	def select(self):
+		self.aborted = False
+		if self.validate():
+			self.accept()
+		else:
+			return False
+
+	@pyqtSlot()
+	def cancel(self):
+		self.aborted = True
+		self.reject()
+
 ###### END WINDOWS ######
 class FLSSafeTransport(xmlrpc.client.Transport):
 	"""Handles an HTTPS transaction to an XML-RPC server."""
@@ -985,7 +1156,14 @@ class FlsServer(xmlrpc.client.ServerProxy):
 	__instance = None
 
 	def __init__(self):
-		super().__init__('https://%s:%i/%s' % (RPCHOST, RPCPORT, RPCPATH), FLSSafeTransport(), allow_none=True)
+		super().__init__(
+			'https://%s:%i/%s' % (
+				conf.get(conf.get('options', 'currenthost'), 'host'), 
+				conf.getint(conf.get('options', 'currenthost'), 'port'), 
+				conf.get(conf.get('options', 'currenthost'), 'rpcpath')
+			), 
+			FLSSafeTransport(), allow_none=True
+		)
 		FlsServer.__instance = self
 
 	@staticmethod
@@ -994,6 +1172,7 @@ class FlsServer(xmlrpc.client.ServerProxy):
 
 class FLScpMainWindow(QMainWindow):
 	execInit = pyqtSignal()
+	sigQuitApp = pyqtSignal()
 
 	def __init__(self, app):
 		QMainWindow.__init__(self)
@@ -1025,18 +1204,15 @@ class FLScpMainWindow(QMainWindow):
 		self.splash.showMessage(_translate('SplashScreen', 'Lade Anwendung...'), 1, color=QColor(255, 255, 255))
 		self.app.processEvents()
 
-		# check if certs exists!
-		if not os.path.exists(KEYFILE) or not os.path.exists(CERTFILE):
-			log.warning('Certs does not exist!')
-			self.rpc = None
-		else:
-			# connect to xml-rpc 
-			self.rpc = FlsServer.getInstance()
-			self.showLoginUser()
+		# connect to xml-rpc
+		self.rpc = None
 
 		self.actions()
 
 	def actions(self):
+		# general
+		self.sigQuitApp.connect(self.quitApp)
+
 		# menu
 		self.ui.actionExit.triggered.connect(self.quitApp)
 		self.ui.actionWhatsThis.triggered.connect(self.triggerWhatsThis)
@@ -1313,6 +1489,26 @@ class FLScpMainWindow(QMainWindow):
 		self.splash.showMessage(_translate('SplashScreen', 'Lade Anwendung...'), 1, color=QColor(255, 255, 255))
 		self.app.processEvents()
 
+		# do we need to select the host?
+		if conf.getboolean('options', 'hostselection'):
+			self.splash.showMessage(_translate('SplashScreen', 'Auswahl Server...'), 1, color=QColor(255, 255, 255))
+			self.app.processEvents()
+			if not self.selectHost():
+				log.warning('Host selection aborted. Close application.')
+				#### FIXME ####
+				self.ui.progress.hide()
+				self.splash.close()
+				self.close()
+				self.sigQuitApp.emit()
+				return
+		else:
+			# select the default host.
+			conf.set('options', 'currenthost', conf.get('options', 'defaulthost'))
+
+		# now initiate the RPC server
+		self.rpc = FlsServer.getInstance()
+		self.showLoginUser()
+
 		self.splash.showMessage(_translate('SplashScreen', 'Versuche mit dem Server zu verbinden...'), 2, color=QColor(255, 255, 255))
 		self.app.processEvents()
 		self.loginNeeded = True
@@ -1380,6 +1576,25 @@ class FLScpMainWindow(QMainWindow):
 				return
 			self.rpc.__transport.timeout = timeout
 			self.loginNeeded = False
+
+			# Check if we're allowed to connect with this version.
+			self.splash.showMessage(_translate('SplashScreen', 'Prüfe Kompatibilität...'), 4, color=QColor(255, 255, 255))
+			self.app.processEvents()
+			try:
+				upToDate = self.rpc.compatible(__version__, __min_server__)
+			except xmlrpc.client.Fault as e:
+				upToDate = False
+			if not upToDate:
+				log.critical('Could not connect due to incompatibility.')
+				QMessageBox.critical(
+					self, _translate('MainWindow', 'Versionsfehler!', None), 
+					_translate('MainWindow', 
+						'Eine Verbindung kann nicht aufgebaut werden. Bitte aktualisieren Sie den Server!', 
+						None),
+					QMessageBox.Ok, QMessageBox.Ok
+				)
+				self.close()
+				return
 
 			# connection possible - now check the version
 			self.splash.showMessage(_translate('SplashScreen', 'Prüfe Version...'), 4, color=QColor(255, 255, 255))
@@ -2305,6 +2520,19 @@ class FLScpMainWindow(QMainWindow):
 			self.ui.mailTable.setItem(rowNr, 6, item)
 
 		self.ui.mailTable.setSortingEnabled(True)
+
+	def selectHost(self):
+		mf = HostSelectionForm(self)
+		mf.show()
+		mf.exec_()
+		if not mf.aborted:
+			log.info('Host was selected: %s' % (mf.selectedHost,))
+			conf.set('options', 'currenthost', mf.selectedHost)
+			return True
+		else:
+			log.info('No host was selected! Aborting...')
+			conf.set('options', 'currenthost', '')
+			return False
 
 	@pyqtSlot()
 	def addMail(self):
@@ -3577,6 +3805,8 @@ class FLScpMainWindow(QMainWindow):
 		else:
 			self.close()
 
+		self.app.quit()
+
 	@pyqtSlot(str)
 	def filterMail(self, filterText):
 		log.debug('Filter for %s' % (filterText,))
@@ -3793,4 +4023,6 @@ if __name__ == "__main__":
 	app.installTranslator(cpTranslator.getTranslator())
 	ds = FLScpMainWindow(app)
 	QtCore.QTimer.singleShot(0, ds.init)
-	app.exec()
+	app.exec_()
+	os.kill(os.getpid(), 15)
+	sys.exit(0)

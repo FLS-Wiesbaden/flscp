@@ -2,8 +2,8 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ([2.69])
-AC_INIT([flscp], [0.7], [website-team@fls-wiesbaden.de])
-AC_COPYRIGHT([Copyright 2014, Lukas Schreiner])
+AC_INIT([flscp], [0.9], [website-team@fls-wiesbaden.de])
+AC_COPYRIGHT([Copyright 2016, Lukas Schreiner])
 
 # rsync
 AC_PATH_PROG([RSYNC], [rsync])
@@ -81,6 +81,22 @@ retval=$?
 if test $retval -ne 0; then
     AC_MSG_RESULT([0])
     AC_MSG_FAILURE([cannot find pyinotify support])
+else:
+    AC_MSG_RESULT([yes])
+fi
+
+# bcrypt
+AC_MSG_CHECKING([for bcrypt])
+prog="[import sys, string
+try: import bcrypt
+except ImportError: sys.exit(1)
+sys.exit(0)]"
+${PYTHON} -c "${prog}"
+retval=$?
+
+if test $retval -ne 0; then
+    AC_MSG_RESULT([0])
+    AC_MSG_FAILURE([cannot find bcrypt support])
 else:
     AC_MSG_RESULT([yes])
 fi

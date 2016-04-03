@@ -27,8 +27,9 @@ except:
 	fcntl = None
 
 __author__  = 'Lukas Schreiner'
-__copyright__ = 'Copyright (C) 2013 - 2015 Website-Team Friedrich-List-Schule-Wiesbaden'
-__version__ = '0.8'
+__copyright__ = 'Copyright (C) 2013 - 2016 Website-Team Friedrich-List-Schule-Wiesbaden'
+__version__ = '0.9'
+__min_client__ = '0.9'
 
 FORMAT = '%(asctime)-15s %(message)s'
 formatter = logging.Formatter(FORMAT, datefmt='%b %d %H:%M:%S')
@@ -99,6 +100,17 @@ class ControlPanel:
 		curVersion = V(__version__)
 
 		return cliVersion >= curVersion
+
+	def compatible(self, version, requiresVersion):
+		cliVersion = V(version)
+		curVersion = V(__version__)
+		minCliVersion = V(__min_client__)
+		minServer = V(requiresVersion)
+	
+		if cliVersion < minCliVersion or curVersion < minServer:
+			return False
+		else:
+			return True
 
 	def getCurrentVersion(self):
 		# check if we have build directory or not
@@ -254,6 +266,21 @@ class ControlPanel:
 	def getSystemGroups(self):
 		import grp
 		return [ {'name': f.gr_name, 'gid': f.gr_gid} for f in grp.getgrall() ]
+
+	def getFeatures(self):
+		_features = ['sasldb', 'quota', 'encryption']
+		features = []
+		for f in _features:
+			if conf.has_option('features', f) and conf.getboolean('features', f):
+				features.append(f)
+
+		return features
+		
+	def hasFeature(self, feature):
+		if feature not in ['sasldb', 'quota', 'encryption'] or not conf.has_option('features', feature):
+			return False
+
+		return conf.getboolean('features', feature)
 
 	def getDomains(self):
 		data = []
@@ -569,20 +596,29 @@ class FLSUnixRequestHandler(socketserver.BaseRequestHandler):
 			return None
 
 	def chgpwd(self, data):
-		# <username> <pwd>
+		# base64(base64(<username> <new-pass>);<pass>)
+		# first get the current password
 		try:
-			(uname, pwd) = data.split(' ', 1)
+			(currPass, mindata) = data.split(';', 1)
 		except:
 			return False
 
-		if len(uname.strip()) <= 0 or len(pwd.strip()) <= 0:
+		# we need to "decrypt" the mindata.
+		mindata = base64.b64decode(mindata.encode('utf-8')).decode('utf-8')
+		 
+		try:
+			(uname, newPass) = mindata.split(' ', 1)
+		except:
+			return False
+
+		if len(uname.strip()) <= 0 or len(newPass.strip()) <= 0:
 			return False
 
 		maccount = MailAccount.getByEMail(uname)
 		if maccount is None:
 			return False
 
-		return maccount.changePassword(pwd)
+		return maccount.changePassword(currPass, newPass)
 
 	def forgotpw(self, data):
 		# <mail/username> <alternative addr>

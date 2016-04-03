@@ -9,8 +9,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>438</width>
-    <height>496</height>
+    <width>440</width>
+    <height>672</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -19,6 +19,9 @@
   <property name="windowIcon">
    <iconset resource="../res/logos.qrc">
     <normaloff>:/logo/fls_logo_60.png</normaloff>:/logo/fls_logo_60.png</iconset>
+  </property>
+  <property name="locale">
+   <locale language="German" country="Germany"/>
   </property>
   <property name="modal">
    <bool>true</bool>
@@ -85,7 +88,7 @@
    <item row="2" column="0">
     <widget class="QLabel" name="labDomain">
      <property name="text">
-      <string>Domain</string>
+      <string>&amp;Domain</string>
      </property>
      <property name="buddy">
       <cstring>fldDomain</cstring>
@@ -102,7 +105,7 @@
    <item row="3" column="0">
     <widget class="QLabel" name="labPw">
      <property name="text">
-      <string>Kennwort</string>
+      <string>&amp;Kennwort</string>
      </property>
      <property name="buddy">
       <cstring>fldPw</cstring>
@@ -146,7 +149,7 @@
    <item row="6" column="0">
     <widget class="QLabel" name="labAltMail">
      <property name="text">
-      <string>Alternative E-Mail</string>
+      <string>A&amp;lternative E-Mail</string>
      </property>
      <property name="buddy">
       <cstring>fldAltMail</cstring>
@@ -163,7 +166,7 @@
    <item row="7" column="0">
     <widget class="QLabel" name="labForward">
      <property name="text">
-      <string>Weiterleitung</string>
+      <string>Weiterleit&amp;ung</string>
      </property>
      <property name="buddy">
       <cstring>fldForward</cstring>
@@ -245,7 +248,7 @@
    <item row="9" column="0">
     <widget class="QLabel" name="labType">
      <property name="text">
-      <string>Typ</string>
+      <string>&amp;Typ</string>
      </property>
      <property name="buddy">
       <cstring>fldTypeAccount</cstring>
@@ -270,7 +273,7 @@
          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Kontotyp. Typ &amp;quot;Konto&amp;quot; bedeutet, der Nutzer kann später die E-Mails per POP3/IMAP herunterladen (sprich: sich auf dem Server anmelden) und auch E-Mails über &amp;quot;SMTP&amp;quot; versenden. Ebenso besteht die Möglichkeit, Filter online einzurichten (oder bei einem unterstützten Programm) und E-Mails direkt weiterleiten zu lassen (wenn man bspw. nur SMTP nutzen möchte).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
         </property>
         <property name="text">
-         <string>Konto (Weiterleitung möglich)</string>
+         <string>Konto (Weiterleitung m&amp;öglich)</string>
         </property>
         <property name="checked">
          <bool>true</bool>
@@ -303,7 +306,7 @@
    <item row="10" column="0">
     <widget class="QLabel" name="labQuota">
      <property name="text">
-      <string>Quota</string>
+      <string>&amp;Quota</string>
      </property>
      <property name="buddy">
       <cstring>fldQuota</cstring>
@@ -313,29 +316,78 @@
    <item row="10" column="1">
     <widget class="QSpinBox" name="fldQuota">
      <property name="whatsThis">
-      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Es ist möglich, eine Limitierung des verfügbaren Speichers per Konto zu setzen. Die Funktion kann nur global aktiviert oder deaktiviert werden durch den Systemadministrator. Pro Benutzer ist es möglich. Das Quota ist für reine Weiterleitungskonten irrelevant.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Es ist möglich, eine Limitierung des verfügbaren Speichers pro Konto zu setzen. Die Funktion kann muss global durch den Systemadministrator aktiviert sein, damit die Einstellung greift. Das Limit kann individuell je Nutzer eingestellt werden. Für reine Weiterleitungskonten ist die Einstellung irrelevant. Der Wert &quot;0 MB&quot; deaktiviert das Limit.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
      <property name="suffix">
-      <string> MB</string>
+      <string notr="true"> MB</string>
      </property>
      <property name="minimum">
-      <number>1</number>
+      <number>0</number>
      </property>
      <property name="maximum">
       <number>102400</number>
      </property>
      <property name="value">
-      <number>1</number>
+      <number>0</number>
      </property>
     </widget>
    </item>
-   <item row="11" column="1">
+   <item row="15" column="1">
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="orientation">
       <enum>Qt::Horizontal</enum>
      </property>
      <property name="standardButtons">
       <set>QDialogButtonBox::Cancel|QDialogButtonBox::Save</set>
+     </property>
+    </widget>
+   </item>
+   <item row="12" column="1">
+    <widget class="QPlainTextEdit" name="labEncWarning">
+     <property name="font">
+      <font>
+       <weight>75</weight>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">color: rgb(184, 0, 0);
+background-color: transparent;</string>
+     </property>
+     <property name="frameShadow">
+      <enum>QFrame::Plain</enum>
+     </property>
+     <property name="verticalScrollBarPolicy">
+      <enum>Qt::ScrollBarAlwaysOff</enum>
+     </property>
+     <property name="horizontalScrollBarPolicy">
+      <enum>Qt::ScrollBarAlwaysOff</enum>
+     </property>
+     <property name="undoRedoEnabled">
+      <bool>false</bool>
+     </property>
+     <property name="plainText">
+      <string>Experimentell! Das Neusetzen des Kennwortes zerstört alle E-Mails. Ebenso das Deaktivieren der Verschlüsselung!</string>
+     </property>
+     <property name="textInteractionFlags">
+      <set>Qt::NoTextInteraction</set>
+     </property>
+    </widget>
+   </item>
+   <item row="11" column="1">
+    <widget class="QCheckBox" name="fldEncryption">
+     <property name="whatsThis">
+      <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Mit dieser Einstellung kann die Verschlüsselung der E-Mails aktiviert werden. Das Aktivieren geht nur in Verbindung mit der Eingabe eines Kennwortes. Damit werden automatische alle aktuellen und zukünftigen E-Mails verschlüsselt. Hierfür wird im Hintergrund automatisch ein Zertifikatspaar erstellt. Sobald das Kennwort vergessen wurde sind alle E-Mails verloren. Auch das Deaktivieren wird derzeit nicht unterstützt.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
+     <property name="text">
+      <string>Aktivieren/Deaktivieren</string>
+     </property>
+    </widget>
+   </item>
+   <item row="11" column="0">
+    <widget class="QLabel" name="labEnc">
+     <property name="text">
+      <string>Verschlüsselung</string>
      </property>
     </widget>
    </item>

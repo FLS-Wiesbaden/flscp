@@ -9,12 +9,42 @@ except:
 	import dummyinotify as pyinotify
 	notifyInstalled = False
 
+DEFAULT_CLIENT_CONFIGS = {
+	'options': {
+		'hostselection': False,
+		'defaulthost': 'flswiesbaden',
+		'currenthost': ''
+	},
+	'hosts': {
+		'flswiesbaden': 'flswiesbaden',
+		'lschreiner': 'lschreiner'
+	},
+	'flswiesbaden': {
+		'name': 'Friedrich-List-Schule Wiesbaden',
+		'host': 'cp.fls-wiesbaden.de',
+		'port': 10027,
+		'rpcpath': 'RPC2',
+		'keyfile': 'certs/clientKey.pem',
+		'certfile': 'certs/clientCert.pem',
+		'cacert': 'certs/cacert.pem'
+	},
+	'lschreiner': {
+		'name': 'Lukas Schreiner',
+		'host': 'cp.lschreiner.de',
+		'port': 10027,
+		'rpcpath': 'RPC2',
+		'keyfile': 'certs/clientKey.pem',
+		'certfile': 'certs/clientCert.pem',
+		'cacert': 'certs/cacert.pem'
+	}
+}
+
 class FLSConfig(configparser.ConfigParser):
 	__instance = None
 	mask = pyinotify.IN_CREATE | pyinotify.IN_MODIFY
 
-	def __init__(self):
-		super().__init__()
+	def __init__(self, defaults = None):
+		super().__init__(defaults=defaults)
 		FLSConfig.__instance = self
 		self.encoding = None
 		self.notifyWm = None
