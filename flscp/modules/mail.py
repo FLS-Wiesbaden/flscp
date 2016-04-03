@@ -92,7 +92,7 @@ class MailAccount:
 		self.id = None
 		self.type = MailAccount.TYPE_ACCOUNT
 		self.state = MailAccount.STATE_OK
-		if conf is not None:
+		if conf is not None and conf.has_option('userdefault', 'quota'):
 			self.quota = conf.getint('userdefault', 'quota')
 		else:
 			# By default disabled

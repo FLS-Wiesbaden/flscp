@@ -483,11 +483,13 @@ class ControlPanel:
 		data = []
 		cursor = db.getCursor()
 		query = (
-			'SELECT m.mail_id, m.mail_acc, m.mail_addr, m.mail_type, m.mail_forward, m.quota, m.status, m.domain_id, m.alternative_addr, \
-			m.enabled, q.bytes FROM mail_users m LEFT JOIN quota_dovecot q ON m.mail_addr = q.username'
+			'SELECT m.mail_id, m.mail_acc, m.mail_addr, m.mail_type, m.mail_forward, m.quota, m.status, ' \
+			'm.domain_id, m.alternative_addr, m.encryption, m.public_key, m.private_key, m.private_key_salt, ' \
+			'm.private_key_iterations, m.enabled, q.bytes FROM mail_users m ' \
+			'LEFT JOIN quota_dovecot q ON m.mail_addr = q.username'
 		)
 		cursor.execute(query)
-		for (mail_id, mail_acc, mail_addr, mail_type, mail_forward, quota, status, domain_id, alternative_addr, enabled, usedBytes) in cursor:
+		for (mail_id, mail_acc, mail_addr, mail_type, mail_forward, quota, status, domain_id, alternative_addr, encryption, public_key, private_key, private_key_salt, private_key_iterations, enabled, usedBytes) in cursor:
 			quotaSts = 0.00
 			if usedBytes is not None:
 				if usedBytes > 0 and quota > 0:
@@ -507,7 +509,12 @@ class ControlPanel:
 					'genPw': False,
 					'enabled': bool(enabled),
 					'quota': quota,
-					'quotaSts': quotaSts
+					'quotaSts': quotaSts,
+					'encryption': bool(encryption), 
+					'publicKey': public_key, 
+					'privateKey': private_key, 
+					'privateKeyIterations': private_key_iterations, 
+					'privateKeySalt': private_key_salt
 				}
 			)
 
