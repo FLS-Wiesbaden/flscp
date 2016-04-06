@@ -157,13 +157,8 @@ class MailAccount:
 			'userdb_uid': '',
 			'userdb_gid': '',
 			'userdb_mail': '',
-			'quota_rule': '',
-			'scrambler_plain_password': '',
-			'scrambler_enabled': 0,
-			'scrambler_public_key': '',
-			'scrambler_private_key': '',
-			'scrambler_private_key_salt': '',
-			'scrambler_private_key_iterations': 0,
+			'userdb_quota_rule': '',
+			'userdb_scrambler_enabled': 0,
 			'nopassword': 1
 		}
 		localPartDir = os.path.join(conf.get('mailserver', 'basemailpath'), 'virtual')
@@ -189,13 +184,14 @@ class MailAccount:
 			data['userdb_uid'] = conf.get('mailserver', 'uid')
 			data['userdb_gid'] = conf.get('mailserver', 'gid')
 			data['userdb_mail'] = self.getMailDirFormat()
-			data['quota_rule'] = '*:storage=%sb' % (self.quota,)
-			data['scrambler_plain_password'] = pwd if self.encryption else ''
-			data['scrambler_enabled'] = '1' if self.encryption else '0'
-			data['scrambler_public_key'] = self.publicKey
-			data['scrambler_private_key'] = self.privateKey
-			data['scrambler_private_key_salt'] = self.privateKeySalt
-			data['scrambler_private_key_iterations'] = self.privateKeyIterations
+			data['userdb_quota_rule'] = '*:storage=%sb' % (self.quota,)
+			data['userdb_scrambler_enabled'] = '1' if self.encryption else '0'
+			if self.encryption:
+				data['userdb_scrambler_plain_password'] = pwd if self.encryption else ''
+				data['userdb_scrambler_public_key'] = self.publicKey.replace('\n', '_')
+				data['userdb_scrambler_private_key'] = self.privateKey.replace('\n', '_')
+				data['userdb_scrambler_private_key_salt'] = self.privateKeySalt
+				data['userdb_scrambler_private_key_iterations'] = self.privateKeyIterations
 
 			return data
 
@@ -203,18 +199,21 @@ class MailAccount:
 			return False
 
 	def getUserLookup(self):
+		conf = FLSConfig.getInstance()
 		data = {
 			'home': self.getHomeDir(),
 			'uid': conf.get('mailserver', 'uid'),
 			'gid': conf.get('mailserver', 'gid'),
-			'quota_rule': '*:storage=%sb' % (maccount.quota,),
-			'scrambler_enabled': '1' if self.encryption else '0',
-			'scrambler_public_key': self.publicKey,
-			'scrambler_private_key': self.privateKey,
-			'scrambler_private_key_salt': self.privateKeySalt,
-			'scrambler_private_key_iterations': self.privateKeyIterations
+			'quota_rule': '*:storage=%sb' % (self.quota,),
+			'scrambler_enabled': '1' if self.encryption else '0'
 		}
-		
+
+		if self.encryption:
+				data['userdb_scrambler_public_key'] = self.publicKey.replace('\n', '_')
+				data['userdb_scrambler_private_key'] = self.privateKey.replace('\n', '_')
+				data['userdb_scrambler_private_key_salt'] = self.privateKeySalt
+				data['userdb_scrambler_private_key_iterations'] = self.privateKeyIterations
+
 		return data
 
 	def markQuotaCalc(self):
