@@ -190,7 +190,7 @@ class MailAccount:
 				data['userdb_scrambler_plain_password'] = pwd if self.encryption else ''
 				data['userdb_scrambler_public_key'] = self.publicKey.replace('\n', '_')
 				data['userdb_scrambler_private_key'] = self.privateKey.replace('\n', '_')
-				data['userdb_scrambler_private_key_salt'] = self.privateKeySalt
+				data['userdb_scrambler_private_key_salt'] = self.privateKeySalt[self.privateKeySalt.rindex('$') + 1:]
 				data['userdb_scrambler_private_key_iterations'] = self.privateKeyIterations
 
 			return data
@@ -199,6 +199,10 @@ class MailAccount:
 			return False
 
 	def getUserLookup(self):
+		"""
+		Returns the dictionary for the ...
+
+		"""
 		conf = FLSConfig.getInstance()
 		data = {
 			'home': self.getHomeDir(),
@@ -209,10 +213,10 @@ class MailAccount:
 		}
 
 		if self.encryption:
-				data['userdb_scrambler_public_key'] = self.publicKey.replace('\n', '_')
-				data['userdb_scrambler_private_key'] = self.privateKey.replace('\n', '_')
-				data['userdb_scrambler_private_key_salt'] = self.privateKeySalt
-				data['userdb_scrambler_private_key_iterations'] = self.privateKeyIterations
+				data['scrambler_public_key'] = self.publicKey.replace('\n', '_')
+				data['scrambler_private_key'] = self.privateKey.replace('\n', '_')
+				data['scrambler_private_key_salt'] = self.privateKeySalt[self.privateKeySalt.rindex('$') + 1:]
+				data['scrambler_private_key_iterations'] = self.privateKeyIterations
 
 		return data
 
@@ -357,8 +361,6 @@ class MailAccount:
 	def save(self):
 		"""
 		Saves a mail account.
-
-		TODO: bcrypt.hashpw('test'.encode('utf-8'), bcrypt.gensalt(15, b'2a'))
 		"""
 		log = logging.getLogger('flscp')
 		conf = FLSConfig.getInstance()
