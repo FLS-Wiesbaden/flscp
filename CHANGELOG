@@ -4,3 +4,7 @@ Version 0.9:
  - Host selection implemented
  - Remember geometry and state of the window when closed
  - After creating a new mail, the filter was discarded. Kept now.
+ - Postgrey-Filter (whitelisting of recipients)
+ - Enabling / Disabling spam filtering through Amavis / Spamassassin
+ - Enabling / Disabling virus scan through Amavis / ClamAV
+ - (Planned and necessary:) Encrypting / Decrypting of all mails

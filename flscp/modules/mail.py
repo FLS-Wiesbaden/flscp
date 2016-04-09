@@ -112,6 +112,9 @@ class MailAccount:
 		self.publicKey = ''
 		self.privateKeySalt = ''
 		self.privateKeyIterations = 10
+		self.filterPostgrey = False
+		self.filterVirus = False
+		self.filterSpam = False
 		self.enabled = True
 
 	def getMailAddress(self):
@@ -198,6 +201,10 @@ class MailAccount:
 		else:
 			return False
 
+	def validatePassword(self, currentPassword):
+		s = SaltEncryption()
+		return s.compare(currentPassword, self.hashPw)
+
 	def getUserLookup(self):
 		"""
 		Returns the dictionary for the ...
@@ -232,23 +239,31 @@ class MailAccount:
 
 		self.state = MailAccount.STATE_CHANGE
 
-	# this is not allowed on client side! Only here....
 	def changePassword(self, currentPassword, newPassword):
-		"""This method changes the password of an user.
+		"""
+		This method changes the password of an user.
 		This method cannot be called from client side, only from CP Server!
 
 		@currentPassword: contains the current password. Necessary in order to change encryption.
 		@newPassword: the new password. 
 		"""
-		self.pw = pwd
+		self.pw = newPassword
 		self.hashPassword()
+		self.updatePrivateKey(currentPassword, newPassword)
 		db = MailDatabase.getInstance()
 		try:
 			cx = db.getCursor()
 			query = (
-				'UPDATE mail_users SET mail_pass = %s, authcode = NULL, authvalid = NULL WHERE mail_id = %s'
+				'UPDATE mail_users SET mail_pass = %s, authcode = NULL, authvalid = NULL ' \
+				'private_key = %s, private_key_salt = %s, private_key_iterations = %s ' \
+				'WHERE mail_id = %s'
 			)
-			cx.execute(query, (self.hashPw, self.id))
+			cx.execute(query, 
+				(
+					self.hashPw, self.privateKey, self.privateKeySalt, 
+					str(int(self.privateKeyIterations)), self.id
+				)
+			)
 			db.commit()
 			cx.close()
 		except:
@@ -358,6 +373,21 @@ class MailAccount:
 		"""
 		pass
 
+	def updatePrivateKey(self, oldPassword, newPassword):
+		if len(self.privateKey) <= 0 or len(self.privateKeySalt) <= 0:
+			return None
+
+		import bcrypt, OpenSSL
+		hashedPw = bcrypt.hashpw(oldPassword.encode('utf-8'), self.privateKeySalt)
+		try:
+			pkey = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, self.privateKey, oldPassword)
+		except:
+			return None
+		
+		self.generateEncryptionSalt()
+		hashedPw = bcrypt.hashpw(newPassword.encode('utf-8'), self.privateKeySalt)
+		self.privateKey = OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, pkey, 'blowfish', hashedPw)
+
 	def save(self):
 		"""
 		Saves a mail account.
@@ -421,12 +451,14 @@ class MailAccount:
 				'UPDATE mail_users SET mail_acc = %s, mail_pass = %s, mail_forward = %s, ' \
 				'domain_id = %s, mail_type = %s, status = %s, quota = %s, mail_addr = %s, ' \
 				'alternative_addr = %s, encryption = %s, public_key = %s, private_key = %s, ' \
-				'private_key_salt = %s, private_key_iterations = %s, enabled = %s WHERE mail_id = %s'
+				'private_key_salt = %s, private_key_iterations = %s, filter_postgrey = %s, ' \
+				'filter_spam = %s, filter_virus = %s, enabled = %s WHERE mail_id = %s'
 			)
 			params = (
 				self.mail, self.hashPw, ','.join(self.forward), d.id, self.type, self.state, self.quota, 
 				'%s@%s' % (self.mail, self.domain), self.altMail, str(int(self.encryption)),
 				self.publicKey, self.privateKey, self.privateKeySalt, self.privateKeyIterations,
+				str(int(self.filterPostgrey)), str(int(self.filterSpam)), str(int(self.filterVirus)), 
 				str(int(self.enabled)), self.id
 			)
 		else:
@@ -434,12 +466,14 @@ class MailAccount:
 				'UPDATE mail_users SET mail_acc = %s, mail_forward = %s, ' \
 				'domain_id = %s, mail_type = %s, status = %s, quota = %s, mail_addr = %s, ' \
 				'alternative_addr = %s, encryption = %s, public_key = %s, private_key = %s, ' \
-				'private_key_salt = %s, private_key_iterations = %s, enabled = %s WHERE mail_id = %s'
+				'private_key_salt = %s, private_key_iterations = %s, filter_postgrey = %s, ' \
+				'filter_spam = %s, filter_virus = %s, enabled = %s WHERE mail_id = %s'
 			)
 			params = (
 				self.mail, ','.join(self.forward), d.id, self.type, self.state, self.quota, 
 				'%s@%s' % (self.mail, self.domain), self.altMail, str(int(self.encryption)),
-				self.publicKey, self.privateKey, self.privateKeySalt, self.privateKeyIterations, 
+				self.publicKey, self.privateKey, self.privateKeySalt, self.privateKeyIterations,
+				str(int(self.filterPostgrey)), str(int(self.filterSpam)), str(int(self.filterVirus)), 
 				str(int(self.enabled)), self.id
 			)
 
@@ -471,6 +505,18 @@ class MailAccount:
 
 		# update sender-access
 		if not self.updateSenderAccess(oldMail=mail, oldDomain=domain):
+			# remove entry from updateMailboxes and Aliases ?
+			cx.close()
+			return False
+
+		# update postgrey whitelist 
+		if not self.updatePostgrey(oldMail=mail, oldDomain=domain):
+			# remove entry from updateMailboxes and Aliases ?
+			cx.close()
+			return False
+
+		# update amavis filter files 
+		if not self.updateAmavis(oldMail=mail, oldDomain=domain):
 			# remove entry from updateMailboxes and Aliases ?
 			cx.close()
 			return False
@@ -533,6 +579,8 @@ class MailAccount:
 		self.updateMailboxes()
 		self.updateAliases()
 		self.updateSenderAccess()
+		self.updatePostgrey()
+		self.updateAmavis()
 
 		if self.exists():
 			db = MailDatabase.getInstance()
@@ -616,15 +664,16 @@ class MailAccount:
 		query = (
 			'INSERT INTO mail_users (mail_acc, mail_pass, mail_forward, domain_id, mail_type, ' \
 			'status, quota, mail_addr, alternative_addr, encryption, public_key, private_key, ' \
-			'private_key_salt, private_key_iterations, enabled) ' \
-			'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
+			'private_key_salt, private_key_iterations, filter_postgrey, filter_spam, filter_virus, enabled) ' \
+			'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
 		)
 		cx.execute(
 			query, 
 			(
 				self.mail, self.hashPw, ','.join(self.forward), d.id, self.type, self.state, self.quota, 
 				'%s@%s' % (self.mail, self.domain), self.altMail, str(int(self.encryption)), self.publicKey, 
-				self.privateKey, self.privateKeySalt, self.privateKeyIterations, str(int(self.enabled))
+				self.privateKey, self.privateKeySalt, self.privateKeyIterations, str(int(self.filterPostgrey)),
+				str(int(self.filterSpam)), str(int(self.filterVirus)), str(int(self.enabled))
 			)
 		)
 		db.commit()
@@ -652,6 +701,18 @@ class MailAccount:
 
 		# update sender-access
 		if not self.updateSenderAccess():
+			# remove entry from updateMailboxes and Aliases ?
+			cx.close()
+			return False
+
+		# update postgrey whitelist
+		if not self.updatePostgrey():
+			# remove entry from updateMailboxes and Aliases ?
+			cx.close()
+			return False
+
+		# update amavis filter
+		if not self.updateAmavis():
 			# remove entry from updateMailboxes and Aliases ?
 			cx.close()
 			return False
@@ -793,7 +854,7 @@ class MailAccount:
 			if self.enabled:
 				cnt.append('%s\t%s' % (mailAddr, 'OK'))
 			else:
-				cnt.append('%s\t%s' % (mailAddr, '4508q 4.2.1 User is disabled at the moment'))
+				cnt.append('%s\t%s' % (mailAddr, 'REJECT'))
 
 		# now sort file
 		cnt.sort()
@@ -807,6 +868,94 @@ class MailAccount:
 		else:
 			# postmap
 			return hashPostFile(conf.get('mailserver', 'senderaccess'), conf.get('mailserver', 'postmap'))
+
+	def updatePostgrey(self, oldMail = None, oldDomain = None):
+		conf = FLSConfig.getInstance()
+		db = MailDatabase.getInstance()
+		cx = db.getCursor()
+
+		fname = conf.get('mailserver', 'postgrey_whitelist')
+		cnt = []
+		cnt.append('# postgrey whitelist for mail recipients')
+		cnt.append('# --------------------------------------')
+		cnt.append('# This fils is auto generated by FLS CP')
+		cnt.append('# DO NOT EDIT THIS FILE MANUALLY!')
+		cnt.append('')
+
+		query = ('SELECT mail_addr FROM mail_users WHERE filter_postgrey = 0 and enabled = 1')
+		cx.execute(query)
+		try:
+			for (mail_addr) in cx:
+				cnt.append(mail_addr)
+		except:
+			log.error('Reading database failed in MailAccount::updatePostgrey.')
+		cx.close()
+
+		# now save the postgrey file.
+		try:
+			with open(fname, 'w') as f:
+				f.write('\n'.join(cnt))
+		except:
+			log.error('Could not save recipient whitelist for postgrey in %s.' % (fname,))
+			return False
+		
+		return True
+
+	def updateAmavis(self, oldMail = None, oldDomain = None):
+		"""
+		Example:
+		 @spam_lovers_maps = @bypass_spam_checks_maps = (
+		   [ qw( user1@... user2@... ) ],
+		 );
+		"""
+		conf = FLSConfig.getInstance()
+		fname = conf.get('mailserver', 'amavis_whitelist')
+		db = MailDatabase.getInstance()
+		cx = db.getCursor()
+
+		cnt = []
+		cnt.append('use strict;')
+		cnt.append('# postgrey whitelist for mail recipients')
+		cnt.append('# --------------------------------------')
+		cnt.append('# This fils is auto generated by FLS CP')
+		cnt.append('# DO NOT EDIT THIS FILE MANUALLY!')
+		cnt.append('')
+		# first create a list of exceptions for spam.
+		cnt.append('@spam_lovers_maps = @bypass_spam_checks_maps = (')
+		query = ('SELECT mail_addr FROM mail_users WHERE filter_spam = 0 and enabled = 1')
+		cx.execute(query)
+		try:
+			for (mail_addr) in cx:
+				cnt.append(mail_addr)
+		except:
+			log.error('Reading database for antispam failed in MailAccount::updatePostgrey.')
+		cnt.append(');')
+		cnt.append('')
+
+		# second: a list with users who don't want virus check.
+		cnt.append('@virus_lovers_maps = @bypass_virus_checks_maps = (')
+		query = ('SELECT mail_addr FROM mail_users WHERE filter_virus = 0 and enabled = 1')
+		cx.execute(query)
+		try:
+			for (mail_addr) in cx:
+				cnt.append(mail_addr)
+		except:
+			log.error('Reading database for antivirus failed in MailAccount::updatePostgrey.')
+		cnt.append(');')
+
+		cnt.append('')
+		cnt.append('1;	# ensure a defined return')
+		cx.close()
+
+		# now save the postgrey file.
+		try:
+			with open(fname, 'w') as f:
+				f.write('\n'.join(cnt))
+		except:
+			log.error('Could not save whitelist for amavis in %s.' % (fname,))
+			return False
+
+		return True
 
 	def credentialsKey(self):
 		return '%s\x00%s\x00%s' % (self.mail, self.domain, 'userPassword')
@@ -832,7 +981,7 @@ class MailAccount:
 		ma = MailAccount()
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
-		query = ('SELECT mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, quota, mail_addr, alternative_addr, authcode, authvalid, encryption, public_key, private_key, private_key_salt, private_key_iterations, enabled FROM mail_users WHERE mail_addr = %s')
+		query = ('SELECT mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, filter_postgrey, filter_virus, filter_spam, quota, mail_addr, alternative_addr, authcode, authvalid, encryption, public_key, private_key, private_key_salt, private_key_iterations, enabled FROM mail_users WHERE mail_addr = %s')
 		cx.execute(query, (mail.lower(),))
 		if cx is None:
 			log.warning('Execution failed in MailAccount::getByEMail(%s).' % (mail,))
@@ -853,7 +1002,7 @@ class MailAccount:
 				return None
 
 		try:
-			(mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, quota, mail_addr, alternative_addr, authcode, authvalid, encryption, public_key, private_key, private_key_salt, private_key_iterations, enabled) = resultRow
+			(mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, filter_postgrey, filter_virus, filter_spam, quota, mail_addr, alternative_addr, authcode, authvalid, encryption, public_key, private_key, private_key_salt, private_key_iterations, enabled) = resultRow
 			ma.id = mail_id
 			ma.quota = quota
 			ma.mail = mail_acc
@@ -874,6 +1023,9 @@ class MailAccount:
 			ma.privateKey = private_key
 			ma.privateKeyIterations = private_key_iterations
 			ma.privateKeySalt = private_key_salt
+			ma.filterPostgrey = filter_postgrey
+			ma.filterSpam = filter_spam
+			ma.filterVirus = filter_virus
 			ma.enabled = bool(enabled)
 		except Exception as e:
 			log.critical('Got error in MailAccount::getByEMail: %s' % (e,))
@@ -905,7 +1057,10 @@ class MailAccount:
 			self.publicKey == obj.publicKey and \
 			self.privateKey == obj.privateKey and \
 			self.privateKeySalt == obj.privateKeySalt and \
-			self.privateKeyIterations == obj.privateKeyIterations:
+			self.privateKeyIterations == obj.privateKeyIterations and \
+			self.filterPostgrey == obj.filterPostgrey and \
+			self.filterSpam == obj.filterSpam and \
+			self.filterVirus == obj.filterVirus:
 			return True
 		else:
 			return False
@@ -932,6 +1087,9 @@ class MailAccount:
 		self.privateKey = data['privateKey']
 		self.privateKeyIterations = data['privateKeyIterations']
 		self.privateKeySalt = data['privateKeySalt']
+		self.filterPostgrey = data['filterPostgrey']
+		self.filterSpam = data['filterSpam']
+		self.filterVirus = data['filterVirus']
 		self.quota = data['quota']
 		if 'quotaSts' in data:
 			self.quotaSts = data['quotaSts']

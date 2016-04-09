@@ -31,7 +31,7 @@ __copyright__ = 'Copyright (C) 2013 - 2016 Website-Team Friedrich-List-Schule-Wi
 __version__ = '0.9'
 __min_client__ = '0.9'
 
-FORMAT = '%(asctime)-15s %(message)s'
+FORMAT = '%(asctime)-15s %(levelname)s %(module)s.%(funcName)s: %(message)s'
 formatter = logging.Formatter(FORMAT, datefmt='%b %d %H:%M:%S')
 log = logging.getLogger('flscp')
 log.setLevel(logging.INFO)
@@ -606,7 +606,7 @@ class FLSUnixRequestHandler(socketserver.BaseRequestHandler):
 		# base64(base64(<username> <new-pass>);<pass>)
 		# first get the current password
 		try:
-			(currPass, mindata) = data.split(';', 1)
+			(mindata, currPass) = data.split(';', 1)
 		except:
 			return False
 
@@ -623,6 +623,10 @@ class FLSUnixRequestHandler(socketserver.BaseRequestHandler):
 
 		maccount = MailAccount.getByEMail(uname)
 		if maccount is None:
+			return False
+
+		# OK.. lets validate the account:
+		if not maccount.validatePassword(currPass):
 			return False
 
 		return maccount.changePassword(currPass, newPass)

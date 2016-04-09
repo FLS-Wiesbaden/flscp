@@ -38,7 +38,7 @@ __copyright__ = 'Copyright (C) 2013 - 2016 Website-Team Friedrich-List-Schule Wi
 __version__ = '0.9'
 __min_server__ = '0.9'
 
-FORMAT = '%(asctime)-15s %(message)s'
+FORMAT = '%(asctime)-15s %(levelname)s: %(funcName)s %(message)s'
 formatter = logging.Formatter(FORMAT, datefmt='%b %d %H:%M:%S')
 log = logging.getLogger()
 log.setLevel(logging.INFO)
@@ -556,12 +556,53 @@ class MailForm(QDialog):
 				self.ui.fldEncryption.setChecked(False)
 			self.ui.fldEncryption.setVisible(True)
 			self.ui.labEnc.setVisible(True)
-			self.ui.labEncWarning.setVisible(True)
 		else:
 			self.ui.fldEncryption.setChecked(False)
 			self.ui.fldEncryption.setVisible(False)
 			self.ui.labEnc.setVisible(False)
-			self.ui.labEncWarning.setVisible(False)
+
+		filterAvailable = False
+		# filter postgrey available and set?
+		if 'postgrey' in self._features:
+			filterAvailable = True
+			if self.account.filterPostgrey:
+				self.ui.fldPostgrey.setChecked(True)
+			else:
+				self.ui.fldPostgrey.setChecked(False)
+			self.ui.fldPostgrey.setVisible(True)
+		else:
+			self.ui.fldPostgrey.setChecked(False)
+			self.ui.fldPostgrey.setVisible(False)
+
+		# filter virus available and set?
+		if 'antivirus' in self._features:
+			filterAvailable = True
+			if self.account.filterVirus:
+				self.ui.fldVirus.setChecked(True)
+			else:
+				self.ui.fldVirus.setChecked(False)
+			self.ui.fldVirus.setVisible(True)
+		else:
+			self.ui.fldVirus.setChecked(False)
+			self.ui.fldVirus.setVisible(False)
+
+		# filter spam available and set?
+		if 'antispam' in self._features:
+			filterAvailable = True
+			if self.account.filterSpam:
+				self.ui.fldSpam.setChecked(True)
+			else:
+				self.ui.fldSpam.setChecked(False)
+			self.ui.fldSpam.setVisible(True)
+		else:
+			self.ui.fldSpam.setChecked(False)
+			self.ui.fldSpam.setVisible(False)
+
+		# Now filter available? Than hide!
+		if not filterAvailable:
+			self.ui.labFilter.setVisible(False)
+		else:
+			self.ui.labFilter.setVisible(True)
 
 	def actions(self):
 		self.ui.butForwardDel.clicked.connect(self.deleteMail)

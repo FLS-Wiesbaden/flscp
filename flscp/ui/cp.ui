@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>630</width>
+    <width>650</width>
     <height>563</height>
    </rect>
   </property>
@@ -187,8 +187,7 @@
               <string>Löschen</string>
              </property>
              <property name="icon">
-              <iconset resource="../res/logos.qrc">
-               <normaloff>:/actions/delete.png</normaloff>:/actions/delete.png</iconset>
+              <iconset theme="edit-delete"/>
              </property>
              <property name="iconSize">
               <size>
@@ -207,8 +206,7 @@
               <string notr="true"/>
              </property>
              <property name="icon">
-              <iconset resource="../res/logos.qrc">
-               <normaloff>:/actions/edit.png</normaloff>:/actions/edit.png</iconset>
+              <iconset theme="edit-rename"/>
              </property>
              <property name="iconSize">
               <size>
@@ -233,8 +231,7 @@
               <string>Hinzufügen</string>
              </property>
              <property name="icon">
-              <iconset resource="../res/logos.qrc">
-               <normaloff>:/actions/add.png</normaloff>:/actions/add.png</iconset>
+              <iconset theme="list-add"/>
              </property>
              <property name="iconSize">
               <size>
@@ -253,8 +250,7 @@
               <string notr="true"/>
              </property>
              <property name="icon">
-              <iconset resource="../res/logos.qrc">
-               <normaloff>:/actions/page_text.png</normaloff>:/actions/page_text.png</iconset>
+              <iconset theme="view-list-text"/>
              </property>
              <property name="iconSize">
               <size>
@@ -273,8 +269,7 @@
               <string notr="true"/>
              </property>
              <property name="icon">
-              <iconset resource="../res/logos.qrc">
-               <normaloff>:/actions/edit_dns.png</normaloff>:/actions/edit_dns.png</iconset>
+              <iconset theme="document-properties"/>
              </property>
              <property name="iconSize">
               <size>
@@ -299,8 +294,7 @@
               <string>Aktualisieren</string>
              </property>
              <property name="icon">
-              <iconset resource="../res/logos.qrc">
-               <normaloff>:/actions/reload.png</normaloff>:/actions/reload.png</iconset>
+              <iconset theme="view-refresh"/>
              </property>
              <property name="iconSize">
               <size>
@@ -325,8 +319,7 @@
               <string>Speichern</string>
              </property>
              <property name="icon">
-              <iconset resource="../res/logos.qrc">
-               <normaloff>:/actions/save.png</normaloff>:/actions/save.png</iconset>
+              <iconset theme="document-save"/>
              </property>
              <property name="iconSize">
               <size>
@@ -510,8 +503,7 @@
               <string>Löschen</string>
              </property>
              <property name="icon">
-              <iconset resource="../res/logos.qrc">
-               <normaloff>:/actions/delete.png</normaloff>:/actions/delete.png</iconset>
+              <iconset theme="edit-delete"/>
              </property>
              <property name="iconSize">
               <size>
@@ -536,8 +528,7 @@
               <string>Bearbeiten</string>
              </property>
              <property name="icon">
-              <iconset resource="../res/logos.qrc">
-               <normaloff>:/actions/edit.png</normaloff>:/actions/edit.png</iconset>
+              <iconset theme="edit-rename"/>
              </property>
              <property name="iconSize">
               <size>
@@ -562,8 +553,7 @@
               <string>Hinzufügen</string>
              </property>
              <property name="icon">
-              <iconset resource="../res/logos.qrc">
-               <normaloff>:/actions/add.png</normaloff>:/actions/add.png</iconset>
+              <iconset theme="list-add"/>
              </property>
              <property name="iconSize">
               <size>
@@ -588,8 +578,7 @@
               <string>Aktivieren/Deaktivieren</string>
              </property>
              <property name="icon">
-              <iconset resource="../res/logos.qrc">
-               <normaloff>:/actions/toggle.png</normaloff>:/actions/toggle.png</iconset>
+              <iconset theme="object-unlocked"/>
              </property>
              <property name="iconSize">
               <size>
@@ -640,8 +629,7 @@
               <string>Aktualisieren</string>
              </property>
              <property name="icon">
-              <iconset resource="../res/logos.qrc">
-               <normaloff>:/actions/reload.png</normaloff>:/actions/reload.png</iconset>
+              <iconset theme="view-refresh"/>
              </property>
              <property name="iconSize">
               <size>
@@ -666,8 +654,7 @@
               <string>Speichern</string>
              </property>
              <property name="icon">
-              <iconset resource="../res/logos.qrc">
-               <normaloff>:/actions/save.png</normaloff>:/actions/save.png</iconset>
+              <iconset theme="document-save"/>
              </property>
              <property name="iconSize">
               <size>
@@ -745,7 +732,7 @@
             </font>
            </property>
            <property name="textAlignment">
-            <set>AlignRight|AlignVCenter</set>
+            <set>AlignTrailing|AlignVCenter</set>
            </property>
           </column>
           <column>
@@ -759,7 +746,7 @@
             </font>
            </property>
            <property name="textAlignment">
-            <set>AlignLeft|AlignVCenter</set>
+            <set>AlignLeading|AlignVCenter</set>
            </property>
           </column>
           <column>
@@ -773,7 +760,7 @@
             </font>
            </property>
            <property name="textAlignment">
-            <set>AlignLeft|AlignVCenter</set>
+            <set>AlignLeading|AlignVCenter</set>
            </property>
           </column>
           <column>
@@ -787,7 +774,7 @@
             </font>
            </property>
            <property name="textAlignment">
-            <set>AlignRight|AlignVCenter</set>
+            <set>AlignTrailing|AlignVCenter</set>
            </property>
           </column>
           <column>
@@ -801,7 +788,7 @@
             </font>
            </property>
            <property name="textAlignment">
-            <set>AlignRight|AlignVCenter</set>
+            <set>AlignTrailing|AlignVCenter</set>
            </property>
           </column>
           <column>
@@ -815,7 +802,7 @@
             </font>
            </property>
            <property name="textAlignment">
-            <set>AlignHCenter|AlignVCenter|AlignCenter</set>
+            <set>AlignCenter</set>
            </property>
           </column>
           <column>
@@ -829,7 +816,7 @@
             </font>
            </property>
            <property name="textAlignment">
-            <set>AlignLeft|AlignVCenter</set>
+            <set>AlignLeading|AlignVCenter</set>
            </property>
           </column>
          </widget>
@@ -883,8 +870,7 @@
               <string notr="true"/>
              </property>
              <property name="icon">
-              <iconset resource="../res/logos.qrc">
-               <normaloff>:/actions/reload.png</normaloff>:/actions/reload.png</iconset>
+              <iconset theme="view-refresh"/>
              </property>
             </widget>
            </item>
@@ -907,8 +893,7 @@
               <string notr="true"/>
              </property>
              <property name="icon">
-              <iconset resource="../res/logos.qrc">
-               <normaloff>:/actions/arrow-right.png</normaloff>:/actions/arrow-right.png</iconset>
+              <iconset theme="go-next"/>
              </property>
              <property name="iconSize">
               <size>
@@ -927,8 +912,7 @@
               <string/>
              </property>
              <property name="icon">
-              <iconset resource="../res/logos.qrc">
-               <normaloff>:/actions/clear_log.png</normaloff>:/actions/clear_log.png</iconset>
+              <iconset theme="edit-clear-list"/>
              </property>
             </widget>
            </item>
@@ -989,8 +973,7 @@
               <string notr="true"/>
              </property>
              <property name="icon">
-              <iconset resource="../res/logos.qrc">
-               <normaloff>:/actions/arrow-left.png</normaloff>:/actions/arrow-left.png</iconset>
+              <iconset theme="go-previous"/>
              </property>
              <property name="shortcut">
               <string>Shift+F3</string>
@@ -1006,8 +989,7 @@
               <string notr="true"/>
              </property>
              <property name="icon">
-              <iconset resource="../res/logos.qrc">
-               <normaloff>:/actions/arrow-right.png</normaloff>:/actions/arrow-right.png</iconset>
+              <iconset theme="go-next"/>
              </property>
              <property name="shortcut">
               <string>F3</string>
@@ -1058,8 +1040,7 @@
               <string>Löschen</string>
              </property>
              <property name="icon">
-              <iconset resource="../res/logos.qrc">
-               <normaloff>:/actions/delete.png</normaloff>:/actions/delete.png</iconset>
+              <iconset theme="list-remove-user"/>
              </property>
              <property name="iconSize">
               <size>
@@ -1084,8 +1065,7 @@
               <string>Hinzufügen</string>
              </property>
              <property name="icon">
-              <iconset resource="../res/logos.qrc">
-               <normaloff>:/actions/add.png</normaloff>:/actions/add.png</iconset>
+              <iconset theme="list-add-user"/>
              </property>
              <property name="iconSize">
               <size>
@@ -1110,8 +1090,7 @@
               <string>Aktualisieren</string>
              </property>
              <property name="icon">
-              <iconset resource="../res/logos.qrc">
-               <normaloff>:/actions/reload.png</normaloff>:/actions/reload.png</iconset>
+              <iconset theme="view-refresh"/>
              </property>
              <property name="iconSize">
               <size>
@@ -1136,8 +1115,7 @@
               <string>Speichern</string>
              </property>
              <property name="icon">
-              <iconset resource="../res/logos.qrc">
-               <normaloff>:/actions/save.png</normaloff>:/actions/save.png</iconset>
+              <iconset theme="document-save"/>
              </property>
              <property name="iconSize">
               <size>
@@ -1191,7 +1169,7 @@
             </font>
            </property>
            <property name="textAlignment">
-            <set>AlignLeft|AlignVCenter</set>
+            <set>AlignLeading|AlignVCenter</set>
            </property>
           </column>
           <column>
@@ -1205,7 +1183,7 @@
             </font>
            </property>
            <property name="textAlignment">
-            <set>AlignLeft|AlignVCenter</set>
+            <set>AlignLeading|AlignVCenter</set>
            </property>
           </column>
           <column>
@@ -1219,7 +1197,7 @@
             </font>
            </property>
            <property name="textAlignment">
-            <set>AlignLeft|AlignVCenter</set>
+            <set>AlignLeading|AlignVCenter</set>
            </property>
           </column>
           <column>
@@ -1233,7 +1211,7 @@
             </font>
            </property>
            <property name="textAlignment">
-            <set>AlignLeft|AlignVCenter</set>
+            <set>AlignLeading|AlignVCenter</set>
            </property>
           </column>
           <column>
@@ -1247,7 +1225,7 @@
             </font>
            </property>
            <property name="textAlignment">
-            <set>AlignLeft|AlignVCenter</set>
+            <set>AlignLeading|AlignVCenter</set>
            </property>
           </column>
           <column>
@@ -1261,7 +1239,7 @@
             </font>
            </property>
            <property name="textAlignment">
-            <set>AlignLeft|AlignVCenter</set>
+            <set>AlignLeading|AlignVCenter</set>
            </property>
           </column>
          </widget>
@@ -1277,19 +1255,19 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>630</width>
-     <height>19</height>
+     <width>650</width>
+     <height>30</height>
     </rect>
    </property>
    <widget class="QMenu" name="menuFile">
     <property name="title">
-     <string>Datei</string>
+     <string>&amp;Datei</string>
     </property>
     <addaction name="actionExit"/>
    </widget>
    <widget class="QMenu" name="menuHilfe">
     <property name="title">
-     <string>Hilfe</string>
+     <string>Hi&amp;lfe</string>
     </property>
     <addaction name="actionWhatsThis"/>
     <addaction name="separator"/>
@@ -1302,11 +1280,10 @@
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionExit">
    <property name="icon">
-    <iconset resource="../res/logos.qrc">
-     <normaloff>:/actions/exit.png</normaloff>:/actions/exit.png</iconset>
+    <iconset theme="application-exit"/>
    </property>
    <property name="text">
-    <string>Beenden</string>
+    <string>&amp;Beenden</string>
    </property>
    <property name="shortcut">
     <string>Ctrl+Q</string>
@@ -1314,11 +1291,10 @@
   </action>
   <action name="actionAbout">
    <property name="icon">
-    <iconset resource="../res/logos.qrc">
-     <normaloff>:/actions/info.png</normaloff>:/actions/info.png</iconset>
+    <iconset theme="help-about"/>
    </property>
    <property name="text">
-    <string>Über</string>
+    <string>&amp;Über</string>
    </property>
   </action>
   <action name="actionAboutQt">
@@ -1327,7 +1303,7 @@
      <normaloff>:/logo/qt.png</normaloff>:/logo/qt.png</iconset>
    </property>
    <property name="text">
-    <string>Über Qt</string>
+    <string>Über &amp;Qt</string>
    </property>
   </action>
   <action name="actionFocusSearch">
@@ -1347,7 +1323,7 @@
      <normaloff>:/actions/help.png</normaloff>:/actions/help.png</iconset>
    </property>
    <property name="text">
-    <string>Was ist das?</string>
+    <string>&amp;Was ist das?</string>
    </property>
    <property name="shortcut">
     <string>F1</string>
@@ -1355,12 +1331,43 @@
   </action>
  </widget>
  <tabstops>
+  <tabstop>tabWidget</tabstop>
+  <tabstop>butHomeDomain</tabstop>
+  <tabstop>butHomeMail</tabstop>
+  <tabstop>butHomeLogs</tabstop>
+  <tabstop>butHomeCert</tabstop>
+  <tabstop>butDomainDel</tabstop>
+  <tabstop>butDomainEdit</tabstop>
+  <tabstop>butDomainAdd</tabstop>
+  <tabstop>butDomainFile</tabstop>
+  <tabstop>butDomainDNS</tabstop>
+  <tabstop>butDomainReload</tabstop>
+  <tabstop>butDomainSave</tabstop>
+  <tabstop>tabDNS</tabstop>
+  <tabstop>domainTree</tabstop>
   <tabstop>butDel</tabstop>
   <tabstop>butEdt</tabstop>
   <tabstop>butAdd</tabstop>
+  <tabstop>butState</tabstop>
+  <tabstop>butQuotaCalc</tabstop>
   <tabstop>butReload</tabstop>
   <tabstop>butSave</tabstop>
+  <tabstop>search</tabstop>
   <tabstop>mailTable</tabstop>
+  <tabstop>fldLogFile</tabstop>
+  <tabstop>butLogLoad</tabstop>
+  <tabstop>butLogReload</tabstop>
+  <tabstop>butLogTrash</tabstop>
+  <tabstop>logSearch</tabstop>
+  <tabstop>butLogChkSensitive</tabstop>
+  <tabstop>butLogSearchBack</tabstop>
+  <tabstop>butLogSearchForw</tabstop>
+  <tabstop>logText</tabstop>
+  <tabstop>butAdminDel</tabstop>
+  <tabstop>butAdminAdd</tabstop>
+  <tabstop>butAdminReload</tabstop>
+  <tabstop>butAdminSave</tabstop>
+  <tabstop>adminTable</tabstop>
  </tabstops>
  <resources>
   <include location="../res/logos.qrc"/>

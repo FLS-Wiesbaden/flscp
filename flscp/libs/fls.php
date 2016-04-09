@@ -49,3 +49,5 @@ class rcube_fls_password
         return PASSWORD_ERROR;
     }
 }
+
+?>
