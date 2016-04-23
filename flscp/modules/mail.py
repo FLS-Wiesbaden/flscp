@@ -872,6 +872,7 @@ class MailAccount:
 	def updatePostgrey(self, oldMail = None, oldDomain = None):
 		conf = FLSConfig.getInstance()
 		db = MailDatabase.getInstance()
+		log = logging.getLogger('flscp')
 		cx = db.getCursor()
 
 		fname = conf.get('mailserver', 'postgrey_whitelist')
@@ -908,6 +909,7 @@ class MailAccount:
 		   [ qw( user1@... user2@... ) ],
 		 );
 		"""
+		log = logging.getLogger('flscp')
 		conf = FLSConfig.getInstance()
 		fname = conf.get('mailserver', 'amavis_whitelist')
 		db = MailDatabase.getInstance()
