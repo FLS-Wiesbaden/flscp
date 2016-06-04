@@ -467,6 +467,7 @@ class MailForm(QDialog):
 		self.ui = Ui_MailForm()
 		self.ui.setupUi(self)
 		self._features = []
+		self.dl = None
 		self.getFeatures()
 		self.account = account
 		self.orgAccount = copy.copy(account)
@@ -488,13 +489,12 @@ class MailForm(QDialog):
 				log.warning('Unexpected error in protocol: %s' % (e,))
 
 	def initFields(self):
-		dl = DomainList()
+		self.dl = DomainList()
 		# load domains
 		try:
 			for f in self.rpc.getDomains():
 				d = Domain.fromDict(f)
-				dl.add(d)
-				#self.ui.fldDomain.addItem(f['fullDomain'], f['id'])
+				self.dl.add(d)
 		except ssl.CertificateError as e:
 			log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
 		except socket.error as e:
@@ -505,8 +505,8 @@ class MailForm(QDialog):
 			else:
 				log.warning('Unexpected error in protocol: %s' % (e,))
 
-		for domain in dl:
-			self.ui.fldDomain.addItem(domain.getFullDomain(dl), domain.id)
+		for domain in self.dl:
+			self.ui.fldDomain.addItem(domain.getFullDomain(self.dl), domain.id)
 		
 		if self.account is None:
 			return
@@ -782,6 +782,11 @@ class MailForm(QDialog):
 			self.account.type = MailAccount.TYPE_FORWARD
 		self.account.state = MailAccount.STATE_CREATE
 
+		# If it is a forwarding account and its our domain: alias!
+		self.account.alias = False
+		if self.account.type == MailAccount.TYPE_FORWARD and self.checkAlias():
+			self.account.alias = True
+
 	def saveMail(self):
 		self.account.mail = self.ui.fldMail.text()
 		self.account.domain = self.ui.fldDomain.currentText()
@@ -802,6 +807,12 @@ class MailForm(QDialog):
 		elif self.ui.fldTypeForward.isChecked():
 			self.account.type = MailAccount.TYPE_FORWARD
 
+		# If it is a forwarding account and its our domain: alias!
+		if self.account.type == MailAccount.TYPE_FORWARD and self.checkAlias():
+			self.account.alias = True
+		else:
+			self.account.alias = False
+
 		if self.account != self.orgAccount:
 			log.info('Account was changed!')
 			# if it was created and not commited, we have to let the state "create".
@@ -809,6 +820,25 @@ class MailForm(QDialog):
 				self.account.state = MailAccount.STATE_CHANGE
 		else:
 			log.info('Account is unchanged!')
+
+	def checkAlias(self):
+		# alternative address required!
+		if len(self.account.altMail) <= 0:
+			return False
+
+		# get domain part of mail.
+		domainPart = None
+		try:
+			domainPart = self.account.altMail[self.account.altMail.index('@') + 1:]
+		except ValueError:
+			return False
+
+		# is it part of our domain?
+		for domain in self.dl:
+			if domainPart == domain.getFullDomain(self.dl):
+				return True
+
+		return False
 
 	@pyqtSlot(QListWidgetItem)
 	def mailChanged(self, item):

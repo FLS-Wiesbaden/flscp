@@ -104,6 +104,7 @@ class MailAccount:
 		self.hashPw = ''
 		self.genPw = False
 		self.altMail = ''
+		self.alias = False
 		self.forward = []
 		self.authCode = None
 		self.authValid = None
@@ -450,31 +451,33 @@ class MailAccount:
 			query = (
 				'UPDATE mail_users SET mail_acc = %s, mail_pass = %s, mail_forward = %s, ' \
 				'domain_id = %s, mail_type = %s, status = %s, quota = %s, mail_addr = %s, ' \
-				'alternative_addr = %s, encryption = %s, public_key = %s, private_key = %s, ' \
-				'private_key_salt = %s, private_key_iterations = %s, filter_postgrey = %s, ' \
-				'filter_spam = %s, filter_virus = %s, enabled = %s WHERE mail_id = %s'
+				'alternative_addr = %s, alias = %s, encryption = %s, public_key = %s, ' \
+				'private_key = %s, private_key_salt = %s, private_key_iterations = %s, '\
+				'filter_postgrey = %s, filter_spam = %s, filter_virus = %s, enabled = %s '\
+				'WHERE mail_id = %s'
 			)
 			params = (
 				self.mail, self.hashPw, ','.join(self.forward), d.id, self.type, self.state, self.quota, 
-				'%s@%s' % (self.mail, self.domain), self.altMail, str(int(self.encryption)),
-				self.publicKey, self.privateKey, self.privateKeySalt, self.privateKeyIterations,
-				str(int(self.filterPostgrey)), str(int(self.filterSpam)), str(int(self.filterVirus)), 
-				str(int(self.enabled)), self.id
+				'%s@%s' % (self.mail, self.domain), self.altMail, str(int(self.alias)), 
+				str(int(self.encryption)), self.publicKey, self.privateKey, self.privateKeySalt, 
+				self.privateKeyIterations, str(int(self.filterPostgrey)), str(int(self.filterSpam)), 
+				str(int(self.filterVirus)), str(int(self.enabled)), self.id
 			)
 		else:
 			query = (
 				'UPDATE mail_users SET mail_acc = %s, mail_forward = %s, ' \
 				'domain_id = %s, mail_type = %s, status = %s, quota = %s, mail_addr = %s, ' \
-				'alternative_addr = %s, encryption = %s, public_key = %s, private_key = %s, ' \
-				'private_key_salt = %s, private_key_iterations = %s, filter_postgrey = %s, ' \
-				'filter_spam = %s, filter_virus = %s, enabled = %s WHERE mail_id = %s'
+				'alternative_addr = %s, alias = %s, encryption = %s, public_key = %s, ' \
+				'private_key = %s, private_key_salt = %s, private_key_iterations = %s, ' \
+				'filter_postgrey = %s, filter_spam = %s, filter_virus = %s, enabled = %s ' \
+				'WHERE mail_id = %s'
 			)
 			params = (
 				self.mail, ','.join(self.forward), d.id, self.type, self.state, self.quota, 
-				'%s@%s' % (self.mail, self.domain), self.altMail, str(int(self.encryption)),
-				self.publicKey, self.privateKey, self.privateKeySalt, self.privateKeyIterations,
-				str(int(self.filterPostgrey)), str(int(self.filterSpam)), str(int(self.filterVirus)), 
-				str(int(self.enabled)), self.id
+				'%s@%s' % (self.mail, self.domain), self.altMail, str(int(self.alias)), 
+				str(int(self.encryption)), self.publicKey, self.privateKey, self.privateKeySalt, 
+				self.privateKeyIterations, str(int(self.filterPostgrey)), str(int(self.filterSpam)), 
+				str(int(self.filterVirus)), str(int(self.enabled)), self.id
 			)
 
 		cx.execute(
@@ -505,6 +508,12 @@ class MailAccount:
 
 		# update sender-access
 		if not self.updateSenderAccess(oldMail=mail, oldDomain=domain):
+			# remove entry from updateMailboxes and Aliases ?
+			cx.close()
+			return False
+
+		# update login maps
+		if not self.updateLoginMaps(oldMail=mail, oldDomain=domain):
 			# remove entry from updateMailboxes and Aliases ?
 			cx.close()
 			return False
@@ -579,6 +588,7 @@ class MailAccount:
 		self.updateMailboxes()
 		self.updateAliases()
 		self.updateSenderAccess()
+		self.updateLoginMaps()
 		self.updatePostgrey()
 		self.updateAmavis()
 
@@ -663,17 +673,18 @@ class MailAccount:
 		cx = db.getCursor()
 		query = (
 			'INSERT INTO mail_users (mail_acc, mail_pass, mail_forward, domain_id, mail_type, ' \
-			'status, quota, mail_addr, alternative_addr, encryption, public_key, private_key, ' \
+			'status, quota, mail_addr, alternative_addr, alias, encryption, public_key, private_key, ' \
 			'private_key_salt, private_key_iterations, filter_postgrey, filter_spam, filter_virus, enabled) ' \
-			'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
+			'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
 		)
 		cx.execute(
 			query, 
 			(
 				self.mail, self.hashPw, ','.join(self.forward), d.id, self.type, self.state, self.quota, 
-				'%s@%s' % (self.mail, self.domain), self.altMail, str(int(self.encryption)), self.publicKey, 
-				self.privateKey, self.privateKeySalt, self.privateKeyIterations, str(int(self.filterPostgrey)),
-				str(int(self.filterSpam)), str(int(self.filterVirus)), str(int(self.enabled))
+				'%s@%s' % (self.mail, self.domain), self.altMail, str(int(self.alias)), 
+				str(int(self.encryption)), self.publicKey, self.privateKey, self.privateKeySalt, 
+				self.privateKeyIterations, str(int(self.filterPostgrey)), str(int(self.filterSpam)), 
+				str(int(self.filterVirus)), str(int(self.enabled))
 			)
 		)
 		db.commit()
@@ -701,6 +712,12 @@ class MailAccount:
 
 		# update sender-access
 		if not self.updateSenderAccess():
+			# remove entry from updateMailboxes and Aliases ?
+			cx.close()
+			return False
+
+		# update the login maps
+		if not self.updateLoginMaps():
 			# remove entry from updateMailboxes and Aliases ?
 			cx.close()
 			return False
@@ -869,6 +886,46 @@ class MailAccount:
 			# postmap
 			return hashPostFile(conf.get('mailserver', 'senderaccess'), conf.get('mailserver', 'postmap'))
 
+
+	def updateLoginMaps(self, oldMail = None, oldDomain = None):
+		conf = FLSConfig.getInstance()
+		db = MailDatabase.getInstance()
+		log = logging.getLogger('flscp')
+
+		fname = conf.get('mailserver', 'sendermaps')
+		cnt = []
+
+		# first retrieve all normal accounts!
+		cx = db.getCursor()
+		query = ('SELECT mail_addr FROM mail_users WHERE enabled = 1')
+		cx.execute(query)
+		try:
+			for (mail_addr) in cx:
+				cnt.append('%s\t%s' % (mail_addr, mail_addr))
+		except:
+			log.error('Reading database failed in MailAccount::updateLoginMaps.')
+
+		# now retrieve all aliases
+		query = ('SELECT mail_addr, alternative_addr FROM mail_users WHERE enabled = 1 and `type` = \'forward\' and alias = 1')
+		cx.execute(query)
+		try:
+			for (mail_addr, alternative_addr) in cx:
+				cnt.append('%s\t%s' % (mail_addr, alternative_addr))
+		except:
+			log.error('Reading database failed in MailAccount::updateLoginMaps.')
+
+		cx.close()
+
+		# now write back
+		try:
+			with open(conf.get('mailserver', 'sendermaps'), 'w') as f:
+				f.write('\n'.join(cnt))
+		except:
+			return False
+		else:
+			# postmap
+			return hashPostFile(conf.get('mailserver', 'sendermaps'), conf.get('mailserver', 'postmap'))
+
 	def updatePostgrey(self, oldMail = None, oldDomain = None):
 		conf = FLSConfig.getInstance()
 		db = MailDatabase.getInstance()
@@ -917,7 +974,7 @@ class MailAccount:
 
 		cnt = []
 		cnt.append('use strict;')
-		cnt.append('# postgrey whitelist for mail recipients')
+		cnt.append('# Amavis whitelist for mail recipients')
 		cnt.append('# --------------------------------------')
 		cnt.append('# This fils is auto generated by FLS CP')
 		cnt.append('# DO NOT EDIT THIS FILE MANUALLY!')
@@ -983,7 +1040,7 @@ class MailAccount:
 		ma = MailAccount()
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
-		query = ('SELECT mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, filter_postgrey, filter_virus, filter_spam, quota, mail_addr, alternative_addr, authcode, authvalid, encryption, public_key, private_key, private_key_salt, private_key_iterations, enabled FROM mail_users WHERE mail_addr = %s')
+		query = ('SELECT mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, filter_postgrey, filter_virus, filter_spam, quota, mail_addr, alternative_addr, alias, authcode, authvalid, encryption, public_key, private_key, private_key_salt, private_key_iterations, enabled FROM mail_users WHERE mail_addr = %s')
 		cx.execute(query, (mail.lower(),))
 		if cx is None:
 			log.warning('Execution failed in MailAccount::getByEMail(%s).' % (mail,))
@@ -1004,13 +1061,14 @@ class MailAccount:
 				return None
 
 		try:
-			(mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, filter_postgrey, filter_virus, filter_spam, quota, mail_addr, alternative_addr, authcode, authvalid, encryption, public_key, private_key, private_key_salt, private_key_iterations, enabled) = resultRow
+			(mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, filter_postgrey, filter_virus, filter_spam, quota, mail_addr, alternative_addr, alias, authcode, authvalid, encryption, public_key, private_key, private_key_salt, private_key_iterations, enabled) = resultRow
 			ma.id = mail_id
 			ma.quota = quota
 			ma.mail = mail_acc
 			ma.hashPw = mail_pass
 			ma.domain = mail_addr.split('@')[1]
 			ma.altMail = alternative_addr
+			ma.alias = alias
 			ma.forward = mail_forward.split(',')
 			ma.type = MailAccount.TYPE_ACCOUNT
 			if mail_type == 'fwdsmtp':
@@ -1051,6 +1109,7 @@ class MailAccount:
 			self.pw == obj.pw and \
 			self.genPw == obj.genPw and \
 			self.altMail == obj.altMail and \
+			self.alias == obj.alias and \
 			self.forward == obj.forward and \
 			self.state == obj.state and \
 			self.enabled == obj.enabled and \
@@ -1079,6 +1138,7 @@ class MailAccount:
 		self.mail = data['mail'].lower()
 		self.domain = data['domain'].lower()
 		self.altMail = data['altMail']
+		self.alias = data['alias']
 		self.forward = data['forward']
 		self.state = data['state']
 		self.pw = data['pw']

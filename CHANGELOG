@@ -7,4 +7,9 @@ Version 0.9:
  - Postgrey-Filter (whitelisting of recipients)
  - Enabling / Disabling spam filtering through Amavis / Spamassassin
  - Enabling / Disabling virus scan through Amavis / ClamAV
- - (Planned and necessary:) Encrypting / Decrypting of all mails
+
+ - WORK IN PROGRESS:
+ 	* https://blog.felipe-alfaro.com/2006/02/19/block-sender-address-spoofing-with-smpt-auth/
+
+ - TODO:
+ 	* (Planned and necessary:) Encrypting / Decrypting of all mails

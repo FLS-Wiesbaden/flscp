@@ -189,7 +189,7 @@
        <item row="6" column="1">
         <widget class="QLineEdit" name="fldAltMail">
          <property name="whatsThis">
-          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enthält die E-Mail-Adresse, an die ein Kennwort geschickt werden kann und über welche &amp;quot;Passwort zurücksetzen&amp;quot;-Mails gesendet werden können.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+          <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Enthält die E-Mail-Adresse, an die ein Kennwort geschickt werden kann und über welche &amp;quot;Passwort zurücksetzen&amp;quot;-Mails gesendet werden können.&lt;/p&gt;&lt;p&gt;Hinweis: sofern dieser Eintrag als Alias dienen soll, muss hier die E-Mail-Adresse des zugeordneten Kontos angegeben werden!&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
          </property>
         </widget>
        </item>
@@ -326,10 +326,10 @@
           <item>
            <widget class="QRadioButton" name="fldTypeForward">
             <property name="whatsThis">
-             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Kontotyp. Typ &amp;quot;Weiterleitung&amp;quot; bedeutet, dass alle eingehenden E-Mails direkt weitergeleitet werden. Der Nutzer kann sich nicht auf dem Server anmelden. Ebenso kann er nicht mit dieser E-Mail-Adresse E-Mails versenden. &lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;Kontotyp. Typ &amp;quot;Weiterleitung&amp;quot; bedeutet, dass alle eingehenden E-Mails direkt weitergeleitet werden. Der Nutzer kann sich nicht auf dem Server anmelden. Ebenso kann er nicht mit dieser E-Mail-Adresse E-Mails versenden. &lt;br/&gt;Typ &amp;quot;Weiterleitung&amp;quot; kann auch bedeuten, dass es sich um ein Alias für eine andere hier gepflegte E-Mail-Adresse handelt. Diese Adresse muss dann als &amp;quot;Alternative E-Mail&amp;quot; gepflegt sein! Dann kann auch von dieser Adresse aus gesendet werden (mit den Zugangsdaten des zugeordneten Kontos).&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
             </property>
             <property name="text">
-             <string>Weiterleitung</string>
+             <string>Weiterleitung / Alias</string>
             </property>
            </widget>
           </item>

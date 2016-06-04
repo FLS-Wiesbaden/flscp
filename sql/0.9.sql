@@ -139,6 +139,7 @@ CREATE TABLE `mail_users` (
   `quota` int(10) DEFAULT '104857600',
   `mail_addr` varchar(254) CHARACTER SET utf8 DEFAULT NULL,
   `alternative_addr` varchar(254) CHARACTER SET utf8 DEFAULT NULL,
+  `alias` tinyint(1) unsigned NOT NULL DEFAULT '0',
   `authcode` varchar(32) COLLATE utf8_unicode_ci DEFAULT NULL,
   `authvalid` datetime DEFAULT NULL,
   `encryption` tinyint(1) unsigned NOT NULL DEFAULT '0',

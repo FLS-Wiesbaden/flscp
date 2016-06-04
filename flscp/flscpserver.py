@@ -484,12 +484,13 @@ class ControlPanel:
 		cursor = db.getCursor()
 		query = (
 			'SELECT m.mail_id, m.mail_acc, m.mail_addr, m.mail_type, m.mail_forward, m.quota, m.status, ' \
-			'm.domain_id, m.alternative_addr, m.encryption, m.public_key, m.private_key, m.private_key_salt, ' \
-			'm.private_key_iterations, m.filter_postgrey, m.filter_spam, m.filter_virus, m.enabled, q.bytes ' \
+			'm.domain_id, m.alternative_addr, m.alias, m.encryption, m.public_key, m.private_key, ' \
+			'm.private_key_salt, m.private_key_iterations, m.filter_postgrey, m.filter_spam, ' \
+			'm.filter_virus, m.enabled, q.bytes ' \
 			'FROM mail_users m LEFT JOIN quota_dovecot q ON m.mail_addr = q.username'
 		)
 		cursor.execute(query)
-		for (mail_id, mail_acc, mail_addr, mail_type, mail_forward, quota, status, domain_id, alternative_addr, encryption, public_key, private_key, private_key_salt, private_key_iterations, filter_postgrey, filter_spam, filter_virus, enabled, usedBytes) in cursor:
+		for (mail_id, mail_acc, mail_addr, mail_type, mail_forward, quota, status, domain_id, alternative_addr, alias, encryption, public_key, private_key, private_key_salt, private_key_iterations, filter_postgrey, filter_spam, filter_virus, enabled, usedBytes) in cursor:
 			quotaSts = 0.00
 			if usedBytes is not None:
 				if usedBytes > 0 and quota > 0:
@@ -500,6 +501,7 @@ class ControlPanel:
 					'id': mail_id, 
 					'mail': mail_acc,
 					'altMail': alternative_addr if alternative_addr is not None else '',
+					'alias': bool(alias),
 					'forward': mail_forward.split(',') if mail_forward != '_no_' else [],
 					'domain': domains[domain_id],
 					'domainId': domain_id,
@@ -515,9 +517,9 @@ class ControlPanel:
 					'privateKey': private_key, 
 					'privateKeyIterations': private_key_iterations, 
 					'privateKeySalt': private_key_salt,
-					'filterPostgrey': filter_postgrey,
-					'filterSpam': filter_spam,
-					'filterVirus': filter_spam
+					'filterPostgrey': bool(filter_postgrey),
+					'filterSpam': bool(filter_spam),
+					'filterVirus': bool(filter_spam)
 				}
 			)
 

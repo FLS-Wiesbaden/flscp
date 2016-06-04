@@ -12,3 +12,6 @@ ALTER TABLE `mail_users`
 	ADD COLUMN `filter_postgrey` tinyint(1) unsigned NOT NULL DEFAULT '1',
 	ADD COLUMN `filter_virus` tinyint(1) unsigned NOT NULL DEFAULT '1',
 	ADD COLUMN `filter_spam` tinyint(1) unsigned NOT NULL DEFAULT '1' AFTER `status`;
+
+ALTER TABLE `mail_users` 
+	ADD COLUMN `alias` tinyint(1) unsigned NOT NULL DEFAULT '0' AFTER `alternative_addr`;
