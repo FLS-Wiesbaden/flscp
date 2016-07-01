@@ -897,22 +897,24 @@ class MailAccount:
 
 		# first retrieve all normal accounts!
 		cx = db.getCursor()
-		query = ('SELECT mail_addr FROM mail_users WHERE enabled = 1')
+		query = ('SELECT mail_addr FROM mail_users WHERE enabled = 1 and alias = 0')
 		cx.execute(query)
 		try:
-			for (mail_addr) in cx:
+			for (mail_addr, ) in cx:
 				cnt.append('%s\t%s' % (mail_addr, mail_addr))
 		except:
 			log.error('Reading database failed in MailAccount::updateLoginMaps.')
 
 		# now retrieve all aliases
-		query = ('SELECT mail_addr, alternative_addr FROM mail_users WHERE enabled = 1 and `type` = \'forward\' and alias = 1')
+		query = ('SELECT mail_addr, alternative_addr FROM mail_users WHERE enabled = 1 and alias = 1')
 		cx.execute(query)
 		try:
 			for (mail_addr, alternative_addr) in cx:
 				cnt.append('%s\t%s' % (mail_addr, alternative_addr))
 		except:
 			log.error('Reading database failed in MailAccount::updateLoginMaps.')
+
+		cnt.append('')
 
 		cx.close()
 
@@ -943,7 +945,7 @@ class MailAccount:
 		query = ('SELECT mail_addr FROM mail_users WHERE filter_postgrey = 0 and enabled = 1')
 		cx.execute(query)
 		try:
-			for (mail_addr) in cx:
+			for (mail_addr,) in cx:
 				cnt.append(mail_addr)
 		except:
 			log.error('Reading database failed in MailAccount::updatePostgrey.')
@@ -984,7 +986,7 @@ class MailAccount:
 		query = ('SELECT mail_addr FROM mail_users WHERE filter_spam = 0 and enabled = 1')
 		cx.execute(query)
 		try:
-			for (mail_addr) in cx:
+			for (mail_addr,) in cx:
 				cnt.append(mail_addr)
 		except:
 			log.error('Reading database for antispam failed in MailAccount::updatePostgrey.')
@@ -996,7 +998,7 @@ class MailAccount:
 		query = ('SELECT mail_addr FROM mail_users WHERE filter_virus = 0 and enabled = 1')
 		cx.execute(query)
 		try:
-			for (mail_addr) in cx:
+			for (mail_addr,) in cx:
 				cnt.append(mail_addr)
 		except:
 			log.error('Reading database for antivirus failed in MailAccount::updatePostgrey.')

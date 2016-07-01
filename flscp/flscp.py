@@ -10,6 +10,7 @@ from ui.ui_maileditor import *
 from ui.ui_output import *
 from ui.ui_domain import *
 from ui.ui_hostselector import *
+from ui.ui_changelog import *
 from translator import CPTranslator
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSlot, pyqtSignal, QRunnable, QThreadPool, QObject, QSettings
@@ -69,8 +70,11 @@ fread = conf.read(
 if len(fread) <= 0:
 	log.info('No configuration file found. Load defaults.')
 	conf.read_dict(DEFAULT_CLIENT_CONFIGS)
+	# and save it...
+	conf.save(os.path.expanduser('~/.config/flscp/client.ini'))
 else:
-	log.debug('Using config files "%s"' % (fread.pop(),))
+	fread = fread.pop()
+	log.debug('Using config files "%s"' % (fread,))
 
 def _translate(context, text, disambig = None, param = None):
 	return cpTranslator.pyTranslate(context, text, disambig, param)
@@ -404,8 +408,33 @@ class FlsCpOutput(QDialog):
 
 	@pyqtSlot(str)
 	def showOutput(self, text):
-		print(text)
 		self.setText(text)
+		self.show()
+
+class ReSTViewer(QDialog):
+	def __init__(self, parentMain = None):
+		super().__init__(parent=parentMain)
+
+		self.ui = Ui_ReSTViewer()
+		self.ui.setupUi(self)
+		self.styleSheet = os.path.join(workDir, 'templates', 'styles', 'nature.css')
+		#self.ui.fldRestText.setStyleSheet(self.styleSheet)
+
+	def setText(self, text):
+		self.ui.fldRestText.setHtml(text)
+
+	@pyqtSlot(str)
+	def showFile(self, fName):
+		import docutils.core
+		settings = {
+			'input_encoding': 'unicode',
+			'output_encoding': 'unicode',
+			'stylesheet': self.styleSheet,
+			'stylesheet_path': ''
+		}
+		result = docutils.core.publish_string(open(fName, 'r').read(), writer_name='html', settings_overrides=settings)
+		self.setText(result)
+		print(result)
 		self.show()
 
 class MailEditor(QDialog):
@@ -476,8 +505,10 @@ class MailForm(QDialog):
 		self.initFields()
 
 	def getFeatures(self):
+		log.debug('Get list of features....')
 		try:
 			self._features = self.rpc.getFeatures()
+			log.debug('List result: %s' % (str(self._features),))
 		except ssl.CertificateError as e:
 			log.error('Possible attack! Server Certificate is wrong! (%s)' % (e,))
 		except socket.error as e:
@@ -508,6 +539,74 @@ class MailForm(QDialog):
 		for domain in self.dl:
 			self.ui.fldDomain.addItem(domain.getFullDomain(self.dl), domain.id)
 		
+		# depending on features, we need to change some visibilities.
+		# quota
+		if 'quota' in self._features:
+			self.ui.fldQuota.setValue(self.account.getQuotaMb())
+			self.ui.fldQuota.setVisible(True)
+			self.ui.labQuota.setVisible(True)
+		else:
+			self.ui.fldQuota.setValue(0)
+			self.ui.fldQuota.setVisible(False)
+			self.ui.labQuota.setVisible(False)
+
+		# encryption available and set?
+		if 'encryption' in self._features:
+			if self.account is not None and self.account.encryption:
+				self.ui.fldEncryption.setChecked(True)
+			else:
+				self.ui.fldEncryption.setChecked(False)
+			self.ui.fldEncryption.setVisible(True)
+			self.ui.labEnc.setVisible(True)
+		else:
+			self.ui.fldEncryption.setChecked(False)
+			self.ui.fldEncryption.setVisible(False)
+			self.ui.labEnc.setVisible(False)
+
+		filterAvailable = False
+		# filter postgrey available and set?
+		if 'postgrey' in self._features:
+			filterAvailable = True
+			if self.account is not None and self.account.filterPostgrey:
+				self.ui.fldPostgrey.setChecked(True)
+			else:
+				self.ui.fldPostgrey.setChecked(False)
+			self.ui.fldPostgrey.setVisible(True)
+		else:
+			self.ui.fldPostgrey.setChecked(False)
+			self.ui.fldPostgrey.setVisible(False)
+
+		# filter virus available and set?
+		if 'antivirus' in self._features:
+			filterAvailable = True
+			if self.account is not None and self.account.filterVirus:
+				self.ui.fldVirus.setChecked(True)
+			else:
+				self.ui.fldVirus.setChecked(False)
+			self.ui.fldVirus.setVisible(True)
+		else:
+			self.ui.fldVirus.setChecked(False)
+			self.ui.fldVirus.setVisible(False)
+
+		# filter spam available and set?
+		if 'antispam' in self._features:
+			filterAvailable = True
+			if self.account is not None and self.account.filterSpam:
+				self.ui.fldSpam.setChecked(True)
+			else:
+				self.ui.fldSpam.setChecked(False)
+			self.ui.fldSpam.setVisible(True)
+		else:
+			self.ui.fldSpam.setChecked(False)
+			self.ui.fldSpam.setVisible(False)
+
+		# Now filter available? Than hide!
+		if not filterAvailable:
+			self.ui.labFilter.setVisible(False)
+		else:
+			self.ui.labFilter.setVisible(True)
+
+		# below are only field preparations if we change an account.
 		if self.account is None:
 			return
 
@@ -537,72 +636,6 @@ class MailForm(QDialog):
 			self.ui.fldTypeAccount.setChecked(False)
 			self.ui.fldTypeFwdSmtp.setChecked(False)
 			self.ui.fldTypeForward.setChecked(True)
-
-		# quota
-		if 'quota' in self._features:
-			self.ui.fldQuota.setValue(self.account.getQuotaMb())
-			self.ui.fldQuota.setVisible(True)
-			self.ui.labQuota.setVisible(True)
-		else:
-			self.ui.fldQuota.setValue(0)
-			self.ui.fldQuota.setVisible(False)
-			self.ui.labQuota.setVisible(False)
-
-		# encryption available and set?
-		if 'encryption' in self._features:
-			if self.account.encryption:
-				self.ui.fldEncryption.setChecked(True)
-			else:
-				self.ui.fldEncryption.setChecked(False)
-			self.ui.fldEncryption.setVisible(True)
-			self.ui.labEnc.setVisible(True)
-		else:
-			self.ui.fldEncryption.setChecked(False)
-			self.ui.fldEncryption.setVisible(False)
-			self.ui.labEnc.setVisible(False)
-
-		filterAvailable = False
-		# filter postgrey available and set?
-		if 'postgrey' in self._features:
-			filterAvailable = True
-			if self.account.filterPostgrey:
-				self.ui.fldPostgrey.setChecked(True)
-			else:
-				self.ui.fldPostgrey.setChecked(False)
-			self.ui.fldPostgrey.setVisible(True)
-		else:
-			self.ui.fldPostgrey.setChecked(False)
-			self.ui.fldPostgrey.setVisible(False)
-
-		# filter virus available and set?
-		if 'antivirus' in self._features:
-			filterAvailable = True
-			if self.account.filterVirus:
-				self.ui.fldVirus.setChecked(True)
-			else:
-				self.ui.fldVirus.setChecked(False)
-			self.ui.fldVirus.setVisible(True)
-		else:
-			self.ui.fldVirus.setChecked(False)
-			self.ui.fldVirus.setVisible(False)
-
-		# filter spam available and set?
-		if 'antispam' in self._features:
-			filterAvailable = True
-			if self.account.filterSpam:
-				self.ui.fldSpam.setChecked(True)
-			else:
-				self.ui.fldSpam.setChecked(False)
-			self.ui.fldSpam.setVisible(True)
-		else:
-			self.ui.fldSpam.setChecked(False)
-			self.ui.fldSpam.setVisible(False)
-
-		# Now filter available? Than hide!
-		if not filterAvailable:
-			self.ui.labFilter.setVisible(False)
-		else:
-			self.ui.labFilter.setVisible(True)
 
 	def actions(self):
 		self.ui.butForwardDel.clicked.connect(self.deleteMail)
@@ -769,6 +802,9 @@ class MailForm(QDialog):
 		self.account.genPw = self.ui.fldGenPw.isChecked()
 		self.account.quota = self.ui.fldQuota.value()*1024*1024
 		self.account.encryption = self.ui.fldEncryption.isChecked()
+		self.account.filterPostgrey = self.ui.fldPostgrey.isChecked()
+		self.account.filterVirus = self.ui.fldVirus.isChecked()
+		self.account.filterSpam = self.ui.fldSpam.isChecked()
 		self.account.forward = []
 		i = 0
 		while i < self.ui.fldForward.count():
@@ -795,6 +831,9 @@ class MailForm(QDialog):
 		self.account.genPw = self.ui.fldGenPw.isChecked()
 		self.account.quota = self.ui.fldQuota.value()*1024*1024
 		self.account.encryption = self.ui.fldEncryption.isChecked()
+		self.account.filterPostgrey = self.ui.fldPostgrey.isChecked()
+		self.account.filterVirus = self.ui.fldVirus.isChecked()
+		self.account.filterSpam = self.ui.fldSpam.isChecked()
 		self.account.forward = []
 		i = 0
 		while i < self.ui.fldForward.count():
@@ -1194,6 +1233,11 @@ class HostSelectionForm(QDialog):
 class FLSSafeTransport(xmlrpc.client.Transport):
 	"""Handles an HTTPS transaction to an XML-RPC server."""
 
+	def __init__(self, use_datetime=False, use_builtin_types=False):
+		super().__init__(use_datetime, use_builtin_types)
+
+		self._extra_headers.append(('Connection', 'keep-alive'))		
+
 	def make_connection(self, host):
 		if not hasattr(self, 'timeout'):
 			self.timeout = 5
@@ -1222,6 +1266,7 @@ class FLSSafeTransport(xmlrpc.client.Transport):
 			timeout=self.timeout,
 			check_hostname=False
 		)
+
 		return self._connection[1]
 
 class FlsServer(xmlrpc.client.ServerProxy):
@@ -1246,6 +1291,7 @@ class FLScpMainWindow(QMainWindow):
 	execInit = pyqtSignal()
 	sigCancelStart = pyqtSignal()
 	killApp = pyqtSignal()
+	versionChanged = pyqtSignal()
 
 	def __init__(self, app):
 		QMainWindow.__init__(self)
@@ -1286,10 +1332,12 @@ class FLScpMainWindow(QMainWindow):
 		self.sigCancelStart.connect(self.abortStartup)
 		self.killApp.connect(self.app.quit)
 		self.app.aboutToQuit.connect(self.preQuitSlot)
+		self.versionChanged.connect(self.changelog)
 
 		# menu
 		self.ui.actionExit.triggered.connect(self.quitApp)
 		self.ui.actionWhatsThis.triggered.connect(self.triggerWhatsThis)
+		self.ui.actionChangelog.triggered.connect(self.changelog)
 		self.ui.actionAbout.triggered.connect(self.about)
 		self.ui.actionAboutQt.triggered.connect(self.aboutQt)
 
@@ -3863,6 +3911,11 @@ class FLScpMainWindow(QMainWindow):
 		self.disableProgressBar()
 
 	@pyqtSlot()
+	def changelog(self):
+		win = ReSTViewer(self)
+		win.showFile('CHANGELOG')
+
+	@pyqtSlot()
 	def about(self):
 		aboutWin = FlsCpAbout(self)
 
@@ -4101,6 +4154,20 @@ class FLScpMainWindow(QMainWindow):
 		self.splash.finish(self)
 		self.readSettings()
 		self.show()
+
+		# version changed?
+		lastInstalledVersion = None
+		try:
+			lastInstalledVersion = conf.get('general', 'installedversion')
+		except:
+			pass
+
+		if lastInstalledVersion is None or lastInstalledVersion != __version__:
+			self.versionChanged.emit()
+			if not conf.has_section('general'):
+				conf.add_section('general')
+			conf.set('general', 'installedversion', __version__)
+			conf.save(fread)
 
 if __name__ == "__main__":
 	if os.path.exists('flscp.log'):

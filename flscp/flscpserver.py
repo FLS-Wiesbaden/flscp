@@ -51,8 +51,8 @@ fread = conf.read(
 	)
 if len(fread) <= 0:
 	sys.stderr.write(
-			'Missing config file in one of server.ini, ~/.flscpserver.ini, ~/.flscp/server.ini, ~/.config/flscp/server.ini, \
-			/etc/flscp/server.ini or /usr/local/etc/flscp/server.ini!\n'
+			'Missing config file in one of server.ini, ~/.flscpserver.ini, ~/.flscp/server.ini, ~/.config/flscp/server.ini, ' \
+			'/etc/flscp/server.ini or /usr/local/etc/flscp/server.ini!\n'
 		)
 	sys.exit(255)
 else:
@@ -268,27 +268,23 @@ class ControlPanel:
 		return [ {'name': f.gr_name, 'gid': f.gr_gid} for f in grp.getgrall() ]
 
 	def getFeatures(self):
-		_features = ['sasldb', 'quota', 'encryption']
 		features = []
-		for f in _features:
+		for f in conf.options('features'):
 			if conf.has_option('features', f) and conf.getboolean('features', f):
 				features.append(f)
 
 		return features
 		
 	def hasFeature(self, feature):
-		if feature not in ['sasldb', 'quota', 'encryption'] or not conf.has_option('features', feature):
-			return False
-
-		return conf.getboolean('features', feature)
+		return conf.has_option('features', feature)
 
 	def getDomains(self):
 		data = []
 		db = MailDatabase.getInstance()
 		cursor = db.getCursor()
 		query = (
-			'SELECT domain_id, domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created, \
-			domain_last_modified, domain_srvpath, domain_status FROM domain'
+			'SELECT domain_id, domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created, ' \
+			'domain_last_modified, domain_srvpath, domain_status FROM domain'
 		)
 		cursor.execute(query)
 		for (domain_id, domain_parent, domain_name, ipv6, ipv4, gid, uid, created, modified, srvpath, state) in cursor:

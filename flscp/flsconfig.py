@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # vim: fenc=utf-8:ts=8:sw=8:si:sta:noet
-import configparser
+import configparser, os
 try:
 	import pyinotify
 	notifyInstalled = True
@@ -55,6 +55,7 @@ class FLSConfig(configparser.ConfigParser):
 		fname = super().read(filenames, encoding)
 		if notifyInstalled:
 			self.installNotifier(fname, filenames, encoding)
+
 		return fname
 
 	def installNotifier(self, loadedConfig, filenames, encoding):
@@ -71,6 +72,11 @@ class FLSConfig(configparser.ConfigParser):
 			wdd = self.notifyWm.add_watch(loadedConfig, FLSConfig.mask, rec=True)
 		except:
 			pass
+
+	def save(self, fileName):
+		os.makedirs(os.path.dirname(fileName), exist_ok = True)
+		with open(fileName, 'w') as f:
+			self.write(f)
 
 	def configChanged(self, fname):
 		self.read([fname], self.encoding)

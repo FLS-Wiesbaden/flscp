@@ -1,15 +1,21 @@
-Version 0.9:
- - Unlimited quota (0B) implemented
- - Scrambler plugin supported
- - Host selection implemented
- - Remember geometry and state of the window when closed
- - After creating a new mail, the filter was discarded. Kept now.
- - Postgrey-Filter (whitelisting of recipients)
- - Enabling / Disabling spam filtering through Amavis / Spamassassin
- - Enabling / Disabling virus scan through Amavis / ClamAV
+.. class:: body
 
- - WORK IN PROGRESS:
- 	* https://blog.felipe-alfaro.com/2006/02/19/block-sender-address-spoofing-with-smpt-auth/
+Changelog
+==========
 
- - TODO:
- 	* (Planned and necessary:) Encrypting / Decrypting of all mails
+Version 0.9
+------------
+
+*Released on Jun 05, 2016*
+
+- Unlimited quota (0B) implemented
+- Scrambler plugin supported
+- Host selection implemented
+- Remember geometry and state of the window when closed
+- After creating a new mail, the filter was discarded. Kept now.
+- Postgrey-Filter (whitelisting of recipients)
+- Enabling / Disabling spam filtering through Amavis / Spamassassin
+- Enabling / Disabling virus scan through Amavis / ClamAV
+- Block sender address spoofing by forcing to login
+- Introduced changelog
+- TODO (Planned and necessary:) Encrypting / Decrypting of all mails

@@ -187,7 +187,8 @@
               <string>Löschen</string>
              </property>
              <property name="icon">
-              <iconset theme="edit-delete"/>
+              <iconset theme="edit-delete">
+               <normaloff>.</normaloff>.</iconset>
              </property>
              <property name="iconSize">
               <size>
@@ -206,7 +207,8 @@
               <string notr="true"/>
              </property>
              <property name="icon">
-              <iconset theme="edit-rename"/>
+              <iconset theme="edit-rename">
+               <normaloff>.</normaloff>.</iconset>
              </property>
              <property name="iconSize">
               <size>
@@ -231,7 +233,8 @@
               <string>Hinzufügen</string>
              </property>
              <property name="icon">
-              <iconset theme="list-add"/>
+              <iconset theme="list-add">
+               <normaloff>.</normaloff>.</iconset>
              </property>
              <property name="iconSize">
               <size>
@@ -250,7 +253,8 @@
               <string notr="true"/>
              </property>
              <property name="icon">
-              <iconset theme="view-list-text"/>
+              <iconset theme="view-list-text">
+               <normaloff>.</normaloff>.</iconset>
              </property>
              <property name="iconSize">
               <size>
@@ -269,7 +273,8 @@
               <string notr="true"/>
              </property>
              <property name="icon">
-              <iconset theme="document-properties"/>
+              <iconset theme="document-properties">
+               <normaloff>.</normaloff>.</iconset>
              </property>
              <property name="iconSize">
               <size>
@@ -294,7 +299,8 @@
               <string>Aktualisieren</string>
              </property>
              <property name="icon">
-              <iconset theme="view-refresh"/>
+              <iconset theme="view-refresh">
+               <normaloff>.</normaloff>.</iconset>
              </property>
              <property name="iconSize">
               <size>
@@ -319,7 +325,8 @@
               <string>Speichern</string>
              </property>
              <property name="icon">
-              <iconset theme="document-save"/>
+              <iconset theme="document-save">
+               <normaloff>.</normaloff>.</iconset>
              </property>
              <property name="iconSize">
               <size>
@@ -503,7 +510,8 @@
               <string>Löschen</string>
              </property>
              <property name="icon">
-              <iconset theme="edit-delete"/>
+              <iconset theme="edit-delete">
+               <normaloff>.</normaloff>.</iconset>
              </property>
              <property name="iconSize">
               <size>
@@ -528,7 +536,8 @@
               <string>Bearbeiten</string>
              </property>
              <property name="icon">
-              <iconset theme="edit-rename"/>
+              <iconset theme="edit-rename">
+               <normaloff>.</normaloff>.</iconset>
              </property>
              <property name="iconSize">
               <size>
@@ -553,7 +562,8 @@
               <string>Hinzufügen</string>
              </property>
              <property name="icon">
-              <iconset theme="list-add"/>
+              <iconset theme="list-add">
+               <normaloff>.</normaloff>.</iconset>
              </property>
              <property name="iconSize">
               <size>
@@ -578,7 +588,8 @@
               <string>Aktivieren/Deaktivieren</string>
              </property>
              <property name="icon">
-              <iconset theme="object-unlocked"/>
+              <iconset theme="object-unlocked">
+               <normaloff>.</normaloff>.</iconset>
              </property>
              <property name="iconSize">
               <size>
@@ -629,7 +640,8 @@
               <string>Aktualisieren</string>
              </property>
              <property name="icon">
-              <iconset theme="view-refresh"/>
+              <iconset theme="view-refresh">
+               <normaloff>.</normaloff>.</iconset>
              </property>
              <property name="iconSize">
               <size>
@@ -654,7 +666,8 @@
               <string>Speichern</string>
              </property>
              <property name="icon">
-              <iconset theme="document-save"/>
+              <iconset theme="document-save">
+               <normaloff>.</normaloff>.</iconset>
              </property>
              <property name="iconSize">
               <size>
@@ -870,7 +883,8 @@
               <string notr="true"/>
              </property>
              <property name="icon">
-              <iconset theme="view-refresh"/>
+              <iconset theme="view-refresh">
+               <normaloff>.</normaloff>.</iconset>
              </property>
             </widget>
            </item>
@@ -893,7 +907,8 @@
               <string notr="true"/>
              </property>
              <property name="icon">
-              <iconset theme="go-next"/>
+              <iconset theme="go-next">
+               <normaloff>.</normaloff>.</iconset>
              </property>
              <property name="iconSize">
               <size>
@@ -912,7 +927,8 @@
               <string/>
              </property>
              <property name="icon">
-              <iconset theme="edit-clear-list"/>
+              <iconset theme="edit-clear-list">
+               <normaloff>.</normaloff>.</iconset>
              </property>
             </widget>
            </item>
@@ -973,7 +989,8 @@
               <string notr="true"/>
              </property>
              <property name="icon">
-              <iconset theme="go-previous"/>
+              <iconset theme="go-previous">
+               <normaloff>.</normaloff>.</iconset>
              </property>
              <property name="shortcut">
               <string>Shift+F3</string>
@@ -989,7 +1006,8 @@
               <string notr="true"/>
              </property>
              <property name="icon">
-              <iconset theme="go-next"/>
+              <iconset theme="go-next">
+               <normaloff>.</normaloff>.</iconset>
              </property>
              <property name="shortcut">
               <string>F3</string>
@@ -1040,7 +1058,8 @@
               <string>Löschen</string>
              </property>
              <property name="icon">
-              <iconset theme="list-remove-user"/>
+              <iconset theme="list-remove-user">
+               <normaloff>.</normaloff>.</iconset>
              </property>
              <property name="iconSize">
               <size>
@@ -1065,7 +1084,8 @@
               <string>Hinzufügen</string>
              </property>
              <property name="icon">
-              <iconset theme="list-add-user"/>
+              <iconset theme="list-add-user">
+               <normaloff>.</normaloff>.</iconset>
              </property>
              <property name="iconSize">
               <size>
@@ -1090,7 +1110,8 @@
               <string>Aktualisieren</string>
              </property>
              <property name="icon">
-              <iconset theme="view-refresh"/>
+              <iconset theme="view-refresh">
+               <normaloff>.</normaloff>.</iconset>
              </property>
              <property name="iconSize">
               <size>
@@ -1115,7 +1136,8 @@
               <string>Speichern</string>
              </property>
              <property name="icon">
-              <iconset theme="document-save"/>
+              <iconset theme="document-save">
+               <normaloff>.</normaloff>.</iconset>
              </property>
              <property name="iconSize">
               <size>
@@ -1271,6 +1293,7 @@
     </property>
     <addaction name="actionWhatsThis"/>
     <addaction name="separator"/>
+    <addaction name="actionChangelog"/>
     <addaction name="actionAbout"/>
     <addaction name="actionAboutQt"/>
    </widget>
@@ -1280,7 +1303,8 @@
   <widget class="QStatusBar" name="statusbar"/>
   <action name="actionExit">
    <property name="icon">
-    <iconset theme="application-exit"/>
+    <iconset theme="application-exit">
+     <normaloff>.</normaloff>.</iconset>
    </property>
    <property name="text">
     <string>&amp;Beenden</string>
@@ -1291,7 +1315,8 @@
   </action>
   <action name="actionAbout">
    <property name="icon">
-    <iconset theme="help-about"/>
+    <iconset theme="help-about">
+     <normaloff>.</normaloff>.</iconset>
    </property>
    <property name="text">
     <string>&amp;Über</string>
@@ -1319,14 +1344,21 @@
   </action>
   <action name="actionWhatsThis">
    <property name="icon">
-    <iconset resource="../res/logos.qrc">
-     <normaloff>:/actions/help.png</normaloff>:/actions/help.png</iconset>
+    <iconset theme="help-whatsthis"/>
    </property>
    <property name="text">
     <string>&amp;Was ist das?</string>
    </property>
    <property name="shortcut">
     <string>F1</string>
+   </property>
+  </action>
+  <action name="actionChangelog">
+   <property name="icon">
+    <iconset theme="documentation"/>
+   </property>
+   <property name="text">
+    <string>Changelog anzeigen</string>
    </property>
   </action>
  </widget>
