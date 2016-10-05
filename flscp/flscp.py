@@ -434,7 +434,6 @@ class ReSTViewer(QDialog):
 		}
 		result = docutils.core.publish_string(open(fName, 'r').read(), writer_name='html', settings_overrides=settings)
 		self.setText(result)
-		print(result)
 		self.show()
 
 class MailEditor(QDialog):
@@ -1396,8 +1395,11 @@ class FLScpMainWindow(QMainWindow):
 		aborted = False
 		pk = None
 		content = ''
-		with open(CERTFILE, 'r') as f:
-			content = f.read()
+		try:
+			with open(CERTFILE, 'r') as f:
+				content = f.read()
+		except:
+			return False
 
 		try:
 			pk = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, content)
@@ -1426,6 +1428,7 @@ class FLScpMainWindow(QMainWindow):
 
 		if aborted or pk is None:
 			log.info('Login certificate not loadable (%s)!' % (CERTFILE,))
+			return False
 
 		try:
 			pubkey = pk.get_certificate()
@@ -1642,7 +1645,14 @@ class FLScpMainWindow(QMainWindow):
 
 		# now initiate the RPC server
 		self.rpc = FlsServer.getInstance()
-		self.showLoginUser()
+		if self.showLoginUser() is False:
+			if not self.initLoginCert():
+				self.sigCancelStart.emit()
+				return
+			else:
+				if self.showLoginUser() is False:
+					self.sigCancelStart.emit()
+					return	
 
 		self.splash.showMessage(_translate('SplashScreen', 'Versuche mit dem Server zu verbinden...'), 2, color=QColor(255, 255, 255))
 		self.app.processEvents()
@@ -1904,14 +1914,12 @@ class FLScpMainWindow(QMainWindow):
 		# now show the select!
 		self.fd.show()
 		QtCore.QCoreApplication.processEvents()
+		self.fd.exec_()
 
 		return True
 
 	@pyqtSlot(str)
 	def loginCertSelected(self, f):
-		if self.fd is not None:
-			self.fd.destroy()
-			self.update()
 
 		if len(f) > 0:
 			f = f[0]
@@ -1932,7 +1940,7 @@ class FLScpMainWindow(QMainWindow):
 		with open(f, 'rb') as p12file:
 			cnt = p12file.read()
 
-		passphrase = ''.encode('utf-8')
+		passphrase = ''
 		loaded = False
 		aborted = False
 		pk = None
@@ -1951,7 +1959,7 @@ class FLScpMainWindow(QMainWindow):
 				(passphrase, ok) = passphrase
 				aborted = not ok
 				if ok:
-					passphrase = passphrase.encode('utf-8')
+					passphrase = passphrase
 			except Exception as e:
 				log.warning('Other exception while loading cert! %s' % (str(e),))
 			else:
