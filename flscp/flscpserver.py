@@ -963,7 +963,7 @@ def writepid():
 
 	if pid:
 		message = "pidfile %s already exists. Is it already running?\n"
-		sys.stderr.write(message % self.pidfile)
+		sys.stderr.write(message % conf.get('general', 'pidfile'))
 		sys.exit(1)
 
 	pid = str(os.getpid())
