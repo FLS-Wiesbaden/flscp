@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 # vim: fenc=utf-8:ts=8:sw=8:si:sta:noet
 from PyQt5.QtWidgets import QSplashScreen, QProgressBar
-from PyQt5.QtGui import QPixmap
 
 class CpSplashScreen(QSplashScreen):
 

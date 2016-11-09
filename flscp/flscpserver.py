@@ -4,7 +4,6 @@
 # require: bsddb3, python-magic
 from logging.handlers import WatchedFileHandler
 from ansistrm import ColorizingStreamHandler
-from Printer import Printer
 from xmlrpc.server import SimpleXMLRPCServer
 from xmlrpc.server import SimpleXMLRPCRequestHandler
 from xmlrpc.server import SimpleXMLRPCDispatcher
@@ -12,11 +11,11 @@ from xmlrpc.server import resolve_dotted_attribute
 from threading import Thread
 from socketserver import UnixStreamServer
 from distutils.version import StrictVersion as V
-import logging, os, sys, shlex, subprocess, smtplib
-import ssl, re, socketserver, socket, io, pickle, configparser, base64, stat
+import logging, os, sys, shlex, subprocess
+import ssl, socketserver, socket, io, pickle, configparser, base64, stat
 import zipfile, tempfile, datetime, json, magic, gzip
 import atexit
-from database import MailDatabase, SaslDatabase
+from database import MailDatabase
 from flsconfig import FLSConfig
 from modules.flscertification import FLSCertificateList, FLSCertificate
 from modules.mail import MailAccountList, MailAccount
@@ -90,7 +89,7 @@ def reloadDns():
 			if len(err) > 0:
 				log.warning(err)
 				state = False
-	except Exception as e:
+	except Exception:
 		raise
 
 	return state
@@ -134,17 +133,17 @@ class ControlPanel:
 		data = base64.b64encode(data)
 		return data.decode('utf-8')
 
-	def __addFilesZip(self, zip, fdir):
+	def __addFilesZip(self, zipobj, fdir):
 		if fdir not in ['.', '..', 'certs']:
 			for f in os.listdir(fdir):
 				p = os.path.join(fdir, f)
 				if os.path.isdir(p):
-					self.__addFilesZip(zip, p)
+					self.__addFilesZip(zipobj, p)
 				else:
 					arcname = p.replace('build' + os.sep + 'flscp' + os.sep, '')
 					if f.endswith('.ini'):
 						arcname = arcname.replace(f, f + '.example')
-					zip.write(p, arcname)
+					zipobj.write(p, arcname)
 
 	def __addZoneFile(self, domain, zoneFile):
 		path = conf.get('dns', 'zoneConfig')
@@ -321,12 +320,12 @@ class ControlPanel:
 			cursor.execute(query)
 		else:
 			query = (
-				'SELECT dns_id, domain_id FROM dns WHERE domain_id = %s'
+				'SELECT dns_id FROM dns WHERE domain_id = %s'
 			)
 			cursor.execute(query, (domain,))
 
 		dnsIds = []
-		for (dns_id, domain_id) in cursor:
+		for (dns_id,) in cursor:
 			dnsIds.append(dns_id)
 
 		for i in dnsIds:
@@ -373,7 +372,7 @@ class ControlPanel:
 			else:
 				log.info('Update the DNS-Service-Database %s' % (os.path.join(conf.get('dns', 'cache'), fileName),))
 				if addToZoneFile:
-					self.__addZoneFile(path)
+					self.__addZoneFile(domain, path)
 
 			# reload 
 			try:
@@ -560,7 +559,7 @@ class FLSUnixRequestHandler(socketserver.BaseRequestHandler):
 		while cmd != 'exit':
 			try:
 				(cmd, data) = self.request.recv(2048).decode('utf-8').split(';')
-			except Exception as e:
+			except Exception:
 				log.debug('Got some useless data,...')
 				break
 			data = base64.b64decode(data.encode('utf-8')).decode('utf-8')
@@ -588,7 +587,6 @@ class FLSUnixRequestHandler(socketserver.BaseRequestHandler):
 				msg = '200 - ok'
 			else:
 				msg = '403 - not successful!'
-			pass
 		elif cmd == 'auth':
 			data = json.loads(data)
 			retData = self.authenticate(data)
@@ -713,7 +711,7 @@ class FLSUnixAuthHandler(socketserver.BaseRequestHandler):
 		while True:
 			try:
 				msg = self.request.recv(2048).decode('utf-8')
-			except Exception as e:
+			except Exception:
 				log.debug('Got some useless data,...')
 				break
 

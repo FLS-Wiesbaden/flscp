@@ -25,7 +25,7 @@ def MailValidator(email):
 	if email is None:
 		return False
 
-	return re.match(r"^[a-zA-Z0-9._%\-+]+\@[a-zA-Z0-9._%\-]+\.[a-zA-Z]{2,}$", email) != None
+	return re.match(r"^[a-zA-Z0-9._%\-+]+\@[a-zA-Z0-9._%\-]+\.[a-zA-Z]{2,}$", email) is not None
 
 class MailAccountList:
 
@@ -57,15 +57,15 @@ class MailAccountList:
 	def __len__(self):
 		return len(self._items)
 
-	def findById(self, id):
+	def findById(self, itemId):
 		item = None
 		try:
-			id = int(id)
+			id = int(itemId)
 		except:
 			pass
 
 		for f in self._items:
-			if f.id == id:
+			if f.id == itemId:
 				item = f
 				break
 
@@ -168,7 +168,6 @@ class MailAccount:
 			'nopassword': 1
 		}
 		localPartDir = os.path.join(conf.get('mailserver', 'basemailpath'), 'virtual')
-		homeDir = os.path.join(localPartDir, self.domain, self.mail)
 		username = ('%s@%s' % (self.mail, self.domain)).lower()
 		if self.hashPw == '_no_':
 			log.debug('User %s can not login, because password is disabled!' % (self.getMailAddress(),))
@@ -690,12 +689,12 @@ class MailAccount:
 		)
 		db.commit()
 		log.debug('executed mysql statement: %s' % (cx.statement,))
-		id = cx.lastrowid
-		if id is None:
+		mailId = cx.lastrowid
+		if mailId is None:
 			cx.close()
 			return False
 		else:
-			self.id = id
+			self.id = mailId
 
 		# update credentials... (we don't need to encrypt.. there are no mails ;))
 		self.updateCredentials()
@@ -891,8 +890,6 @@ class MailAccount:
 		conf = FLSConfig.getInstance()
 		db = MailDatabase.getInstance()
 		log = logging.getLogger('flscp')
-
-		fname = conf.get('mailserver', 'sendermaps')
 		cnt = []
 
 		# first retrieve all normal accounts!
@@ -1042,7 +1039,12 @@ class MailAccount:
 		ma = MailAccount()
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
-		query = ('SELECT mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, filter_postgrey, filter_virus, filter_spam, quota, mail_addr, alternative_addr, alias, authcode, authvalid, encryption, public_key, private_key, private_key_salt, private_key_iterations, enabled FROM mail_users WHERE mail_addr = %s')
+		query = (
+			'SELECT mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, ' \
+			'filter_postgrey, filter_virus, filter_spam, quota, mail_addr, alternative_addr, alias, authcode, ' \
+			'authvalid, encryption, public_key, private_key, private_key_salt, private_key_iterations, ' \
+			'enabled FROM mail_users WHERE mail_addr = %s'
+		)
 		cx.execute(query, (mail.lower(),))
 		if cx is None:
 			log.warning('Execution failed in MailAccount::getByEMail(%s).' % (mail,))
@@ -1063,7 +1065,12 @@ class MailAccount:
 				return None
 
 		try:
-			(mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, filter_postgrey, filter_virus, filter_spam, quota, mail_addr, alternative_addr, alias, authcode, authvalid, encryption, public_key, private_key, private_key_salt, private_key_iterations, enabled) = resultRow
+			(
+				mail_id, mail_acc, mail_pass, mail_forward, domain_id, mail_type, sub_id, status, 
+				filter_postgrey, filter_virus, filter_spam, quota, mail_addr, alternative_addr, 
+				alias, authcode, authvalid, encryption, public_key, private_key, private_key_salt, 
+				private_key_iterations, enabled
+			) = resultRow
 			ma.id = mail_id
 			ma.quota = quota
 			ma.mail = mail_acc

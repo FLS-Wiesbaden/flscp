@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-import sys
+# -*- coding: utf-8 -*-
+# vim: fenc=utf-8:ts=8:sw=8:si:sta:noet
 import os
 import os.path
 import copy
@@ -120,7 +121,6 @@ class PythonFile:
 							translationLine = translationList[len(translationList)-1]
 							translationList.remove(translationLine)
 						# we have to read in the next line ;)
-						pass
 					elif f != ' ' or (f == ' ' and strState is not None):
 						translateLine += f
 			elif inTranslate:

@@ -4,10 +4,10 @@
 import logging
 import zlib
 import uuid
-import time
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSignal
-from modules.domain import *
+from database import MailDatabase
+from modules.domain import Domain
 
 class DNSList:
 
@@ -56,15 +56,15 @@ class DNSList:
 		for item in items:
 			self.remove(item)
 
-	def findById(self, id):
+	def findById(self, itemId):
 		item = None
 		try:
-			id = int(id)
+			id = int(itemId)
 		except:
 			pass
 
 		for f in self._items:
-			if f.id == id:
+			if f.id == itemId:
 				item = f
 				break
 
@@ -130,9 +130,9 @@ class Dns(QtCore.QObject):
 		cx = db.getCursor()
 		self.state = Dns.STATE_CREATE
 		query = (
-			'INSERT INTO dns (domain_id, dns_key, dns_type, dns_prio, dns_value, dns_weight, dns_port, dns_admin, \
-			dns_refresh, dns_retry, dns_expire, dns_ttl, status) \
-			VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
+			'INSERT INTO dns (domain_id, dns_key, dns_type, dns_prio, dns_value, dns_weight, dns_port, dns_admin,' \
+			'dns_refresh, dns_retry, dns_expire, dns_ttl, status)' \
+			'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)'
 		)
 		cx.execute(
 			query, 
@@ -143,12 +143,12 @@ class Dns(QtCore.QObject):
 		)
 		db.commit()
 		# now get the dns id
-		id = cx.lastrowid
-		if id is None:
+		dnsId = cx.lastrowid
+		if dnsId is None:
 			cx.close()
 			return False
 		else:
-			self.id = id
+			self.id = dnsId
 			cx.close()
 
 		# all fine! set the state!
@@ -164,20 +164,20 @@ class Dns(QtCore.QObject):
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
 		query = (
-			'UPDATE dns \
-			SET dns_key = %s, \
-				dns_type = %s, \
-				dns_prio = %s, \
-				dns_value = %s, \
-				dns_weight = %s, \
-				dns_port = %s, \
-				dns_admin = %s, \
-				dns_refresh = %s, \
-				dns_retry = %s, \
-				dns_expire = %s, \
-				dns_ttl = %s, \
-				status = %s \
-			WHERE dns_id = %s'
+			'UPDATE dns' \
+			'SET dns_key = %s,' \
+			'	dns_type = %s,' \
+			'	dns_prio = %s,' \
+			'	dns_value = %s,' \
+			'	dns_weight = %s,' \
+			'	dns_port = %s,' \
+			'	dns_admin = %s,' \
+			'	dns_refresh = %s,' \
+			'	dns_retry = %s,' \
+			'	dns_expire = %s,' \
+			'	dns_ttl = %s', \
+			'	status = %s' \
+			'WHERE dns_id = %s'
 		)
 		try:
 			cx.execute(
@@ -237,8 +237,8 @@ class Dns(QtCore.QObject):
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
 		query = (
-			'SELECT dns_id, domain_id, dns_key, dns_type, dns_value, dns_prio, dns_weight, dns_port, dns_admin, dns_refresh, \
-			dns_retry, dns_expire, dns_ttl, status FROM dns WHERE dns_id = %s LIMIT 1'
+			'SELECT dns_id, domain_id, dns_key, dns_type, dns_value, dns_prio, dns_weight, dns_port, dns_admin, dns_refresh,' \
+			'dns_retry, dns_expire, dns_ttl, status FROM dns WHERE dns_id = %s LIMIT 1'
 		)
 		try:
 			cx.execute(query, (self.id,))
@@ -259,7 +259,7 @@ class Dns(QtCore.QObject):
 				self.state
 			) = cx.fetchone()
 
-		except Exception as e:
+		except Exception:
 			state = False
 		else:
 			state = True
@@ -354,7 +354,6 @@ class Dns(QtCore.QObject):
 		else:
 			if d is False or d is None:
 				raise KeyError('Domain for DNS does not exist. Abort!')
-				return
 
 		if self.type == Dns.TYPE_SOA:
 			from datetime import datetime
@@ -422,7 +421,7 @@ class Dns(QtCore.QObject):
 		return visibleList
 
 	def getDefault(self, key):
-		defaultList = {
+		return {
 			'key': '',
 			'type': Dns.TYPE_A,
 			'value': '',
@@ -472,7 +471,7 @@ class Dns(QtCore.QObject):
 			(dns_id, domain_id) = cx.fetchone()
 			dom = Dns(dns_id)
 			dom.load()
-		except Exception as e:
+		except Exception:
 			dom = None
 			log.warning('Could not find Dns SOA-Entry.')
 			raise KeyError('Dns-Entry "SOA" could not be found!')

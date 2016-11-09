@@ -32,8 +32,8 @@ class SaltEncryption:
 
 		return '%s;%s;%s' % (header.decode('utf-8'), salt.decode('utf-8'), key.decode('utf-8'))
 
-	def compare(self, pwd, hash):
-		t = hash.split(';')
+	def compare(self, pwd, pwdHash):
+		t = pwdHash.split(';')
 
 		if len(t) == 3:
 			header, salt, value = t
@@ -47,7 +47,7 @@ class SaltEncryption:
 			self.rounds = rounds
 			self.sha1 = flag
 
-			equal = self.hash(pwd, salt.encode('utf-8')) == hash
+			equal = self.hash(pwd, salt.encode('utf-8')) == pwdHash
 
 			# restore settings
 			self.rounds = tmpRounds

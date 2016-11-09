@@ -16,21 +16,11 @@ DEFAULT_CLIENT_CONFIGS = {
 		'currenthost': ''
 	},
 	'hosts': {
-		'flswiesbaden': 'flswiesbaden',
-		'lschreiner': 'lschreiner'
+		'flswiesbaden': 'flswiesbaden'
 	},
 	'flswiesbaden': {
 		'name': 'Friedrich-List-Schule Wiesbaden',
 		'host': 'cp.fls-wiesbaden.de',
-		'port': 10027,
-		'rpcpath': 'RPC2',
-		'keyfile': 'certs/clientKey.pem',
-		'certfile': 'certs/clientCert.pem',
-		'cacert': 'certs/cacert.pem'
-	},
-	'lschreiner': {
-		'name': 'Lukas Schreiner',
-		'host': 'cp.lschreiner.de',
 		'port': 10027,
 		'rpcpath': 'RPC2',
 		'keyfile': 'certs/clientKey.pem',
@@ -69,7 +59,7 @@ class FLSConfig(configparser.ConfigParser):
 			self.notifyNotifier = pyinotify.ThreadedNotifier(self.notifyWm, self.notifyHandler)
 			self.notifyNotifier.start()
 		try:
-			wdd = self.notifyWm.add_watch(loadedConfig, FLSConfig.mask, rec=True)
+			self.notifyWm.add_watch(loadedConfig, FLSConfig.mask, rec=True)
 		except:
 			pass
 

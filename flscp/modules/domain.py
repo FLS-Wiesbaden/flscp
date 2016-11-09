@@ -8,7 +8,6 @@ import time
 import os
 import os.path
 from database import MailDatabase
-from tools import hashPostFile
 
 class DomainList:
 
@@ -50,15 +49,15 @@ class DomainList:
 			if f.parent == domainId:
 				yield f
 
-	def findById(self, id):
+	def findById(self, itemId):
 		item = None
 		try:
-			id = int(id)
+			id = int(itemId)
 		except:
 			pass
 
 		for f in self._items:
-			if f.id == id:
+			if f.id == itemId:
 				item = f
 				break
 
@@ -278,7 +277,6 @@ class Domain:
 		soa = Dns.getSoaForDomain(self.id)
 		if soa is None:
 			raise ValueError('Missing SOA-Entry. Cannot generatee Bind-File before!')
-			return False
 
 		for f in soa.generateDnsEntry(dl):
 			content.append(f)
@@ -397,7 +395,7 @@ class Domain:
 			dom = Domain()
 			dom.id = domain_id
 			dom.name = domain_name
-		except Exception as e:
+		except Exception:
 			dom = None
 			log.warning('Could not find domain.')
 			raise KeyError('Domain "%s" could not be found!' % (name,))

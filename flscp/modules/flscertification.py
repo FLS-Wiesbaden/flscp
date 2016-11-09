@@ -223,7 +223,6 @@ class FLSCertificate:
 		if 'serialNumber' in obj:
 			sh.setSerialNumber(obj['serialNumber'], True)
 
-		now = datetime.datetime.now().replace(tzinfo=datetime.timezone.utc)
 		if sh.serialNumber is None or sh.notAfter is None or sh.notBefore is None:
 			return None
 		else:
