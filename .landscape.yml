@@ -1,0 +1,14 @@
+python-targets:
+        - 3
+pylint:
+        disable:
+                - bare-except
+                - old-style-class
+                - protected-access
+                - logging-not-lazy
+                - too-many-arguments
+                - too-many-locals
+                - too-many-statements
+                - global-variable-not-assigned
+                - multiple-imports
+
