@@ -962,7 +962,7 @@ class MailAccount:
 		"""
 		Example:
 		@spam_lovers_maps = @bypass_spam_checks_maps = (
-		  [ qw( user1@... user2@... ) ],
+			[ qw( user1@... user2@... ) ],
 		);
 		"""
 		log = logging.getLogger('flscp')
