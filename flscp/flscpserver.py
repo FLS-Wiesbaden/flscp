@@ -107,7 +107,7 @@ class ControlPanel:
 		curVersion = V(__version__)
 		minCliVersion = V(__min_client__)
 		minServer = V(requiresVersion)
-	
+
 		if cliVersion < minCliVersion or curVersion < minServer:
 			return False
 		else:
@@ -275,7 +275,7 @@ class ControlPanel:
 				features.append(f)
 
 		return features
-		
+
 	def hasFeature(self, feature):
 		return conf.has_option('features', feature)
 
@@ -306,7 +306,7 @@ class ControlPanel:
 			)
 
 		cursor.close()
-		
+
 		return data
 
 	def getDns(self, domain = None):
@@ -335,7 +335,7 @@ class ControlPanel:
 			del(dns)
 
 		cursor.close()
-		
+
 		return data
 
 	def saveDns(self, domain, dns):
@@ -374,7 +374,7 @@ class ControlPanel:
 				if addToZoneFile:
 					self.__addZoneFile(domain, path)
 
-			# reload 
+			# reload
 			try:
 				reloadDns()
 			except Exception as e:
@@ -397,10 +397,10 @@ class ControlPanel:
 			if domain.state != Domain.STATE_CREATE:
 				oldDomain = Domain(domain.id)
 				oldDomain.load()
-				
+
 			domain.save(oldDomain)
 			# check if corresponding dns file exists.
-			
+
 			if conf.getboolean('dns', 'active'):
 				fqdn = domain.getFullDomain()
 				fileName = '%s.db' % (fqdn,)
@@ -525,7 +525,7 @@ class ControlPanel:
 			)
 
 		cursor.close()
-		
+
 		return data
 
 	def saveMails(self, mails):
@@ -617,7 +617,7 @@ class FLSUnixRequestHandler(socketserver.BaseRequestHandler):
 
 		# we need to "decrypt" the mindata.
 		mindata = base64.b64decode(mindata.encode('utf-8')).decode('utf-8')
-		 
+
 		try:
 			(uname, newPass) = mindata.split(' ', 1)
 		except:
