@@ -24,7 +24,7 @@ class Database(metaclass=abc.ABCMeta):
 	@staticmethod
 	@abc.abstractmethod
 	def getInstance():
-		raise NotImplemented
+		raise NotImplementedError
 
 	@abc.abstractmethod
 	def connect(self):
@@ -96,7 +96,7 @@ class SaslDatabase(Database):
 			cx.close()
 			self.db.sync()
 			return True
-		except:
+		except Exception as e:
 			self.log.warning('Key could not be added to sasldb: %s' % (e,))
 			return False
 

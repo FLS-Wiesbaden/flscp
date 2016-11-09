@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # vim: fenc=utf-8:ts=8:sw=8:si:sta:noet
-import os, os.path
+import os
+import os.path
 import subprocess
 import shlex
 import hashlib
@@ -11,12 +12,13 @@ import logging
 import copy
 import zlib
 import uuid
+import re
 from database import MailDatabase, SaslDatabase
 from flsconfig import FLSConfig
 from modules.domain import Domain
 from pwgen import generate_pass
 from saltencryption import SaltEncryption
-from mailer import *
+from mailer import Mailer
 from tools import hashPostFile
 
 def MailValidator(email):
@@ -171,7 +173,7 @@ class MailAccount:
 		if self.hashPw == '_no_':
 			log.debug('User %s can not login, because password is disabled!' % (self.getMailAddress(),))
 			return False
-		
+
 		s = SaltEncryption()
 
 		if mech in ['PLAIN', 'LOGIN']:
@@ -209,7 +211,6 @@ class MailAccount:
 	def getUserLookup(self):
 		"""
 		Returns the dictionary for the ...
-
 		"""
 		conf = FLSConfig.getInstance()
 		data = {
@@ -384,7 +385,7 @@ class MailAccount:
 			pkey = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, self.privateKey, oldPassword)
 		except:
 			return None
-		
+
 		self.generateEncryptionSalt()
 		hashedPw = bcrypt.hashpw(newPassword.encode('utf-8'), self.privateKeySalt)
 		self.privateKey = OpenSSL.crypto.dump_privatekey(OpenSSL.crypto.FILETYPE_PEM, pkey, 'blowfish', hashedPw)
@@ -536,7 +537,7 @@ class MailAccount:
 		path = '%s/%s/%s/' % (conf.get('mailserver', 'basemailpath'), self.domain, self.mail)
 		if os.path.exists(oldPath):
 			if os.path.exists(path):
-				log.error('Could not move "%s" to "%s", because it already exists!' % (path,))
+				log.error('Could not move "%s" to "%s", because it already exists!' % (oldPath, path))
 			else:
 				try:
 					os.rename(oldPath, path)
@@ -735,7 +736,7 @@ class MailAccount:
 			return False
 
 		cx.close()
-		
+
 		# all best? Than go forward and update set state,...
 		self.setState(MailAccount.STATE_OK)
 
@@ -773,7 +774,7 @@ class MailAccount:
 
 	def updateMailboxes(self, oldMail = None, oldDomain = None):
 		conf = FLSConfig.getInstance()
-		
+
 		mailAddr = '%s@%s' % (self.mail, self.domain)
 		if oldMail is None:
 			oldMail = self.mail
@@ -807,7 +808,7 @@ class MailAccount:
 
 	def updateAliases(self, oldMail = None, oldDomain = None):
 		conf = FLSConfig.getInstance()
-		
+
 		mailAddr = '%s@%s' % (self.mail, self.domain)
 		if oldMail is None:
 			oldMail = self.mail
@@ -886,7 +887,6 @@ class MailAccount:
 			# postmap
 			return hashPostFile(conf.get('mailserver', 'senderaccess'), conf.get('mailserver', 'postmap'))
 
-
 	def updateLoginMaps(self, oldMail = None, oldDomain = None):
 		conf = FLSConfig.getInstance()
 		db = MailDatabase.getInstance()
@@ -958,7 +958,7 @@ class MailAccount:
 		except:
 			log.error('Could not save recipient whitelist for postgrey in %s.' % (fname,))
 			return False
-		
+
 		return True
 
 	def updateAmavis(self, oldMail = None, oldDomain = None):
@@ -1050,7 +1050,7 @@ class MailAccount:
 
 		try:
 			resultRow = cx.fetchone()
-		except:
+		except Exception as e:
 			log.critical('Got error in MailAccount::getByEMail: %s' % (e,))
 			try:
 				cx.close()

@@ -3,14 +3,14 @@
 # vim: fenc=utf-8:ts=8:sw=8:si:sta:noet
 from logging.handlers import WatchedFileHandler
 from ansistrm import ColorizingStreamHandler
-from ui.ui_cp import *
-from ui.ui_about import *
-from ui.ui_mailform import *
-from ui.ui_maileditor import *
-from ui.ui_output import *
-from ui.ui_domain import *
-from ui.ui_hostselector import *
-from ui.ui_changelog import *
+from ui.ui_cp import Ui_MainWindow
+from ui.ui_about import Ui_About
+from ui.ui_mailform import Ui_MailForm
+from ui.ui_maileditor import Ui_MailEditor
+from ui.ui_output import Ui_OutputDialog
+from ui.ui_domain import Ui_Domain
+from ui.ui_hostselector import Ui_HostSelector
+from ui.ui_changelog import Ui_ReSTViewer
 from translator import CPTranslator
 from PyQt5 import QtCore
 from PyQt5.QtCore import pyqtSlot, pyqtSignal, QRunnable, QThreadPool, QObject, QSettings
@@ -21,7 +21,6 @@ from PyQt5.QtWidgets import QLineEdit, QInputDialog, QTreeWidget, QFileDialog, Q
 from PyQt5.QtWidgets import QVBoxLayout, QAbstractItemView, QTreeWidgetItem
 from Printer import Printer
 import logging, os, sys, copy, xmlrpc.client, http.client, ssl, socket, datetime
-# import re, zlib, uuid
 import tempfile, zipfile, base64
 from flsconfig import FLSConfig, DEFAULT_CLIENT_CONFIGS
 from flssplash import CpSplashScreen
@@ -114,42 +113,41 @@ class DataLoader(QRunnable):
 	def runChild(self):
 		pass
 
-	def dataLoaded():
+	@property
+	def dataLoaded(self):
 		def fget(self):
 			return self.__signals.dataLoaded
 		return locals()
 
-	def dataLoadedDict():
+	@property
+	def dataLoadedDict(self):
 		def fget(self):
 			return self.__signals.dataLoadedDict
 		return locals()
 
-	def certError():
+	@property
+	def certError(self):
 		def fget(self):
 			return self.__signals.certError
 		return locals()
 
-	def socketError():
+	@property
+	def socketError(self):
 		def fget(self):
 			return self.__signals.socketError
 		return locals()
 
-	def protocolError():
+	@property
+	def protocolError(self):
 		def fget(self):
 			return self.__signals.protocolError
 		return locals()
 
-	def unknownError():
+	@property
+	def unknownError(self):
 		def fget(self):
 			return self.__signals.unknownError
 		return locals()
-
-	dataLoaded = property(**dataLoaded())
-	dataLoadedDict = property(**dataLoadedDict())
-	certError = property(**certError())
-	socketError = property(**socketError())
-	protocolError = property(**protocolError())
-	unknownError = property(**unknownError())
 
 class LogFileListLoader(DataLoader):
 
@@ -3110,7 +3108,7 @@ class FLScpMainWindow(QMainWindow):
 		domainId = table.property('domainId')
 		log.info('Have to generate bind file for domain %s!' % (domainId,))
 		try:
-			self.zoneFileLoaded(self.rpc.getDomainZoneFile(nr))
+			self.zoneFileLoaded(self.rpc.getDomainZoneFile(domainId))
 		except Exception as e:
 			pass
 
@@ -3554,9 +3552,11 @@ class FLScpMainWindow(QMainWindow):
 
 		log.debug('Widget changed: DNS: %s, Name: %s, Value: %s' % ( id, dnsProperty, value))
 
-	def updateDnsValidation(self, table, row, state, msg, typeChange = False, visibleList = []):
+	def updateDnsValidation(self, table, row, state, msg, typeChange = False, visibleList = None):
 		curCol = 0
 		maxCol = table.columnCount()
+		if visibleList is None:
+			visibleList = []
 
 		brush = QBrush(QColor(255, 207, 207))
 		if state:
@@ -3751,7 +3751,7 @@ class FLScpMainWindow(QMainWindow):
 				if domain is not None:
 					if domain.state == Domain.STATE_CREATE:
 						# we cancel pending creation action.
-						self.ui.domainTree.removeItemWidget(selectedRow)
+						#self.ui.domainTree.removeItemWidget(selectedRow)
 						self.domains.remove(domain)
 					else:
 						# do not remove (because we want to see the pending action!)
@@ -3768,7 +3768,6 @@ class FLScpMainWindow(QMainWindow):
 					self.rpc.saveDomains(domainList)
 				except TypeError as e:
 					log.error('Uhhh we tried to send things the server does not understood (%s)' % (e,))
-					log.debug('Tried to send: %s' % (str(data),))
 					QMessageBox.warning(
 							self, _translate('MainWindow', 'Datenfehler', None), 
 							_translate('MainWindow', 
@@ -3868,7 +3867,6 @@ class FLScpMainWindow(QMainWindow):
 				self.rpc.saveDns(domainId, dList)
 			except TypeError as e:
 				log.error('Uhhh we tried to send things the server does not understood (%s)' % (e,))
-				log.debug('Tried to send: %s' % (str(data),))
 				QMessageBox.warning(
 						self, _translate('MainWindow', 'Datenfehler', None), 
 						_translate('MainWindow', 

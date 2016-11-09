@@ -18,9 +18,11 @@ import zipfile, tempfile, datetime, json, magic, gzip
 import atexit
 from database import MailDatabase, SaslDatabase
 from flsconfig import FLSConfig
-from modules.flscertification import *
-from modules.mail import *
+from modules.flscertification import FLSCertificateList, FLSCertificate
+from modules.mail import MailAccountList, MailAccount
 from modules.dns import Dns, DNSList
+from mailer import Mailer
+
 try:
 	import fcntl
 except:
@@ -486,7 +488,11 @@ class ControlPanel:
 			'FROM mail_users m LEFT JOIN quota_dovecot q ON m.mail_addr = q.username'
 		)
 		cursor.execute(query)
-		for (mail_id, mail_acc, mail_addr, mail_type, mail_forward, quota, status, domain_id, alternative_addr, alias, encryption, public_key, private_key, private_key_salt, private_key_iterations, filter_postgrey, filter_spam, filter_virus, enabled, usedBytes) in cursor:
+		for (
+				mail_id, mail_acc, mail_addr, mail_type, mail_forward, quota, status, domain_id, 
+				alternative_addr, alias, encryption, public_key, private_key, private_key_salt, 
+				private_key_iterations, filter_postgrey, filter_spam, filter_virus, enabled, usedBytes
+			) in cursor:
 			quotaSts = 0.00
 			if usedBytes is not None:
 				if usedBytes > 0 and quota > 0:

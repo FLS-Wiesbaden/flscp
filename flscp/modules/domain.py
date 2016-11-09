@@ -5,6 +5,8 @@ import logging
 import zlib
 import uuid
 import time
+import os
+import os.path
 from database import MailDatabase
 from tools import hashPostFile
 
@@ -118,8 +120,8 @@ class Domain:
 		db = MailDatabase.getInstance()
 		cx = db.getCursor()
 		query = (
-			'SELECT domain_id, domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_srvpath, \
-			domain_created, domain_last_modified, domain_status FROM domain WHERE domain_id = %s LIMIT 1'
+			'SELECT domain_id, domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_srvpath, ' \
+			'domain_created, domain_last_modified, domain_status FROM domain WHERE domain_id = %s LIMIT 1'
 		)
 		try:
 			cx.execute(query, (self.id,))
@@ -176,8 +178,8 @@ class Domain:
 		cx = db.getCursor()
 		self.state = Domain.STATE_CREATE
 		query = (
-			'INSERT INTO domain (domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created, \
-			domain_last_modified, domain_srvpath, domain_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)'
+			'INSERT INTO domain (domain_parent, domain_name, ipv6, ipv4, domain_gid, domain_uid, domain_created,' \
+			'domain_last_modified, domain_srvpath, domain_status) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)'
 		)
 		cx.execute(
 			query, 
@@ -198,8 +200,8 @@ class Domain:
 		cx = db.getCursor()
 		self.state = Domain.STATE_OK
 		query = (
-			'UPDATE domain SET ipv6 = %s, ipv4 = %s, domain_gid = %s, domain_uid = %s, domain_last_modified = %s, \
-			domain_srvpath = %s, domain_status = %s WHERE domain_id = %s'
+			'UPDATE domain SET ipv6 = %s, ipv4 = %s, domain_gid = %s, domain_uid = %s, domain_last_modified = %s,' \
+			'domain_srvpath = %s, domain_status = %s WHERE domain_id = %s'
 		)
 		cx.execute(
 			query, 
@@ -234,6 +236,8 @@ class Domain:
 
 	def delete(self, oldDomain = None):
 		# delete first all dns entries!
+		db = MailDatabase.getInstance()
+		cx = db.getCursor()
 		query = (
 			'DELETE FROM dns WHERE domain_id = %s'
 		)

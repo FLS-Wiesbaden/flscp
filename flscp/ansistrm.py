@@ -63,8 +63,12 @@ class ColorizingStreamHandler(logging.StreamHandler):
 			if bold:
 				params.append('1')
 			if params:
-				message = ''.join((self.csi, ';'.join(params),
-								   'm', message, self.reset))
+				message = ''.join(
+					(
+						self.csi, ';'.join(params),
+						'm', message, self.reset
+					)
+				)
 		return message
 
 	def format(self, record):
